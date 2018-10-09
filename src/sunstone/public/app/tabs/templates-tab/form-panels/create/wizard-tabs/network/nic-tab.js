@@ -158,10 +158,14 @@ define(function(require) {
 
       if(network_mode_on){
         $(".no_auto", context).hide();
+        $(".auto", context).show();
       } else {
+        $(".auto", context).hide();
         $(".no_auto", context).show();
       }
     });
+
+    $(".auto", context).hide();
   }
 
   function _retrieve(context) {
@@ -192,6 +196,16 @@ define(function(require) {
 
     if( $("input#"+this.nicTabId+"_network_mode", context).prop("checked") ){
       nicJSON["NETWORK_MODE"] = "auto";
+      var req = $("input#"+this.nicTabId+"_SCHED_REQUIREMENTS", context).val();
+      var rank = $("input#"+this.nicTabId+"_SCHED_RANK", context).val();
+
+      if ( req !== "" ){
+        nicJSON["SCHED_REQUIREMENTS"] = req;
+      }
+
+      if ( rank !== "" ){
+        nicJSON["SCHED_RANK"] = rank;
+      }
     }
 
     return nicJSON;
@@ -260,6 +274,15 @@ define(function(require) {
     if ( templateJSON["NETWORK_MODE"] && templateJSON["NETWORK_MODE"] === "auto" ) {
       $("input#"+this.nicTabId+"_network_mode", context).prop("checked", true);
       $(".no_auto", context).hide();
+      $(".auto", context).show();
+
+      if ( templateJSON["SCHED_REQUIREMENTS"] ) {
+        $("input#"+this.nicTabId+"_SCHED_REQUIREMENTS", context).val(templateJSON["SCHED_REQUIREMENTS"]);
+      }
+
+      if ( templateJSON["SCHED_RANK"] ) {
+        $("input#"+this.nicTabId+"_SCHED_RANK", context).val(templateJSON["SCHED_RANK"]);
+      }
     }
 
     WizardFields.fill(context, templateJSON);

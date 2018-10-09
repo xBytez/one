@@ -14,18 +14,38 @@
 {{! limitations under the License.                                             }}
 {{! -------------------------------------------------------------------------- }}
   {{!-- {{#isFeatureEnabled "automatic_selection_vnet"}} --}}
-  <div class="row autoContainer">
-    <div class="large-12 large-centered columns">
-      <div class="switch left">
-        <input class="switch-input" id="{{nicTabId}}_network_mode" type="checkbox">
-        <label class="switch-paddle" for="{{nicTabId}}_network_mode">
+  <div class="only_create">
+    <div class="row autoContainer">
+      <div class="large-12 large-centered columns">
+        <div class="switch left">
+          <input class="switch-input" id="{{nicTabId}}_network_mode" type="checkbox">
+          <label class="switch-paddle" for="{{nicTabId}}_network_mode">
+          </label>
+        </div>
+        <label class="left">
+          &nbsp;&nbsp;
+          {{tr "Automatic selection"}}
+          {{{tip (tr "The Schedule will decide which is the bets virtual network")}}}
         </label>
       </div>
-      <label class="left">
-        &nbsp;&nbsp;
-        {{tr "Automatic selection"}}
-        {{{tip (tr "The Schedule will decide which is the bets virtual network")}}}
-      </label>
+    </div>
+    <div class="auto">
+      <div class="row autoContainer">
+        <div class="large-12 large-centered columns">
+          <label for="{{nicTabId}}_SCHED_REQUIREMENTS">
+              {{tr "Requirements"}}
+            </label>
+            <input type="text" id="{{nicTabId}}_SCHED_REQUIREMENTS" name="SCHED_REQUIREMENTS"/>
+        </div>
+      </div>
+      <div class="row autoContainer">
+        <div class="large-12 large-centered columns">
+          <label for="{{nicTabId}}_SCHED_RANK">
+              {{tr "Rank"}}
+            </label>
+            <input type="text" id="{{nicTabId}}_SCHED_RANK" name="SCHED_RANK"/>
+        </div>
+      </div>
     </div>
   </div>
   {{!-- {{/isFeatureEnabled}} --}}
