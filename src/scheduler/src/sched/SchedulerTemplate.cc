@@ -109,6 +109,13 @@ void SchedulerTemplate::set_conf_default()
     vattribute = new VectorAttribute("DEFAULT_DS_SCHED",vvalue);
     conf_default.insert(make_pair(vattribute->name(),vattribute));
 
+    //DEFAULT_NIC_SCHED
+    vvalue.clear();
+    vvalue.insert(make_pair("POLICY","1"));
+
+    vattribute = new VectorAttribute("DEFAULT_NIC_SCHED",vvalue);
+    conf_default.insert(make_pair(vattribute->name(),vattribute));
+
     //"MEMORY_SYSTEM_DS_SCALE"
     value = "0";
 
