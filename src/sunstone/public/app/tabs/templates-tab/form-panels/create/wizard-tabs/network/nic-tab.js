@@ -91,12 +91,17 @@ define(function(require) {
    * @param  {Object}  context  jquery selector
    * @param  {Object}  options
    *                   options.hide_pci {bool} true to disable the pci checkbox
+   *                   options.hide_auto {bool} true to disable the selection mode auto checkbox
    */
   function _setup(context, options) {
     var that = this;
 
     if (options != undefined && options.hide_pci == true){
       $("input.pci-type-nic", context).attr('disabled', 'disabled');
+    }
+
+    if (options != undefined && options.hide_auto == true){
+      $(".only_create", context).hide();
     }
 
     that.vnetsTable.initialize({
