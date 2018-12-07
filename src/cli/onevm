@@ -348,7 +348,7 @@ CommandParser::CmdParser.new(ARGV) do
     EOT
 
     command :release, release_desc, [:range, :vmid_list],
-            :options => [OneVMHelper::SCHEDULE,
+            :options => [
                          OneVMHelper::WEEKLY,
                          OneVMHelper::MONTHLY,
                          OneVMHelper::YEARLY,
@@ -1044,7 +1044,9 @@ CommandParser::CmdParser.new(ARGV) do
 
     command :list, list_desc, [:filterflag, nil],
             :options => CLIHelper::OPTIONS + OpenNebulaHelper::OPTIONS +
-                        [OpenNebulaHelper::DESCRIBE] do
+                        [OpenNebulaHelper::DESCRIBE,
+                         OpenNebulaHelper::XPATH,
+                         OpenNebulaHelper::XPATH_VALUE] do
         helper.list_pool(options, false, args[0])
     end
 

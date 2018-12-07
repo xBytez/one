@@ -391,6 +391,20 @@ EOT
         :description => 'Overwrite the file'
     }
 
+    XPATH = {
+        :name       => "xpath",
+        :large      => "--xpath xpath",
+        :description=> "xpath for filter search",
+        :format     => String
+    }
+
+    XPATH_VALUE = {
+        :name       => "xpath_value",
+        :large      => "--value value",
+        :description=> "xpath value for filter search",
+        :format     => String
+    }
+
     TEMPLATE_OPTIONS_VM   = [TEMPLATE_NAME_VM] + TEMPLATE_OPTIONS + [DRY]
 
     CAPACITY_OPTIONS_VM   = [TEMPLATE_OPTIONS[0], TEMPLATE_OPTIONS[1],
@@ -663,7 +677,7 @@ EOT
         #-----------------------------------------------------------------------
         def list_pool_xml(pool, options, filter_flag)
             if $stdout.isatty 
-                size = $stdout.winsize[0] - 1 
+                size = $stdout.winsize[0] - 1
 
                 # ----------- First page, check if pager is needed -------------
                 rc = pool.get_page(size, 0)
@@ -713,11 +727,25 @@ EOT
 
                 stop_pager(ppid)
             else
+
+            args = []
+
+            if !options[:xpath].nil?
+                args.push(options[:xpath])
+            end
+            if !options[:xpath_value].nil?
+                args.push(options[:xpath_value])
+            end
+
+            if options[:xpath].nil?
                 rc = pool.info
+            else
+                rc = pool.info_search(args)
+            end
 
-                return -1, rc.message if OpenNebula.is_error?(rc)
+            return -1, rc.message if OpenNebula.is_error?(rc)
 
-                puts pool.to_xml(true)
+            puts pool.to_xml(true)
             end
 
             return 0

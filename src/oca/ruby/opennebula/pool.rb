@@ -80,8 +80,8 @@ module OpenNebula
             return xmlrpc_info(xml_method, INFO_PRIMARY_GROUP, -1, -1, *args)
         end
 
-        def info_filter(xml_method, who, start_id, end_id, *args)
-            return xmlrpc_info(xml_method, who, start_id, end_id, *args)
+        def info_filter(xml_method, who, start_id, end_id)
+            return xmlrpc_info(xml_method, who, start_id, end_id)
         end
 
         # Retrieves the monitoring data for all the Objects in the pool

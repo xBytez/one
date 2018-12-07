@@ -69,25 +69,33 @@ module OpenNebula
                                 @user_id,
                                 -1,
                                 -1,
-                                INFO_NOT_DONE)
+                                INFO_NOT_DONE,
+                                "",
+                                "")
                 when 1
                     info_filter(VM_POOL_METHODS[:info],
                                 args[0],
                                 -1,
                                 -1,
-                                INFO_NOT_DONE)
+                                INFO_NOT_DONE,
+                                "",
+                                "")
                 when 3
                     info_filter(VM_POOL_METHODS[:info],
                                 args[0],
                                 args[1],
                                 args[2],
-                                INFO_NOT_DONE)
+                                INFO_NOT_DONE,
+                                "",
+                                "")
                 when 4
                     info_filter(VM_POOL_METHODS[:info],
                                 args[0],
                                 args[1],
                                 args[2],
-                                args[3])
+                                args[3],
+                                "",
+                                "")
             end
         end
 
@@ -96,7 +104,9 @@ module OpenNebula
                                INFO_ALL,
                                -1,
                                -1,
-                               INFO_NOT_DONE)
+                               INFO_NOT_DONE,
+                               "",
+                               "")
         end
 
         def info_mine()
@@ -104,7 +114,9 @@ module OpenNebula
                                INFO_MINE,
                                -1,
                                -1,
-                               INFO_NOT_DONE)
+                               INFO_NOT_DONE,
+                               "",
+                               "")
         end
 
         def info_group()
@@ -112,13 +124,26 @@ module OpenNebula
                                INFO_GROUP,
                                -1,
                                -1,
-                               INFO_NOT_DONE)
+                               INFO_NOT_DONE,
+                               "",
+                               "")
+        end
+
+        def info_search(args)
+            return info_filter(VM_POOL_METHODS[:info],
+                               INFO_GROUP,
+                               -1,
+                               -1,
+                               INFO_NOT_DONE,
+                               args[0],
+                               args[1])
         end
 
         alias_method :info!, :info
         alias_method :info_all!, :info_all
         alias_method :info_mine!, :info_mine
         alias_method :info_group!, :info_group
+        alias_method :info_search!, :info_search
 
         # Retrieves the monitoring data for all the VMs in the pool
         #
@@ -458,8 +483,8 @@ module OpenNebula
             data_hash
         end
 
-        def info_filter(xml_method, who, start_id, end_id, state)
-            return xmlrpc_info(xml_method, who, start_id, end_id, state)
+        def info_filter(xml_method, who, start_id, end_id, state, xpath, xpath_value)
+            return xmlrpc_info(xml_method, who, start_id, end_id, state, xpath, xpath_value)
         end
     end
 end
