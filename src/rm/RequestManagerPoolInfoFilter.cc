@@ -96,7 +96,18 @@ void VirtualMachinePoolInfo::request_execute(
     int end_id      = xmlrpc_c::value_int(paramList.getInt(3));
     int state       = xmlrpc_c::value_int(paramList.getInt(4));
 
-    ostringstream state_filter;
+    string filter_search = "";
+    string filter_value = "";
+    ostringstream and_clause;
+
+    if ( paramList.size() > 5)
+    {
+        filter_search = xmlrpc_c::value_string(paramList.getString(5));
+    }
+    if ( paramList.size() > 6)
+    {
+        filter_value = xmlrpc_c::value_string(paramList.getString(6));
+    }
 
     if (( state < VirtualMachinePoolInfo::ALL_VM ) ||
         ( state > VirtualMachine::CLONING_FAILURE ))
@@ -112,15 +123,33 @@ void VirtualMachinePoolInfo::request_execute(
             break;
 
         case VirtualMachinePoolInfo::NOT_DONE:
-            state_filter << "state <> " << VirtualMachine::DONE;
+            and_clause << "state <> " << VirtualMachine::DONE;
             break;
 
         default:
-            state_filter << "state = " << state;
+            and_clause << "state = " << state;
             break;
     }
 
-    dump(att, filter_flag, start_id, end_id, state_filter.str(), "");
+    if ( !filter_search.empty() )
+    {
+        and_clause << " AND ( ";
+        and_clause << " EXTRACTVALUE( body, '" << filter_search << "')";
+        if ( !filter_value.empty() )
+        {
+            if (filter_value.find('%') != std::string::npos)
+            {
+                and_clause << " LIKE '" << filter_value << "'";
+            }
+            else
+            {
+                and_clause << " = '" << filter_value << "'";
+            }
+        }
+        and_clause << " ) ";
+    }
+
+    dump(att, filter_flag, start_id, end_id, and_clause.str(), "");
 }
 
 /* ------------------------------------------------------------------------- */
@@ -216,9 +245,38 @@ void VirtualMachinePoolMonitoring::request_execute(
 {
     int filter_flag = xmlrpc_c::value_int(paramList.getInt(1));
 
+    string filter_search = "";
+    string filter_value = "";
+    ostringstream and_clause;
+
+    if ( paramList.size() > 2)
+    {
+        filter_search = xmlrpc_c::value_string(paramList.getString(5));
+    }
+    if ( paramList.size() > 3)
+    {
+        filter_value = xmlrpc_c::value_string(paramList.getString(6));
+    }
+
     string oss;
     string        where;
     int           rc;
+
+     if ( !filter_search.empty() )
+    {
+        and_clause << " EXTRACTVALUE( body, '" << filter_search << "')";
+        if ( !filter_value.empty() )
+        {
+            if (filter_value.find('%') != std::string::npos)
+            {
+                and_clause << " LIKE " << filter_value;
+            }
+            else
+            {
+                and_clause << " = " << filter_value;
+            }
+        }
+    }
 
     if ( filter_flag < GROUP )
     {
@@ -227,7 +285,7 @@ void VirtualMachinePoolMonitoring::request_execute(
         return;
     }
 
-    where_filter(att, filter_flag, -1, -1, "", "", false, false, false, where);
+    where_filter(att, filter_flag, -1, -1, and_clause.str(), "", false, false, false, where);
 
     rc = (static_cast<VirtualMachinePool *>(pool))->dump_monitoring(oss, where);
 
