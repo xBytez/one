@@ -37,6 +37,15 @@ module OpenNebula
         # +client+ a Client object that represents a XML-RPC connection
         def initialize(client)
             super('HOST_POOL','HOST',client)
+
+            @options={
+                :who               => -1,
+                :start_id          => -1,
+                :end_id            => -1,
+                :state             => -1,
+                :xpath             => "",
+                :xpath_value       => ""
+            }
         end
 
         # Factory Method for the Host Pool
@@ -65,10 +74,22 @@ module OpenNebula
             return super(HOST_POOL_METHODS[:info])
         end
 
+        def info_search(options)
+            options = @options.merge(options)
+            return info_filter(HOST_POOL_METHODS[:info],
+                               options[:who],
+                               options[:start_id],
+                               options[:end_id],
+                               options[:state],
+                               options[:xpath],
+                               options[:xpath_value])
+        end
+
         alias_method :info!, :info
         alias_method :info_all!, :info_all
         alias_method :info_mine!, :info_mine
         alias_method :info_group!, :info_group
+        alias_method :info_search!, :info_search
 
         # Retrieves the monitoring data for all the Hosts in the pool
         #
