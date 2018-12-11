@@ -47,6 +47,15 @@ module OpenNebula
             super('VM_POOL','VM',client)
 
             @user_id  = user_id
+
+            @options={
+                :who               => @user_id,
+                :start_id          => -1,
+                :end_id            => -1,
+                :state             => -1,
+                :xpath             => "",
+                :xpath_value       => ""
+            }
         end
 
         # Default Factory Method for the Pools
@@ -69,33 +78,25 @@ module OpenNebula
                                 @user_id,
                                 -1,
                                 -1,
-                                INFO_NOT_DONE,
-                                "",
-                                "")
+                                INFO_NOT_DONE)
                 when 1
                     info_filter(VM_POOL_METHODS[:info],
                                 args[0],
                                 -1,
                                 -1,
-                                INFO_NOT_DONE,
-                                "",
-                                "")
+                                INFO_NOT_DONE)
                 when 3
                     info_filter(VM_POOL_METHODS[:info],
                                 args[0],
                                 args[1],
                                 args[2],
-                                INFO_NOT_DONE,
-                                "",
-                                "")
+                                INFO_NOT_DONE)
                 when 4
                     info_filter(VM_POOL_METHODS[:info],
                                 args[0],
                                 args[1],
                                 args[2],
-                                args[3],
-                                "",
-                                "")
+                                args[3])
             end
         end
 
@@ -104,9 +105,7 @@ module OpenNebula
                                INFO_ALL,
                                -1,
                                -1,
-                               INFO_NOT_DONE,
-                               "",
-                               "")
+                               INFO_NOT_DONE)
         end
 
         def info_mine()
@@ -114,9 +113,7 @@ module OpenNebula
                                INFO_MINE,
                                -1,
                                -1,
-                               INFO_NOT_DONE,
-                               "",
-                               "")
+                               INFO_NOT_DONE)
         end
 
         def info_group()
@@ -124,19 +121,18 @@ module OpenNebula
                                INFO_GROUP,
                                -1,
                                -1,
-                               INFO_NOT_DONE,
-                               "",
-                               "")
+                               INFO_NOT_DONE)
         end
 
-        def info_search(args)
+        def info_search(options)
+            options = @options.merge(options)
             return info_filter(VM_POOL_METHODS[:info],
-                               INFO_GROUP,
-                               -1,
-                               -1,
-                               INFO_NOT_DONE,
-                               args[0],
-                               args[1])
+                               options[:who],
+                               options[:start_id],
+                               options[:end_id],
+                               options[:state],
+                               options[:xpath],
+                               options[:xpath_value])
         end
 
         alias_method :info!, :info
