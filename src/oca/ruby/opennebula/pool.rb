@@ -80,8 +80,8 @@ module OpenNebula
             return xmlrpc_info(xml_method, INFO_PRIMARY_GROUP, -1, -1, *args)
         end
 
-        def info_filter(xml_method, who, start_id, end_id)
-            return xmlrpc_info(xml_method, who, start_id, end_id)
+        def info_filter(xml_method, who, start_id, end_id, *args)
+            return xmlrpc_info(xml_method, who, start_id, end_id, *args)
         end
 
         # Retrieves the monitoring data for all the Objects in the pool
@@ -178,11 +178,11 @@ module OpenNebula
         # The default page size can be changed with the environment variable
         # ONE_POOL_PAGE_SIZE. Any value > 2 will set a page size, a non
         # numeric value disables pagination.
-        def get_hash(size=nil)
+        def get_hash(size=nil, options={})
             allow_paginated = PAGINATED_POOLS.include?(@pool_name)
 
             if OpenNebula.pool_page_size && allow_paginated &&
-                    ( ( size && size >= 2 ) || !size )
+                    ( ( size && size >= 2 ) || !size ) && ( options[:no_pager].nil? && options[:xpath].nil? )
 
                 size = OpenNebula.pool_page_size if !size
                 hash = info_paginated(size)
@@ -191,7 +191,9 @@ module OpenNebula
 
                 { @pool_name => { @element_name => hash } }
             else
-                rc = info
+
+                rc = info_search(options)
+
                 return rc if OpenNebula.is_error?(rc)
 
                 to_hash
@@ -229,7 +231,7 @@ module OpenNebula
 
         # Gets a hash from a info page from pool
         # size:: nil => default page size
-        #        > 0 => page size    
+        #        > 0 => page size
         # current first element of the page
         # hash:: return page as a hash
         def get_page(size, current)
@@ -245,7 +247,7 @@ module OpenNebula
                 rc = info
             end
 
-            return rc 
+            return rc
         end
 
         # Return true if pool is paginated
