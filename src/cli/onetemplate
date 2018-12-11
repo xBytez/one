@@ -74,6 +74,9 @@ CommandParser::CmdParser.new(ARGV) do
     list_options << OpenNebulaHelper::XML
     list_options << OpenNebulaHelper::NUMERIC
     list_options << OpenNebulaHelper::DESCRIBE
+    list_options << OpenNebulaHelper::XPATH
+    list_options << OpenNebulaHelper::XPATH_VALUE
+    list_options << OpenNebulaHelper::NO_PAGER
 
     instantiate_options = [
         OneTemplateHelper::VM_NAME,
