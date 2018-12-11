@@ -296,7 +296,10 @@ CommandParser::CmdParser.new(ARGV) do
 
     command :list, list_desc, [:filterflag, nil],
             :options => CLIHelper::OPTIONS + OpenNebulaHelper::OPTIONS +
-                        [OpenNebulaHelper::DESCRIBE] do
+                        [OpenNebulaHelper::DESCRIBE,
+                         OpenNebulaHelper::XPATH,
+                         OpenNebulaHelper::XPATH_VALUE,
+                         OpenNebulaHelper::NO_PAGER] do
         helper.list_pool(options, false, args[0])
     end
 
