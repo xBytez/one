@@ -37,6 +37,15 @@ module OpenNebula
             super('IMAGE_POOL','IMAGE',client)
 
             @user_id  = user_id
+
+            @options={
+                :who               => @user_id,
+                :start_id          => -1,
+                :end_id            => -1,
+                :state             => -1,
+                :xpath             => "",
+                :xpath_value       => ""
+            }
         end
 
         # Default Factory Method for the Pools
@@ -70,9 +79,21 @@ module OpenNebula
             return super(IMAGE_POOL_METHODS[:info])
         end
 
+        def info_search(options)
+            options = @options.merge(options)
+            return info_filter(IMAGE_POOL_METHODS[:info],
+                               options[:who],
+                               options[:start_id],
+                               options[:end_id],
+                               options[:state],
+                               options[:xpath],
+                               options[:xpath_value])
+        end
+
         alias_method :info!, :info
         alias_method :info_all!, :info_all
         alias_method :info_mine!, :info_mine
         alias_method :info_group!, :info_group
+        alias_method :info_search!, :info_search
     end
 end
