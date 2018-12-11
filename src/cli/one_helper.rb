@@ -405,6 +405,12 @@ EOT
         :format     => String
     }
 
+    NO_PAGER = {
+        :name       => "no_pager",
+        :large      => "--no_pager",
+        :description=> "Not use the pagination"
+    }
+
     TEMPLATE_OPTIONS_VM   = [TEMPLATE_NAME_VM] + TEMPLATE_OPTIONS + [DRY]
 
     CAPACITY_OPTIONS_VM   = [TEMPLATE_OPTIONS[0], TEMPLATE_OPTIONS[1],
@@ -413,7 +419,7 @@ EOT
     UPDATECONF_OPTIONS_VM = TEMPLATE_OPTIONS[6..15] + [TEMPLATE_OPTIONS[2],
       TEMPLATE_OPTIONS[17], TEMPLATE_OPTIONS[18]]
 
-    OPTIONS = XML, NUMERIC, KILOBYTES
+    OPTIONS = XML, NUMERIC, KILOBYTES, NO_PAGER
 
     class OneHelper
         attr_accessor :client
@@ -545,7 +551,7 @@ EOT
 
                 exec([pager, pager])
             end
-            
+
             # Send listing to pager pipe
             $stdout.close
             $stdout = p_w.dup
@@ -572,12 +578,12 @@ EOT
                 elements = 0
                 page     = ""
 
-                pool.each {|e| 
-                    elements += 1 
+                pool.each {|e|
+                    elements += 1
                     page << e.to_xml(true) << "\n"
                 }
             else
-            
+
                 pname = pool.pool_name
                 ename = pool.element_name
 
@@ -599,8 +605,8 @@ EOT
         # output
         #-----------------------------------------------------------------------
         def list_pool_table(table, pool, options, filter_flag)
-            if $stdout.isatty and (!options.key?:no_pager) 
-                size = $stdout.winsize[0] - 1 
+            if $stdout.isatty and ( (!options.key?:no_pager) and (!options.key?:xpath) )
+                size = $stdout.winsize[0] - 1
 
                 # ----------- First page, check if pager is needed -------------
                 rc = pool.get_page(size, 0)
@@ -654,7 +660,7 @@ EOT
 
                 stop_pager(ppid)
             else
-                array = pool.get_hash
+                array = pool.get_hash(nil, options)
                 return -1, array.message if OpenNebula.is_error?(array)
 
                 rname    = self.class.rname
@@ -676,7 +682,9 @@ EOT
         # List pool in XML format, pagination is used in interactive output
         #-----------------------------------------------------------------------
         def list_pool_xml(pool, options, filter_flag)
-            if $stdout.isatty 
+
+            if ( $stdout.isatty and ( (!options.key?:no_pager) and (!options.key?:xpath) ) )
+
                 size = $stdout.winsize[0] - 1
 
                 # ----------- First page, check if pager is needed -------------
@@ -728,24 +736,11 @@ EOT
                 stop_pager(ppid)
             else
 
-            args = []
+                rc = pool.info_search(options)
 
-            if !options[:xpath].nil?
-                args.push(options[:xpath])
-            end
-            if !options[:xpath_value].nil?
-                args.push(options[:xpath_value])
-            end
+                return -1, rc.message if OpenNebula.is_error?(rc)
 
-            if options[:xpath].nil?
-                rc = pool.info
-            else
-                rc = pool.info_search(args)
-            end
-
-            return -1, rc.message if OpenNebula.is_error?(rc)
-
-            puts pool.to_xml(true)
+                puts pool.to_xml(true)
             end
 
             return 0
@@ -756,7 +751,7 @@ EOT
         #-----------------------------------------------------------------------
         def list_pool_top(table, pool, options)
             table.top(options) {
-                array = pool.get_hash
+                array = pool.get_hash(nil, options)
 
                 return -1, array.message if OpenNebula.is_error?(array)
 
