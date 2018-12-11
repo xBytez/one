@@ -46,7 +46,9 @@ void RequestManagerPoolInfoFilter::request_execute(
     int start_id    = xmlrpc_c::value_int(paramList.getInt(2));
     int end_id      = xmlrpc_c::value_int(paramList.getInt(3));
 
-    dump(att, filter_flag, start_id, end_id, "", "");
+    ostringstream and_clause = generate_and_clause(paramList, xpath_pos, xpath_value_pos);
+
+    dump(att, filter_flag, start_id, end_id, and_clause.str(), "");
 }
 
 /* ------------------------------------------------------------------------- */
@@ -96,18 +98,10 @@ void VirtualMachinePoolInfo::request_execute(
     int end_id      = xmlrpc_c::value_int(paramList.getInt(3));
     int state       = xmlrpc_c::value_int(paramList.getInt(4));
 
-    string filter_search = "";
-    string filter_value = "";
-    ostringstream and_clause;
+    bool do_and = true;
 
-    if ( paramList.size() > 5)
-    {
-        filter_search = xmlrpc_c::value_string(paramList.getString(5));
-    }
-    if ( paramList.size() > 6)
-    {
-        filter_value = xmlrpc_c::value_string(paramList.getString(6));
-    }
+    ostringstream and_clause_xpath = generate_and_clause(paramList, 5, 6);
+    ostringstream and_clause;
 
     if (( state < VirtualMachinePoolInfo::ALL_VM ) ||
         ( state > VirtualMachine::CLONING_FAILURE ))
@@ -120,6 +114,7 @@ void VirtualMachinePoolInfo::request_execute(
     switch(state)
     {
         case VirtualMachinePoolInfo::ALL_VM:
+            do_and = false;
             break;
 
         case VirtualMachinePoolInfo::NOT_DONE:
@@ -131,22 +126,19 @@ void VirtualMachinePoolInfo::request_execute(
             break;
     }
 
-    if ( !filter_search.empty() )
+    if ( !and_clause_xpath.str().empty() )
     {
-        and_clause << " AND ( ";
-        and_clause << " EXTRACTVALUE( body, '" << filter_search << "')";
-        if ( !filter_value.empty() )
+        if ( do_and )
         {
-            if (filter_value.find('%') != std::string::npos)
-            {
-                and_clause << " LIKE '" << filter_value << "'";
-            }
-            else
-            {
-                and_clause << " = '" << filter_value << "'";
-            }
+            and_clause << " AND ( ";
         }
-        and_clause << " ) ";
+
+        and_clause << and_clause_xpath.str();
+
+        if ( do_and )
+        {
+            and_clause << " ) ";
+        }
     }
 
     dump(att, filter_flag, start_id, end_id, and_clause.str(), "");
@@ -245,38 +237,11 @@ void VirtualMachinePoolMonitoring::request_execute(
 {
     int filter_flag = xmlrpc_c::value_int(paramList.getInt(1));
 
-    string filter_search = "";
-    string filter_value = "";
-    ostringstream and_clause;
-
-    if ( paramList.size() > 2)
-    {
-        filter_search = xmlrpc_c::value_string(paramList.getString(5));
-    }
-    if ( paramList.size() > 3)
-    {
-        filter_value = xmlrpc_c::value_string(paramList.getString(6));
-    }
+    ostringstream and_clause = generate_and_clause(paramList, 5, 6);
 
     string oss;
     string        where;
     int           rc;
-
-     if ( !filter_search.empty() )
-    {
-        and_clause << " EXTRACTVALUE( body, '" << filter_search << "')";
-        if ( !filter_value.empty() )
-        {
-            if (filter_value.find('%') != std::string::npos)
-            {
-                and_clause << " LIKE " << filter_value;
-            }
-            else
-            {
-                and_clause << " = " << filter_value;
-            }
-        }
-    }
 
     if ( filter_flag < GROUP )
     {
@@ -308,7 +273,7 @@ void HostPoolInfo::request_execute(
         xmlrpc_c::paramList const& paramList,
         RequestAttributes& att)
 {
-    dump(att, ALL, -1, -1, "", "");
+    dump(att, ALL, -1, -1, generate_and_clause(paramList, 5, 6).str(), "");
 }
 
 /* ------------------------------------------------------------------------- */
@@ -366,7 +331,7 @@ void DatastorePoolInfo::request_execute(
         xmlrpc_c::paramList const& paramList,
         RequestAttributes& att)
 {
-    dump(att, ALL, -1, -1, "", "");
+    dump(att, ALL, -1, -1, generate_and_clause(paramList, 5, 6).str(), "");
 }
 
 /* ------------------------------------------------------------------------- */
@@ -376,7 +341,7 @@ void ClusterPoolInfo::request_execute(
         xmlrpc_c::paramList const& paramList,
         RequestAttributes& att)
 {
-    dump(att, ALL, -1, -1, "", "");
+    dump(att, ALL, -1, -1, generate_and_clause(paramList, 4, 5).str(), "");
 }
 
 /* ------------------------------------------------------------------------- */
@@ -557,6 +522,19 @@ void VirtualNetworkPoolInfo::request_execute(
     int start_id    = xmlrpc_c::value_int(paramList.getInt(2));
     int end_id      = xmlrpc_c::value_int(paramList.getInt(3));
 
+    ostringstream and_clause_xpath = generate_and_clause(paramList, 4, 5);
+    ostringstream and_clause_vnets;
+    and_clause_vnets << " (pid = -1)";
+
+    ostringstream and_clause_reserv;
+    and_clause_reserv << " (pid != -1)";
+
+    if ( !and_clause_xpath.str().empty() )
+    {
+        and_clause_vnets  << " AND (" << and_clause_xpath.str() << " )";
+        and_clause_reserv << " AND (" << and_clause_xpath.str() << " )";
+    }
+
     if ( filter_flag < GROUP )
     {
         att.resp_msg = "Incorrect filter_flag";
@@ -573,10 +551,10 @@ void VirtualNetworkPoolInfo::request_execute(
     string  where_vnets, where_reserv;
     ostringstream where_string;
 
-    where_filter(att, filter_flag, start_id, end_id, "pid = -1", "", false,
+    where_filter(att, filter_flag, start_id, end_id, and_clause_vnets.str(), "", false,
         false, false, where_vnets);
 
-    where_filter(att, filter_flag, start_id, end_id, "pid != -1", "", true,
+    where_filter(att, filter_flag, start_id, end_id, and_clause_reserv.str(), "", true,
         true, false, where_reserv);
 
     where_string << "( " << where_vnets << " ) OR ( " << where_reserv << " ) ";
@@ -636,3 +614,38 @@ void MarketPlacePoolInfo::request_execute(
     dump(att, ALL, -1, -1, "", "");
 }
 
+/* ------------------------------------------------------------------------- */
+/* ------------------------------------------------------------------------- */
+
+ostringstream RequestManagerPoolInfoFilter::generate_and_clause(xmlrpc_c::paramList const& paramList, unsigned int xpath_pos, unsigned int xpath_value_pos)
+{
+    string filter_search = "";
+    string filter_value = "";
+    ostringstream and_clause;
+
+    if ( paramList.size() > xpath_pos)
+    {
+        filter_search = xmlrpc_c::value_string(paramList.getString(xpath_pos));
+    }
+    if ( paramList.size() > xpath_value_pos)
+    {
+        filter_value = xmlrpc_c::value_string(paramList.getString(xpath_value_pos));
+    }
+
+    if ( !filter_search.empty() )
+    {
+        and_clause << " EXTRACTVALUE( body, '" << filter_search << "')";
+        if ( !filter_value.empty() )
+        {
+            if (filter_value.find('%') != std::string::npos)
+            {
+                and_clause << " LIKE '" << filter_value << "'";
+            }
+            else
+            {
+                and_clause << " = '" << filter_value << "'";
+            }
+        }
+    }
+    return and_clause;
+}

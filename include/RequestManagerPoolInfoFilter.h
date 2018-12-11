@@ -58,7 +58,21 @@ public:
           const string& and_str,
           string& where_str);
 
+    /**
+     * Generate and_clause from xpath sentence and xpath_value
+     * @param paramList with xpath and xpath_value
+     * @param xpath_pos with the position into paramList for xpath
+     * @param xpath_value_pos with the position into paramList for xpath_value
+     */
+    static ostringstream generate_and_clause(xmlrpc_c::paramList const& paramList,
+                                            unsigned int xpath_pos,
+                                            unsigned int xpath_value_pos);
+
 protected:
+
+    int xpath_pos;
+    int xpath_value_pos;
+
     RequestManagerPoolInfoFilter(const string& method_name,
                                  const string& help,
                                  const string& signature)
@@ -278,6 +292,8 @@ public:
         Nebula& nd  = Nebula::instance();
         pool        = nd.get_ipool();
         auth_object = PoolObjectSQL::IMAGE;
+        xpath_pos   = 5;
+        xpath_value_pos = 6;
     };
 
     ~ImagePoolInfo(){};
