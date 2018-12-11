@@ -34,6 +34,15 @@ module OpenNebula
         # +client+ a Client object that represents a XML-RPC connection
         def initialize(client)
             super('DATASTORE_POOL','DATASTORE',client)
+
+            @options={
+                :who               => -1,
+                :start_id          => -1,
+                :end_id            => -1,
+                :state             => -1,
+                :xpath             => "",
+                :xpath_value       => ""
+            }
         end
 
         # Factory method to create datastore objects
@@ -62,9 +71,21 @@ module OpenNebula
             return super(DATASTORE_POOL_METHODS[:info])
         end
 
+        def info_search(options)
+            options = @options.merge(options)
+            return info_filter(DATASTORE_POOL_METHODS[:info],
+                               options[:who],
+                               options[:start_id],
+                               options[:end_id],
+                               options[:state],
+                               options[:xpath],
+                               options[:xpath_value])
+        end
+
         alias_method :info!, :info
         alias_method :info_all!, :info_all
         alias_method :info_mine!, :info_mine
         alias_method :info_group!, :info_group
+        alias_method :info_search!, :info_search
     end
 end
