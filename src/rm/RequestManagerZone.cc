@@ -68,7 +68,7 @@ void ZoneAddServer::request_execute(xmlrpc_c::paramList const& paramList,
 
     int    id     = xmlrpc_c::value_int(paramList.getInt(1));
     string zs_str = xmlrpc_c::value_string(paramList.getString(2));
-	int    zs_id;
+    int    zs_id;
 
     string error_str, xmlep;
 
@@ -220,7 +220,7 @@ void ZoneDeleteServer::request_execute(xmlrpc_c::paramList const& paramList,
         return;
     }
 
-	nd.get_raftm()->delete_server(zs_id);
+    nd.get_raftm()->delete_server(zs_id);
 
     if ( nd.is_federation_master() || !nd.is_federation_enabled() )
     {
@@ -281,7 +281,7 @@ void ZoneResetServer::request_execute(xmlrpc_c::paramList const& paramList,
         return;
     }
 
-	nd.get_raftm()->reset_index(zs_id);
+    nd.get_raftm()->reset_index(zs_id);
 
     success_response(id, att);
 }
@@ -367,7 +367,7 @@ void ZoneReplicateLog::request_execute(xmlrpc_c::paramList const& paramList,
 
         unsigned int new_commit = raftm->update_commit(leader_commit, lindex);
 
-        logdb->apply_log_records(new_commit);
+        logdb->apply_log_records(new_commit, false);
 
         success_response(static_cast<int>(current_term), att);
         return;
@@ -375,11 +375,26 @@ void ZoneReplicateLog::request_execute(xmlrpc_c::paramList const& paramList,
 
     //--------------------------------------------------------------------------
     // REPLICATE
+    //   -----------------------------------------------------------------------
+    //   DB Mode. Log is already replicated and applied. Update follower internal
+    //   index: commit, last_applied; and ACK the leader
+    //   -----------------------------------------------------------------------
+    //   ONE Mode. 
     //   0. Check it is a valid record (prevent spurious entries)
     //   1. Check log consistency (index, and previous index match)
     //   2. Insert record in the log
     //   3. Apply log records that can be safely applied
     //--------------------------------------------------------------------------
+    if ( logdb->replication_mode() == LogDB::DB )
+    {
+        unsigned int new_commit = raftm->update_commit(leader_commit, index);
+
+        logdb->apply_log_records(new_commit, false);
+
+        success_response(static_cast<int>(current_term), att);
+        return;
+    }
+
     if ( sql.empty() )
     {
         att.resp_msg = "Empty SQL command in log record";
@@ -436,7 +451,7 @@ void ZoneReplicateLog::request_execute(xmlrpc_c::paramList const& paramList,
 
     unsigned int new_commit = raftm->update_commit(leader_commit, index);
 
-    logdb->apply_log_records(new_commit);
+    logdb->apply_log_records(new_commit, false);
 
     success_response(static_cast<int>(current_term), att);
 }

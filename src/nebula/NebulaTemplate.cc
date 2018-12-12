@@ -156,12 +156,10 @@ void OpenNebulaTemplate::set_multiple_conf_default()
     set_conf_ds("shared",         "",                     "NO");
     set_conf_ds("ssh",            "",                     "NO");
     set_conf_ds("vmfs",           "BRIDGE_LIST",          "NO");
-    set_conf_ds("vcenter",
-		"VCENTER_INSTANCE_ID, VCENTER_DS_REF, VCENTER_DC_REF, VCENTER_HOST, VCENTER_USER, VCENTER_PASSWORD",
-		"NO");
-    set_conf_ds("ceph",
-                "DISK_TYPE,BRIDGE_LIST,CEPH_HOST,CEPH_USER,CEPH_SECRET",
-                "NO");
+    set_conf_ds("vcenter", "VCENTER_INSTANCE_ID, VCENTER_DS_REF, VCENTER_DC_REF,"
+            " VCENTER_HOST, VCENTER_USER, VCENTER_PASSWORD", "NO");
+    set_conf_ds("ceph", "DISK_TYPE,BRIDGE_LIST,CEPH_HOST,CEPH_USER,CEPH_SECRET",
+            "NO");
 
     register_multiple_conf_default("DS_MAD_CONF");
 /*
@@ -503,11 +501,12 @@ void OpenNebulaTemplate::set_conf_default()
     //RAFT
     vvalue.clear();
     vvalue.insert(make_pair("LOG_RETENTION","500000"));
-    vvalue.insert(make_pair("LOG_PURGE_TIMEOUT","600"));
-    vvalue.insert(make_pair("ELECTION_TIMEOUT_MS","1500"));
+    vvalue.insert(make_pair("LOG_PURGE_TIMEOUT","60"));
+    vvalue.insert(make_pair("ELECTION_TIMEOUT_MS","5000"));
     vvalue.insert(make_pair("BROADCAST_TIMEOUT_MS","500"));
-    vvalue.insert(make_pair("XMLRPC_TIMEOUT_MS","100"));
+    vvalue.insert(make_pair("XMLRPC_TIMEOUT_MS","1000"));
     vvalue.insert(make_pair("LIMIT_PURGE","100000"));
+    vvalue.insert(make_pair("REPLICATION_MODE","one"));
 
     vattribute = new VectorAttribute("RAFT",vvalue);
     conf_default.insert(make_pair(vattribute->name(),vattribute));

@@ -58,7 +58,7 @@ FedReplicaManager::~FedReplicaManager()
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-int FedReplicaManager::apply_log_record(int index, int prev, 
+int FedReplicaManager::apply_log_record(int index, int prev,
         const std::string& sql)
 {
     int rc;
@@ -393,7 +393,7 @@ int FedReplicaManager::xmlrpc_replicate_log(int zone_id, bool& success,
 
     std::string zedp, xmlrpc_secret;
 
-	int xml_rc = 0;
+    int xml_rc = 0;
 
     LogDBRecord lr;
 

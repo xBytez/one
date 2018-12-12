@@ -104,7 +104,8 @@ int LogDBRecord::select_cb(void *nil, int num, char **values, char **names)
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-LogDB::LogDB(SqlDB * _db, bool _solo, unsigned int _lret, unsigned int _lp):
+LogDB::LogDB(SqlDB * _db, bool _solo, unsigned int _lret, unsigned int _lp,
+        const string& _rm):
     solo(_solo), db(_db), next_index(0), last_applied(-1), last_index(-1),
     last_term(-1), log_retention(_lret), limit_purge(_lp)
 {
@@ -124,6 +125,8 @@ LogDB::LogDB(SqlDB * _db, bool _solo, unsigned int _lret, unsigned int _lp):
     }
 
     setup_index(r, i);
+
+    rmode = str_to_replication_mode(_rm);
 };
 
 LogDB::~LogDB()
@@ -525,13 +528,13 @@ int LogDB::delete_log_records(unsigned int start_index)
 
     if ( rc == 0 )
     {
-    	LogDBRecord lr;
+        LogDBRecord lr;
 
         next_index = start_index;
 
         last_index = start_index - 1;
 
-		if ( get_log_record(last_index, lr) == 0 )
+        if ( get_log_record(last_index, lr) == 0 )
         {
             last_term = lr.term;
         }
@@ -539,36 +542,45 @@ int LogDB::delete_log_records(unsigned int start_index)
 
     pthread_mutex_unlock(&mutex);
 
-	return rc;
+    return rc;
 }
 
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-int LogDB::apply_log_records(unsigned int commit_index)
+int LogDB::apply_log_records(unsigned int commit_index, bool is_leader)
 {
     pthread_mutex_lock(&mutex);
 
-	while (last_applied < commit_index )
-	{
-    	LogDBRecord lr;
+    // Folowers in DB replication mode do not need to apply records
+    if ( rmode == DB && !is_leader )
+    {
+        last_applied = commit_index;
 
-		if ( get_log_record(last_applied + 1, lr) != 0 )
-		{
-            pthread_mutex_unlock(&mutex);
-			return -1;
-		}
+        pthread_mutex_unlock(&mutex);
+        return 0;
+    }
 
-		if ( apply_log_record(&lr) != 0 )
-		{
+    while (last_applied < commit_index )
+    {
+        LogDBRecord lr;
+
+        if ( get_log_record(last_applied + 1, lr) != 0 )
+        {
             pthread_mutex_unlock(&mutex);
-			return -1;
-		}
-	}
+            return -1;
+        }
+
+        if ( apply_log_record(&lr) != 0 )
+        {
+            pthread_mutex_unlock(&mutex);
+            return -1;
+        }
+    }
 
     pthread_mutex_unlock(&mutex);
 
-	return 0;
+    return 0;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -642,7 +654,7 @@ int LogDB::purge_log()
     build_federated_index();
 
     pthread_mutex_unlock(&mutex);
-    
+
     return rc;
 }
 
@@ -670,7 +682,7 @@ int LogDB::replicate(int rindex)
     }
     else if ( rr.result == true ) //Record replicated on majority of followers
     {
-		rc = apply_log_records(rindex);
+        rc = apply_log_records(rindex, true);
     }
     else
     {

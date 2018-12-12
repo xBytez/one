@@ -82,8 +82,45 @@ private:
 class LogDB : public SqlDB, Callbackable
 {
 public:
+    /**
+     *  Set how the log records are replicated in the followers
+     */
+    enum ReplicationMode
+    {
+        ONE = 0,
+        DB  = 1
+    };
+
+    /**
+     *  Parse the replication mode
+     *    @param rp string describing te mode
+     *    @return replication type
+     */
+    static ReplicationMode str_to_replication_mode(const string& rp)
+    {
+        if ( rp == "db" || rp == "DB" )
+        {
+            return DB;
+        }
+        else
+        {
+            return ONE;
+        }
+    }
+
+    /**
+     *  @return the replication mode used by the DB
+     */
+    ReplicationMode replication_mode()
+    {
+        return rmode;
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /* ---------------------------------------------------------------------- */
+
     LogDB(SqlDB * _db, bool solo, unsigned int log_retention,
-            unsigned int limit_purge);
+            unsigned int limit_purge, const string& rmode);
 
     virtual ~LogDB();
 
@@ -103,8 +140,9 @@ public:
      *  Applies the SQL command of the given record to the database. The
      *  timestamp of the record is updated.
      *    @param index of the log record
+     *    @param is_leader true if process is leader of RAFT cluster
      */
-	int apply_log_records(unsigned int commit_index);
+    int apply_log_records(unsigned int commit_index, bool is_leader);
 
     /**
      *  Deletes the record in start_index and all that follow it
@@ -259,6 +297,12 @@ protected:
 
 private:
     pthread_mutex_t mutex;
+
+    /**
+     *  Replication mode
+     */
+
+    ReplicationMode rmode;
 
     /**
      *  The Database was started in solo mode (no server_id defined)

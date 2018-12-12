@@ -48,17 +48,17 @@ static unsigned int get_zone_servers(std::map<int, std::string>& _s);
 RaftManager::RaftManager(int id, const VectorAttribute * leader_hook_mad,
         const VectorAttribute * follower_hook_mad, time_t log_purge,
         long long bcast, long long elect, time_t xmlrpc,
-        const string& remotes_location):server_id(id), term(0), num_servers(0),
-        reconciling(false), commit(0), leader_hook(0), follower_hook(0)
+        const string& remotes_location):server_id(id), term(0),
+        num_servers(0), reconciling(false), commit(0), leader_hook(0), follower_hook(0)
 {
     Nebula& nd    = Nebula::instance();
     LogDB * logdb = nd.get_logdb();
 
     std::string raft_xml, cmd, arg;
 
-	pthread_mutex_init(&mutex, 0);
+    pthread_mutex_init(&mutex, 0);
 
-	am.addListener(this);
+    am.addListener(this);
 
     // -------------------------------------------------------------------------
     // Initialize Raft variables:
@@ -98,16 +98,16 @@ RaftManager::RaftManager(int id, const VectorAttribute * leader_hook_mad,
 
     num_servers = get_zone_servers(servers);
 
-	if ( server_id == -1 )
-	{
+    if ( server_id == -1 )
+    {
         NebulaLog::log("ONE", Log::INFO, "oned started in solo mode.");
-		state = SOLO;
-	}
-	else
-	{
+        state = SOLO;
+    }
+    else
+    {
         NebulaLog::log("RCM", Log::INFO, "oned started in follower mode");
-		state = FOLLOWER;
-	}
+        state = FOLLOWER;
+    }
 
     // -------------------------------------------------------------------------
     // Initialize Raft timers
@@ -298,13 +298,13 @@ void RaftManager::add_server(int follower_id, const std::string& endpoint)
 {
     std::ostringstream oss;
 
-	LogDB * logdb = Nebula::instance().get_logdb();
+    LogDB * logdb = Nebula::instance().get_logdb();
 
-	unsigned int log_index, log_term;
+    unsigned int log_index, log_term;
 
     logdb->get_last_record_index(log_index, log_term);
 
-	pthread_mutex_lock(&mutex);
+    pthread_mutex_lock(&mutex);
 
     if ( state != LEADER )
     {
@@ -316,20 +316,20 @@ void RaftManager::add_server(int follower_id, const std::string& endpoint)
 
     servers.insert(std::make_pair(follower_id, endpoint));
 
-	next.insert(std::make_pair(follower_id, log_index + 1));
+    next.insert(std::make_pair(follower_id, log_index + 1));
 
-	match.insert(std::make_pair(follower_id, 0));
+    match.insert(std::make_pair(follower_id, 0));
 
     oss << "Starting replication and heartbeat threads for follower: "
         << follower_id;
 
     NebulaLog::log("RCM", Log::INFO, oss);
 
-	replica_manager.add_replica_thread(follower_id);
+    replica_manager.add_replica_thread(follower_id);
 
-	heartbeat_manager.add_replica_thread(follower_id);
+    heartbeat_manager.add_replica_thread(follower_id);
 
-	pthread_mutex_unlock(&mutex);
+    pthread_mutex_unlock(&mutex);
 };
 
 /* -------------------------------------------------------------------------- */
@@ -339,7 +339,7 @@ void RaftManager::delete_server(int follower_id)
     std::ostringstream oss;
     std::map<int, std::string> _servers;
 
-	pthread_mutex_lock(&mutex);
+    pthread_mutex_lock(&mutex);
 
     if ( state != LEADER )
     {
@@ -350,20 +350,20 @@ void RaftManager::delete_server(int follower_id)
     num_servers--;
     servers.erase(follower_id);
 
-	next.erase(follower_id);
+    next.erase(follower_id);
 
-	match.erase(follower_id);
+    match.erase(follower_id);
 
     oss << "Stopping replication and heartbeat threads for follower: "
         << follower_id;
 
     NebulaLog::log("RCM", Log::INFO, oss);
 
-	replica_manager.delete_replica_thread(follower_id);
+    replica_manager.delete_replica_thread(follower_id);
 
-	heartbeat_manager.delete_replica_thread(follower_id);
+    heartbeat_manager.delete_replica_thread(follower_id);
 
-	pthread_mutex_unlock(&mutex);
+    pthread_mutex_unlock(&mutex);
 };
 
 /* -------------------------------------------------------------------------- */
@@ -556,7 +556,7 @@ void RaftManager::follower(unsigned int _term)
     // 1. On vote request
     // 2. On heartbeat response
     // 3. On log replicate request
-	clock_gettime(CLOCK_REALTIME, &last_heartbeat);
+    clock_gettime(CLOCK_REALTIME, &last_heartbeat);
 
     pthread_mutex_unlock(&mutex);
 
@@ -589,7 +589,7 @@ void RaftManager::replicate_log(ReplicaRequest * request)
     }
 
     //Count servers that need to replicate this record
-    int to_commit = num_servers / 2; 
+    int to_commit = num_servers / 2;
 
     std::map<int, unsigned int>::iterator it;
 
@@ -601,8 +601,8 @@ void RaftManager::replicate_log(ReplicaRequest * request)
         {
             to_commit--;
         }
-		 else if ( rindex == (int) it->second )
-		 {
+        else if ( rindex == (int) it->second )
+        {
             replica_manager.replicate(it->first);
         }
     }
@@ -641,7 +641,7 @@ void RaftManager::replicate_success(int follower_id)
     Nebula& nd    = Nebula::instance();
     LogDB * logdb = nd.get_logdb();
 
-	unsigned int db_lindex, db_lterm;
+    unsigned int db_lindex, db_lterm;
 
     logdb->get_last_record_index(db_lindex, db_lterm);
 
@@ -665,7 +665,7 @@ void RaftManager::replicate_success(int follower_id)
     {
         commit = replicated_index;
     }
-        
+
     if (db_lindex > replicated_index && state == LEADER &&
             requests.is_replicable(replicated_index + 1))
     {
@@ -714,7 +714,7 @@ void RaftManager::update_last_heartbeat(int _leader_id)
 
     leader_id = _leader_id;
 
-	clock_gettime(CLOCK_REALTIME, &last_heartbeat);
+    clock_gettime(CLOCK_REALTIME, &last_heartbeat);
 
     pthread_mutex_unlock(&mutex);
 }
@@ -823,60 +823,60 @@ void RaftManager::timer_action(const ActionRequest& ar)
         NebulaLog::log("RCM", Log::INFO, oss);
     }
 
-	// Leadership
-	struct timespec the_time;
+    // Leadership
+    struct timespec the_time;
 
-	clock_gettime(CLOCK_REALTIME, &the_time);
+    clock_gettime(CLOCK_REALTIME, &the_time);
 
-	pthread_mutex_lock(&mutex);
+    pthread_mutex_lock(&mutex);
 
-	if ( state == LEADER ) // Send the heartbeat
-	{
-		time_t sec  = last_heartbeat.tv_sec + broadcast_timeout.tv_sec;
-		long   nsec = last_heartbeat.tv_nsec + broadcast_timeout.tv_nsec;
+    if ( state == LEADER ) // Send the heartbeat
+    {
+        time_t sec  = last_heartbeat.tv_sec + broadcast_timeout.tv_sec;
+        long   nsec = last_heartbeat.tv_nsec + broadcast_timeout.tv_nsec;
 
 
-		if ((sec < the_time.tv_sec) || (sec == the_time.tv_sec &&
-				nsec <= the_time.tv_nsec))
-		{
-			heartbeat_manager.replicate();
+        if ((sec < the_time.tv_sec) || (sec == the_time.tv_sec &&
+                nsec <= the_time.tv_nsec))
+        {
+            heartbeat_manager.replicate();
 
             clock_gettime(CLOCK_REALTIME, &last_heartbeat);
 
             pthread_mutex_unlock(&mutex);
-		}
+        }
         else
         {
             pthread_mutex_unlock(&mutex);
         }
 
-	}
-	else if ( state == FOLLOWER )
-	{
-		time_t sec  = last_heartbeat.tv_sec + election_timeout.tv_sec;
-		long   nsec = last_heartbeat.tv_nsec + election_timeout.tv_nsec;
+    }
+    else if ( state == FOLLOWER )
+    {
+        time_t sec  = last_heartbeat.tv_sec + election_timeout.tv_sec;
+        long   nsec = last_heartbeat.tv_nsec + election_timeout.tv_nsec;
 
-		if ((sec < the_time.tv_sec) || (sec == the_time.tv_sec &&
-				nsec <= the_time.tv_nsec))
-		{
-			NebulaLog::log("RRM", Log::ERROR, "Failed to get heartbeat from "
-				"leader. Starting election proccess");
+        if ((sec < the_time.tv_sec) || (sec == the_time.tv_sec &&
+                nsec <= the_time.tv_nsec))
+        {
+            NebulaLog::log("RRM", Log::ERROR, "Failed to get heartbeat from "
+                "leader. Starting election proccess");
 
             state = CANDIDATE;
 
             pthread_mutex_unlock(&mutex);
 
             request_vote();
-		}
+        }
         else
         {
             pthread_mutex_unlock(&mutex);
         }
-	}
-	else //SOLO or CANDIDATE, do nothing
-	{
-		pthread_mutex_unlock(&mutex);
-	}
+    }
+    else //SOLO or CANDIDATE, do nothing
+    {
+        pthread_mutex_unlock(&mutex);
+    }
 
     return;
 }
