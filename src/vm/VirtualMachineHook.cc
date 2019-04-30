@@ -71,7 +71,7 @@ void VirtualMachineStateHook::parse_hook_arguments(PoolObjectSQL * obj,
             VirtualMachine::VmState prev_dm, VirtualMachine::LcmState prev_lcm,
             string& parsed)
 {
-    Hook::parse_hook_arguments(obj, parsed);
+    Hook_::parse_hook_arguments(obj, parsed);
 
     size_t  found;
 

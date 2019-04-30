@@ -14,7 +14,7 @@
 /* limitations under the License.                                             */
 /* -------------------------------------------------------------------------- */
 
-#include "Hook.h"
+#include "Hook_.h"
 #include "Nebula.h"
 
 /* -------------------------------------------------------------------------- */
@@ -58,7 +58,7 @@ void AllocateRemoveHook::do_hook(void *arg)
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-void Hook::parse_hook_arguments(PoolObjectSQL *obj,
+void Hook_::parse_hook_arguments(PoolObjectSQL *obj,
                                 string&       parsed)
 {
     size_t  found;

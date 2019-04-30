@@ -149,7 +149,7 @@ public:
             return -1;
         }
 
-        do_hooks(objsql, Hook::UPDATE);
+        do_hooks(objsql, Hook_::UPDATE);
 
         vm->set_prev_state();
 

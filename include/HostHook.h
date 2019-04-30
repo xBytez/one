@@ -20,7 +20,7 @@
 #include <vector>
 #include <string>
 
-#include "Hook.h"
+#include "Hook_.h"
 #include "Host.h"
 
 using namespace std;
@@ -82,7 +82,7 @@ private:
  *  The state Map is shared by all the State hooks. A maintenance hook that
  *  updates the map should be added.
  */
-class HostStateMapHook: public Hook
+class HostStateMapHook: public Hook_
 {
 public:
     virtual void do_hook(void *arg) = 0;
@@ -95,7 +95,7 @@ protected:
                      const string& cmd,
                      const string& args,
                      bool          remote):
-        Hook(name, cmd, args, Hook::UPDATE | Hook::ALLOCATE, remote){};
+        Hook_(name, cmd, args, Hook_::UPDATE | Hook_::ALLOCATE, remote){};
 
     virtual ~HostStateMapHook(){};
 

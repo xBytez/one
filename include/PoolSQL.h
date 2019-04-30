@@ -23,7 +23,7 @@
 #include "PoolObjectSQL.h"
 #include "PoolSQLCache.h"
 #include "Log.h"
-#include "Hook.h"
+#include "Hook_.h"
 
 using namespace std;
 
@@ -143,7 +143,7 @@ public:
 
         if ( rc == 0 )
         {
-            do_hooks(objsql, Hook::UPDATE);
+            do_hooks(objsql, Hook_::UPDATE);
         }
 
         return rc;
@@ -167,7 +167,7 @@ public:
         }
         else
         {
-            do_hooks(objsql, Hook::REMOVE);
+            do_hooks(objsql, Hook_::REMOVE);
         }
 
         return 0;

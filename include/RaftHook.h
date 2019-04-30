@@ -19,15 +19,15 @@
 
 #include <string>
 
-#include "Hook.h"
+#include "Hook_.h"
 
-class RaftHook : public Hook
+class RaftHook : public Hook_
 {
 public:
     RaftHook(const std::string& name,
              const std::string& command,
              const std::string& arg):
-        Hook(name, command, arg, Hook::UPDATE, false){};
+        Hook_(name, command, arg, Hook_::UPDATE, false){};
 
     ~RaftHook(){};
 

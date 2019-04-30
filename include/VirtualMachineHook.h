@@ -20,7 +20,7 @@
 #include <vector>
 #include <string>
 
-#include "Hook.h"
+#include "Hook_.h"
 #include "VirtualMachine.h"
 
 using namespace std;
@@ -30,7 +30,7 @@ using namespace std;
  *  remotelly when the VM gets into a given state (one shot). The VirtualMachine
  *  object is looked when the hook is invoked.
  */
-class VirtualMachineStateHook : public Hook
+class VirtualMachineStateHook : public Hook_
 {
 public:
     // -------------------------------------------------------------------------
@@ -49,7 +49,7 @@ public:
                             bool                     remote,
                             VirtualMachine::LcmState _lcm,
                             VirtualMachine::VmState  _vm):
-        Hook(name, cmd, args, Hook::UPDATE | Hook::ALLOCATE, remote),
+        Hook_(name, cmd, args, Hook_::UPDATE | Hook_::ALLOCATE, remote),
         lcm(_lcm),
         vm(_vm){};
 

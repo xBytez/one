@@ -141,7 +141,7 @@ int PoolSQL::allocate(PoolObjectSQL *objsql, string& error_str)
     else
     {
         rc = lastOID;
-        do_hooks(objsql, Hook::ALLOCATE);
+        do_hooks(objsql, Hook_::ALLOCATE);
     }
 
     delete objsql;

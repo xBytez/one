@@ -213,7 +213,7 @@ int GroupPool::drop(PoolObjectSQL * objsql, string& error_msg)
     }
     else
     {
-        do_hooks(objsql, Hook::REMOVE);
+        do_hooks(objsql, Hook_::REMOVE);
     }
 
     return rc;

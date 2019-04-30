@@ -14,8 +14,8 @@
 /* limitations under the License.                                             */
 /* -------------------------------------------------------------------------- */
 
-#ifndef HOOK_H_
-#define HOOK_H_
+#ifndef HOOK__H_
+#define HOOK__H_
 
 #include <vector>
 #include <string>
@@ -33,7 +33,7 @@ class PoolObjectSQL;
  *  hook is a program that can be executed locally or in a remote host when a
  *  condition is satisfied
  */
-class Hook
+class Hook_
 {
 public:
 
@@ -50,14 +50,14 @@ public:
     //--------------------------------------------------------------------------
     // Constructor and Destructor
     //--------------------------------------------------------------------------
-    Hook(const string &_name,
+    Hook_(const string &_name,
          const string &_cmd,
          const string &_args,
          int           _ht,
          bool         _remote):
         name(_name), cmd(_cmd), args(_args), hook_type(_ht), remote(_remote){};
 
-    virtual ~Hook(){};
+    virtual ~Hook_(){};
 
     //--------------------------------------------------------------------------
     // Hook methods
@@ -116,7 +116,7 @@ protected:
  *  This class is general ObjectSQL Hook for allocation and removal.
  *  The object is looked when the hook is executed
  */
-class AllocateRemoveHook : public Hook
+class AllocateRemoveHook : public Hook_
 {
 protected:
     AllocateRemoveHook(const string& name,
@@ -124,7 +124,7 @@ protected:
                        const string& args,
                        int           hook_type,
                        bool          remote):
-        Hook(name, cmd, args, hook_type, remote){};
+        Hook_(name, cmd, args, hook_type, remote){};
 
     virtual ~AllocateRemoveHook(){};
 
@@ -157,7 +157,7 @@ public:
                  const string& cmd,
                  const string& args,
                  bool          remote):
-        AllocateRemoveHook(name, cmd, args, Hook::ALLOCATE, remote){};
+        AllocateRemoveHook(name, cmd, args, Hook_::ALLOCATE, remote){};
 
     virtual ~AllocateHook(){};
 };
@@ -176,7 +176,7 @@ public:
                const string& cmd,
                const string& args,
                bool          remote):
-        AllocateRemoveHook(name, cmd, args, Hook::REMOVE, remote){};
+        AllocateRemoveHook(name, cmd, args, Hook_::REMOVE, remote){};
 
     virtual ~RemoveHook(){};
 };
@@ -211,7 +211,7 @@ public:
      *  Hook in to the object
      *    @param hk pointer to the hook, MUST be allocated in the HEAP
      */
-    void add_hook(Hook *hk)
+    void add_hook(Hook_ *hk)
     {
         hooks.push_back(hk);
     };
@@ -253,7 +253,7 @@ private:
     /**
      *  Those that hooked in the object
      */
-    vector<Hook *> hooks;
+    vector<Hook_ *> hooks;
 };
 
 #endif
