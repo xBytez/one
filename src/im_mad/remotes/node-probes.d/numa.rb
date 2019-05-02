@@ -59,7 +59,7 @@ Dir.foreach(NODE_PATH) do |node|
     next unless node_id
 
     # ----------------------------------------
-    # hugepafes information
+    # hugepages information
     # ----------------------------------------
     hp_path = "#{NODE_PATH}/#{node}/hugepages"
 
@@ -69,23 +69,25 @@ Dir.foreach(NODE_PATH) do |node|
         /hugepages-(?<hp_size>\d+)kB/ =~ hp
         next unless hp_size
 
-        hp_sz_path = "#{hp_path}/#{hp}"
-        free = nr = surplus = 0
+        hpsz_path = "#{hp_path}/#{hp}"
 
         hp_info = { 'size' => hp_size }
 
         begin
-        %w{free nr surplus}.each do |var|                                    
-                eval("#{var} = File.read(\"#{hp_sz_path}/#{var}_hugepages\").chomp")
-                hp_info["#{var}"] = eval("#{var}")                              
-        end
-        rescue
+            %w[free nr surplus].each do |var|
+                var_path = "#{hpsz_path}/#{var}_hugepages"
+                hp_info[var] = File.read(var_path).chomp
+            end
+        rescue StandardError
             next
         end
 
         nodes[node_id]['hugepages'] << hp_info
     end
 
+    # ----------------------------------------
+    # CPU topology
+    # ----------------------------------------
     cpu_path = "#{NODE_PATH}/#{node}/"
 
     nodes[node_id]['cores'] = []
@@ -107,8 +109,7 @@ Dir.foreach(NODE_PATH) do |node|
             core_id = File.read("#{core_path}/core_id").chomp
 
             nodes[node_id]['cores'] << { 'id' => core_id, 'cpus' => siblings }
-
-        rescue
+        rescue StandardError
             next
         end
     end
