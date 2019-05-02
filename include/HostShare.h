@@ -161,6 +161,82 @@ private:
     map <string, PCIDevice *> pci_devices;
 };
 
+/**
+ *  This class represents the NUMA nodes in a hypervisor for the following attr:
+ *    HUGEPAGE = [ NODE_ID = "0", SIZE = "2048", PAGES = "0", FREE = "0"]
+ *    HUGEPAGE = [ NODE_ID = "0", SIZE = "1048576", PAGES = "0", FREE = "0"]
+ *    CORE = [ NODE_ID = "0", ID = "3", CPUS = "3,7"]
+ *    CORE = [ NODE_ID = "0", ID = "1", CPUS = "1,5"]
+ *    CORE = [ NODE_ID = "0", ID = "2", CPUS = "2,6"]
+ *    CORE = [ NODE_ID = "0", ID = "0", CPUS = "0,4"]
+ *
+ *    HUGEPAGE is the total PAGES and FREE hugepages of a given SIZE in the node
+ *    CORE is a CPU core with its ID and sibling CPUs for HT architectures
+ *
+ *    This class includes a list of all NUMA nodes in the host. And structure
+ *    as follows
+ *
+ *    <NUMA_NODES>
+ *    <NODE>
+ *      <ID>0</ID>
+ *      <HUGEPAGE>
+ *        <SIZE>2048</SIZE>
+ *        <PAGES>0</PAGES>
+ *        <FREE>0</FREE>
+ *      </HUGEPAGE>
+ *      ...
+ *      <CORE>
+ *        <ID>3</ID>
+ *        <CPU>3</CPU>
+ *        <CPU>7</CPU>
+ *      </CORE>
+ *      ...
+ *    </NODE>
+ *    <NODE>
+ *      <ID>1</ID>
+ *      ...
+ *    </NODE>
+ *    </NUMA_NODES>
+ */
+class HostShareNUMA : public Template
+{
+    HostShareNUMA() : Template(false, '=', "NUMA_NODES"){};
+
+    virtual ~HostShareNUMA()
+    {
+    };
+
+private:
+
+    struct Core
+    {
+        unsigned int id;
+        std::set<unsigned int> cpus;
+
+        //TODO: allocation information
+    };
+
+    struct HugePage
+    {
+        unsigned long size_kb;
+
+        unsigned int  nr;
+        unsigned int  free;
+        //TODO?: allocation information
+    };
+
+    struct Node
+    {
+        unsigned int id;
+
+        std::vector<Core>     cores;
+        std::vector<HugePage> pages;
+        //TODO: memory information and allocation
+    };
+
+    std::vector<Node> nodes;
+};
+
 class Host;
 
 /**

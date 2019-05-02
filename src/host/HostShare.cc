@@ -225,10 +225,10 @@ void HostSharePCI::set_monitorization(vector<VectorAttribute*> &pci_att)
     {
         pci_it = pci_devices.find(*jt);
 
-		if ( pci_it->second->vmid != -1 )
-		{
-			continue;
-		}
+        if ( pci_it->second->vmid != -1 )
+        {
+            continue;
+        }
 
         remove(pci_it->second->attrs);
 
@@ -281,8 +281,8 @@ int HostSharePCI::set_pci_address(VectorAttribute * pci_device,
     unsigned int ibus, slot;
 
     // ------------------- DOMAIN & FUNCTION -------------------------
-	pci_device->replace("VM_DOMAIN", "0x0000");
-	pci_device->replace("VM_FUNCTION", "0");
+    pci_device->replace("VM_DOMAIN", "0x0000");
+    pci_device->replace("VM_FUNCTION", "0");
 
     // --------------------------- BUS -------------------------------
     bus = pci_device->vector_value("VM_BUS");
@@ -342,9 +342,9 @@ HostSharePCI::PCIDevice::PCIDevice(VectorAttribute * _attrs)
     get_pci_value("CLASS" , attrs, class_id);
 
     if (attrs->vector_value("VMID", vmid) == -1)
-	{
-		attrs->replace("VMID", -1);
-	}
+    {
+        attrs->replace("VMID", -1);
+    }
 
     attrs->vector_value("ADDRESS", address);
 };
@@ -356,25 +356,25 @@ ostream& operator<<(ostream& os, const HostSharePCI& pci)
 {
     map<string, HostSharePCI::PCIDevice *>::const_iterator it;
 
-	os  << right << setw(15)<< "PCI ADDRESS"<< " "
-		<< right << setw(8) << "CLASS"  << " "
-		<< right << setw(8) << "VENDOR" << " "
-		<< right << setw(8) << "DEVICE" << " "
-		<< right << setw(8) << "VMID"   << " "
-		<< endl << setw(55) << setfill('-') << "-" << setfill(' ') << endl;
+    os  << right << setw(15)<< "PCI ADDRESS"<< " "
+        << right << setw(8) << "CLASS"  << " "
+        << right << setw(8) << "VENDOR" << " "
+        << right << setw(8) << "DEVICE" << " "
+        << right << setw(8) << "VMID"   << " "
+        << endl << setw(55) << setfill('-') << "-" << setfill(' ') << endl;
 
     for (it=pci.pci_devices.begin(); it!=pci.pci_devices.end(); it++)
     {
         HostSharePCI::PCIDevice * dev = it->second;
 
-		os << right << setw(15)<< dev->address   << " "
-		   << right << setw(8) << dev->class_id  << " "
-		   << right << setw(8) << dev->vendor_id << " "
-		   << right << setw(8) << dev->device_id << " "
-		   << right << setw(8) << dev->vmid      << " " << endl;
+        os << right << setw(15)<< dev->address   << " "
+           << right << setw(8) << dev->class_id  << " "
+           << right << setw(8) << dev->vendor_id << " "
+           << right << setw(8) << dev->device_id << " "
+           << right << setw(8) << dev->vmid      << " " << endl;
     }
 
-	return os;
+    return os;
 }
 
 /* ************************************************************************ */
