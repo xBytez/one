@@ -21,6 +21,7 @@
 #include "Template.h"
 #include <time.h>
 #include <set>
+#include <map>
 
 /* ------------------------------------------------------------------------ */
 /* ------------------------------------------------------------------------ */
@@ -161,20 +162,80 @@ private:
     map <string, PCIDevice *> pci_devices;
 };
 
+class HostShareNUMA;
+
 /**
  *  This class represents the NUMA nodes in a hypervisor for the following attr:
- *    HUGEPAGE = [ NODE_ID = "0", SIZE = "2048", PAGES = "0", FREE = "0"]
- *    HUGEPAGE = [ NODE_ID = "0", SIZE = "1048576", PAGES = "0", FREE = "0"]
- *    CORE = [ NODE_ID = "0", ID = "3", CPUS = "3,7"]
- *    CORE = [ NODE_ID = "0", ID = "1", CPUS = "1,5"]
- *    CORE = [ NODE_ID = "0", ID = "2", CPUS = "2,6"]
- *    CORE = [ NODE_ID = "0", ID = "0", CPUS = "0,4"]
+ *    NODE_ID = 0
+ *    HUGEPAGE = [ SIZE = "2048", PAGES = "0", FREE = "0"]
+ *    HUGEPAGE = [ SIZE = "1048576", PAGES = "0", FREE = "0"]
+ *    CORE = [ ID = "3", CPUS = "3,7"]
+ *    CORE = [ ID = "1", CPUS = "1,5"]
+ *    CORE = [ ID = "2", CPUS = "2,6"]
+ *    CORE = [ ID = "0", CPUS = "0,4"]
  *
- *    HUGEPAGE is the total PAGES and FREE hugepages of a given SIZE in the node
- *    CORE is a CPU core with its ID and sibling CPUs for HT architectures
- *
- *    This class includes a list of all NUMA nodes in the host. And structure
- *    as follows
+ *  - NODE_ID
+ *  - HUGEPAGE is the total PAGES and FREE hugepages of a given SIZE in the node
+ *  - CORE is a CPU core with its ID and sibling CPUs for HT architectures
+ */
+class HostShareNode : public Template
+{
+public:
+    HostShareNode() : Template(false, '=', "NODE"){};
+    HostShareNode(unsigned int i) : Template(false, '=', "NODE"), node_id(i)
+    {
+        replace("NODE_ID", i);
+    };
+
+    virtual ~HostShareNode(){};
+
+    int from_xml_node(const xmlNodePtr &node);
+
+private:
+    friend class HostShareNUMA;
+
+    //This stuct represents a core and its allocation status
+    struct Core
+    {
+        Core(unsigned int _i, const std::string& _c):id(_i)
+        {
+            one_util::split_unique(_c, ',', cpus);
+        };
+
+        unsigned int id;
+        std::set<unsigned int> cpus;
+
+        //TODO: allocation information
+    };
+
+    //This stuct represents the hugepages available in the node
+    struct HugePage
+    {
+        unsigned long size_kb;
+
+        unsigned int  nr;
+        unsigned int  free;
+
+        //TODO?: allocation information
+    };
+
+    unsigned int node_id;
+
+    std::map<unsigned int, struct Core> cores;
+    std::map<unsigned long, struct HugePage> pages;
+
+    //TODO: Memory allocation information
+
+    //--------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
+    void set_core(unsigned int core_id, std::string& cpus);
+
+    void set_hugepage(unsigned long size, unsigned int nr, unsigned int fr);
+};
+
+/**
+ *  This class includes a list of all NUMA nodes in the host. And structure as 
+ *  follows:
  *
  *    <NUMA_NODES>
  *    <NODE>
@@ -187,8 +248,7 @@ private:
  *      ...
  *      <CORE>
  *        <ID>3</ID>
- *        <CPU>3</CPU>
- *        <CPU>7</CPU>
+ *        <CPUS>3,7</CPUS>
  *      </CORE>
  *      ...
  *    </NODE>
@@ -198,43 +258,31 @@ private:
  *    </NODE>
  *    </NUMA_NODES>
  */
-class HostShareNUMA : public Template
+class HostShareNUMA
 {
-    HostShareNUMA() : Template(false, '=', "NUMA_NODES"){};
+public:
+    HostShareNUMA(){};
 
-    virtual ~HostShareNUMA()
-    {
-    };
+    virtual ~HostShareNUMA(){};
+
+    int from_xml_node(const vector<xmlNodePtr> &ns);
+
+    void set_monitorization(Template &ht);
+
+    //Returns the node with the given id if the node does not exist a new one
+    //is created
+    HostShareNode& operator[](unsigned int idx);
+
+    /**
+     * Function to print the HostShare object into a string in
+     * XML format
+     *  @param xml the resulting XML string
+     *  @return a reference to the generated string
+     */
+    string& to_xml(string& xml) const;
 
 private:
-
-    struct Core
-    {
-        unsigned int id;
-        std::set<unsigned int> cpus;
-
-        //TODO: allocation information
-    };
-
-    struct HugePage
-    {
-        unsigned long size_kb;
-
-        unsigned int  nr;
-        unsigned int  free;
-        //TODO?: allocation information
-    };
-
-    struct Node
-    {
-        unsigned int id;
-
-        std::vector<Core>     cores;
-        std::vector<HugePage> pages;
-        //TODO: memory information and allocation
-    };
-
-    std::vector<Node> nodes;
+    std::map<unsigned int, HostShareNode *> nodes;
 };
 
 class Host;
@@ -389,6 +437,11 @@ public:
         pci.set_monitorization(pci_att);
     }
 
+    void set_numa_monitorization(Template &ht)
+    {
+        numa.set_monitorization(ht);
+    }
+
     /**
      *  Resets capaity values of the share
      */
@@ -461,6 +514,7 @@ private:
 
     HostShareDatastore ds;
     HostSharePCI       pci;
+    HostShareNUMA      numa;
 };
 
 #endif /*HOST_SHARE_H_*/

@@ -221,6 +221,7 @@ void HostSharePCI::set_monitorization(vector<VectorAttribute*> &pci_att)
         set(pci);
     }
 
+    //Remove missing devices from the share if there are no VMs using them
     for ( jt = missing.begin() ; jt != missing.end(); jt ++ )
     {
         pci_it = pci_devices.find(*jt);
@@ -378,6 +379,183 @@ ostream& operator<<(ostream& os, const HostSharePCI& pci)
 }
 
 /* ************************************************************************ */
+/* HostSharePCI                                                             */
+/* ************************************************************************ */
+int HostShareNode::from_xml_node(const xmlNodePtr &node)
+{
+    int rc = Template::from_xml_node(node);
+
+    if (rc != 0)
+    {
+        return -1;
+    }
+
+    //General node information & status
+    if ( get("NODE_ID", node_id) == false )
+    {
+        return -1;
+    }
+
+    //Build the node CPU cores topology
+    vector<VectorAttribute *> vcores;
+
+    get("CORE", vcores);
+
+    for (auto vc_it = vcores.begin(); vc_it != vcores.end(); ++vc_it)
+    {
+        unsigned int core_id;
+        std::string  cpus;
+
+        (*vc_it)->vector_value("ID", core_id);
+        (*vc_it)->vector_value("CPUS", cpus);
+
+        set_core(core_id, cpus);
+    }
+
+    vector<VectorAttribute *> vpages;
+
+    for (auto vp_it = vpages.begin(); vp_it != vpages.end(); ++vp_it)
+    {
+        unsigned long size_kb;
+
+        unsigned int  nr;
+        unsigned int  free;
+
+        (*vp_it)->vector_value("SIZE", size_kb);
+        (*vp_it)->vector_value("PAGES",nr);
+        (*vp_it)->vector_value("FREE", free);
+
+        set_hugepage(size_kb, nr, free);
+    }
+
+    return 0;
+};
+
+void HostShareNode::set_core(unsigned int core_id, std::string& cpus)
+{
+    if ( cores.find(core_id) != cores.end() )
+    {
+        return;
+    }
+
+    Core c(core_id, cpus);
+
+    cores.insert(make_pair(c.id, c));
+}
+
+void HostShareNode::set_hugepage(unsigned long size, unsigned int nr,
+        unsigned int fr)
+{
+    if ( pages.find(size) != pages.end() )
+    {
+        return;
+    }
+
+    HugePage h = {size, nr, fr};
+
+    pages.insert(make_pair(h.size_kb, h));
+}
+
+int HostShareNUMA::from_xml_node(const vector<xmlNodePtr> &ns)
+{
+    for (auto it = ns.begin() ; it != ns.end(); ++it)
+    {
+        HostShareNode * n = new HostShareNode;
+
+        if ( n->from_xml_node(*it) != 0 )
+        {
+            return -1;
+        }
+
+        nodes.insert(make_pair(n->node_id, n));
+    }
+
+    return 0;
+}
+
+void HostShareNUMA::set_monitorization(Template &ht)
+{
+    int node_id;
+
+    std::vector<VectorAttribute *> cores;
+
+    ht.remove("CORE", cores);
+
+    for (auto it = cores.begin(); it != cores.end(); ++it)
+    {
+        int core_id;
+        std::string cpus;
+
+        if ( (*it)->vector_value("NODE_ID", node_id) == false )
+        {
+            continue;
+        }
+
+        (*it)->vector_value("CORE_ID", core_id);
+        (*it)->vector_value("CPUS", cpus);
+
+        (*this)[node_id].set_core(core_id, cpus);
+    }
+
+    std::vector<VectorAttribute *> pages;
+
+    ht.remove("HUGEPAGE", pages);
+
+    for (auto it = pages.begin(); it != pages.end(); ++it)
+    {
+        unsigned int pages;
+        unsigned int free;
+
+        unsigned long size;
+
+        if ( (*it)->vector_value("NODE_ID", node_id) == false )
+        {
+            continue;
+        }
+
+        (*it)->vector_value("SIZE", size);
+        (*it)->vector_value("FREE", free);
+        (*it)->vector_value("PAGES",pages);
+
+        (*this)[node_id].set_hugepage(size, free, pages);
+    }
+}
+
+HostShareNode& HostShareNUMA::operator[](unsigned int idx)
+{
+    auto it = nodes.find(idx);
+
+    if ( it != nodes.end() )
+    {
+        return *(it->second);
+    }
+
+    auto rc_pair = nodes.insert(make_pair(idx, new HostShareNode(idx)));
+
+    return *(rc_pair.first->second);
+}
+
+std::string& HostShareNUMA::to_xml(std::string& xml) const
+{
+    ostringstream oss;
+
+    oss << "<NUMA_NODES>";
+
+    for (auto it = nodes.begin(); it != nodes.end(); ++it)
+    {
+        std::string node_xml;
+
+        oss << it->second->to_xml(node_xml);
+    }
+
+    oss << "</NUMA_NODES>";
+
+    xml = oss.str();
+
+    return xml;
+}
+
+/* ************************************************************************ */
 /* HostShare :: Constructor/Destructor                                      */
 /* ************************************************************************ */
 
@@ -413,7 +591,7 @@ ostream& operator<<(ostream& os, HostShare& hs)
 
 string& HostShare::to_xml(string& xml) const
 {
-    string ds_xml, pci_xml;
+    string ds_xml, pci_xml, numa_xml;
     ostringstream   oss;
 
     oss << "<HOST_SHARE>"
@@ -434,6 +612,7 @@ string& HostShare::to_xml(string& xml) const
           << "<RUNNING_VMS>"<<running_vms <<"</RUNNING_VMS>"
           << ds.to_xml(ds_xml)
           << pci.to_xml(pci_xml)
+          << numa.to_xml(numa_xml)
         << "</HOST_SHARE>";
 
     xml = oss.str();
@@ -503,6 +682,26 @@ int HostShare::from_xml_node(const xmlNodePtr node)
     }
 
     rc += pci.from_xml_node( content[0] );
+
+    ObjectXML::free_nodes(content);
+
+    content.clear();
+
+    if (rc != 0)
+    {
+        return -1;
+    }
+
+    // ------------ NUMA Nodes ---------------
+
+    ObjectXML::get_nodes("/HOST_SHARE/NUMA_NODES/NODE", content);
+
+    if( content.empty())
+    {
+        return -1;
+    }
+
+    rc += numa.from_xml_node(content);
 
     ObjectXML::free_nodes(content);
 
