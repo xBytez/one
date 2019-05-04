@@ -228,9 +228,9 @@ private:
 
     //--------------------------------------------------------------------------
     //--------------------------------------------------------------------------
-    void set_core(unsigned int core_id, std::string& cpus);
+    bool set_core(unsigned int core_id, std::string& cpus);
 
-    void set_hugepage(unsigned long size, unsigned int nr, unsigned int fr);
+    bool set_hugepage(unsigned long size, unsigned int nr, unsigned int fr);
 };
 
 /**
@@ -263,7 +263,13 @@ class HostShareNUMA
 public:
     HostShareNUMA(){};
 
-    virtual ~HostShareNUMA(){};
+    virtual ~HostShareNUMA()
+    {
+        for (auto it = nodes.begin(); it != nodes.end(); ++it)
+        {
+            delete it->second;
+        }
+    };
 
     int from_xml_node(const vector<xmlNodePtr> &ns);
 
@@ -271,7 +277,7 @@ public:
 
     //Returns the node with the given id if the node does not exist a new one
     //is created
-    HostShareNode& operator[](unsigned int idx);
+    HostShareNode& get_node(unsigned int idx);
 
     /**
      * Function to print the HostShare object into a string in
