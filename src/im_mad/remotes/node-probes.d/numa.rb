@@ -113,6 +113,15 @@ Dir.foreach(NODE_PATH) do |node|
             next
         end
     end
+
+    # --------------------------------------------
+    # MEMORY
+    # TODO: Parse file:
+    # $ cat /sys/devices/system/node/node0/meminfo
+    # Node 0 MemTotal:        7992892 kB
+    # Node 0 MemFree:         1850648 kB
+    # Node 0 MemUsed:         6142244 kB
+    # --------------------------------------------
 end
 
 nodes_s = ''

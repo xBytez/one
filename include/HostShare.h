@@ -169,10 +169,10 @@ class HostShareNUMA;
  *    NODE_ID = 0
  *    HUGEPAGE = [ SIZE = "2048", PAGES = "0", FREE = "0"]
  *    HUGEPAGE = [ SIZE = "1048576", PAGES = "0", FREE = "0"]
- *    CORE = [ ID = "3", CPUS = "3,7"]
- *    CORE = [ ID = "1", CPUS = "1,5"]
- *    CORE = [ ID = "2", CPUS = "2,6"]
- *    CORE = [ ID = "0", CPUS = "0,4"]
+ *    CORE = [ ID = "3", CPUS = "3:-1,7:-1", FREE = 2]
+ *    CORE = [ ID = "1", CPUS = "1:23,5:-1", FREE = 0 ]
+ *    CORE = [ ID = "2", CPUS = "2:47,6:-1", FREE = 1]
+ *    CORE = [ ID = "0", CPUS = "0:23,4:-1", FREE = 0]
  *
  *  - NODE_ID
  *  - HUGEPAGE is the total PAGES and FREE hugepages of a given SIZE in the node
@@ -197,15 +197,36 @@ private:
     //This stuct represents a core and its allocation status
     struct Core
     {
-        Core(unsigned int _i, const std::string& _c):id(_i)
-        {
-            one_util::split_unique(_c, ',', cpus);
-        };
+        /**
+         *  Initializes the structure from the CORE attributes:
+         *    @param _i ID of core
+         *    @param _c CPUS list <cpu_id>:<vm_id>
+         *    @param _f FREE cpus in core. If -1 it will be derived from CPUS
+         */
+        Core(unsigned int _i, const std::string& _c, int _f);
 
+        /**
+         *  ID of this CPU CORE
+         */
         unsigned int id;
-        std::set<unsigned int> cpus;
 
-        //TODO: allocation information
+        /**
+         *  Number of free cpus in the core. A VM can use one thread but
+         *  reserve all the cpus in the core when using the dedicated policy.
+         */
+        unsigned int free_cpus;
+
+        /**
+         *  cpu_id - vm_id map. represents assigment status of the
+         *  cpu thread, (-1) means the VM is free.
+         */
+        std::map<unsigned int, int> cpus;
+
+        /**
+         *  @return a VectorAttribute representing this core in the form:
+         *    CORE = [ ID = "3", CPUS = "3:-1,7:-1", FREE = 2]
+         */
+        VectorAttribute * to_attribute();
     };
 
     //This stuct represents the hugepages available in the node
@@ -217,6 +238,12 @@ private:
         unsigned int  free;
 
         //TODO?: allocation information
+
+        /**
+         *  @return a VectorAttribute representing this core in the form:
+         *    HUGEPAGE = [ SIZE = "1048576", PAGES = "0", FREE = "0"]
+         */
+        VectorAttribute * to_attribute();
     };
 
     unsigned int node_id;
@@ -228,13 +255,38 @@ private:
 
     //--------------------------------------------------------------------------
     //--------------------------------------------------------------------------
-    bool set_core(unsigned int core_id, std::string& cpus);
 
-    bool set_hugepage(unsigned long size, unsigned int nr, unsigned int fr);
+    /**
+     *  Creates a new Core element and associates it to this node. If the
+     *  core already exists this function does nothing
+     *    @param id of core
+     *    @param cpus string representing the cpu_id and allocation
+     *    @param free cpus in core -1 to derive them from cpus string
+     *    @param update if true also adds the core to the object Template
+     */
+    void set_core(unsigned int id, std::string& cpus, int free, bool update);
+
+    /**
+     *  Replaces the representation of the corresponding CORE attribute
+     */
+    void update_core(unsigned int core_id);
+
+    /**
+     *  Creates a new HugePage element and associates it to this node. If a
+     *  hugepage of the same size already exists this function does nothing
+     *    @param size in kb of the page
+     *    @param nr number of pages
+     *    @param free pages
+     *    @param update if true also adds the page to the object Template
+     */
+    void set_hugepage(unsigned long size, unsigned int nr, unsigned int fr,
+            bool update);
+
+    void update_hugepage(unsigned long size);
 };
 
 /**
- *  This class includes a list of all NUMA nodes in the host. And structure as 
+ *  This class includes a list of all NUMA nodes in the host. And structure as
  *  follows:
  *
  *    <NUMA_NODES>

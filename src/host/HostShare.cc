@@ -378,9 +378,101 @@ ostream& operator<<(ostream& os, const HostSharePCI& pci)
     return os;
 }
 
-/* ************************************************************************ */
-/* HostSharePCI                                                             */
-/* ************************************************************************ */
+/* ************************************************************************** */
+/* ************************************************************************** */
+/* HostShareNode                                                              */
+/* ************************************************************************** */
+/* ************************************************************************** */
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
+HostShareNode::Core::Core(unsigned int _i, const std::string& _c, int fc):id(_i)
+{
+    std::stringstream cpu_s(_c);
+
+    std::string thread;
+
+    free_cpus = 0;
+
+    while (getline(cpu_s, thread, ','))
+    {
+        unsigned int cpu_id;
+        int vm_id = -1;
+
+        if (thread.empty())
+        {
+            continue;
+        }
+
+        std::replace(thread.begin(), thread.end(), ':', ' ');
+        std::stringstream thread_s(thread);
+
+        if (!(thread_s >> cpu_id))
+        {
+            continue;
+        }
+
+        if (!(thread_s >> vm_id) || vm_id < -1)
+        {
+            vm_id = -1;
+        }
+
+        cpus.insert(std::make_pair(cpu_id, vm_id));
+
+        if ( vm_id == -1 )
+        {
+            free_cpus++;
+        }
+    }
+
+    if ( fc != -1 ) //free_cpus is set in CORE attribute
+    {
+        free_cpus = fc;
+    }
+}
+
+// -----------------------------------------------------------------------------
+
+VectorAttribute * HostShareNode::Core::to_attribute()
+{
+    ostringstream oss;
+
+    for (auto cit = cpus.begin(); cit != cpus.end(); ++cit)
+    {
+        if (cit != cpus.begin())
+        {
+            oss << ",";
+        }
+
+        oss << cit->first << ":" << cit->second;
+    }
+
+    VectorAttribute * vcore = new VectorAttribute("CORE");
+
+    vcore->replace("ID", id);
+    vcore->replace("CPUS", oss.str());
+    vcore->replace("FREE", free_cpus);
+
+    return vcore;
+}
+
+// -----------------------------------------------------------------------------
+
+VectorAttribute * HostShareNode::HugePage::to_attribute()
+{
+    VectorAttribute * vpage = new VectorAttribute("HUGEPAGE");
+
+    vpage->replace("SIZE", size_kb);
+    vpage->replace("PAGES", nr);
+    vpage->replace("FREE", free);
+
+    return vpage;
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
 int HostShareNode::from_xml_node(const xmlNodePtr &node)
 {
     int rc = Template::from_xml_node(node);
@@ -404,12 +496,14 @@ int HostShareNode::from_xml_node(const xmlNodePtr &node)
     for (auto vc_it = vcores.begin(); vc_it != vcores.end(); ++vc_it)
     {
         unsigned int core_id;
+        int free_cpus = -1;
         std::string  cpus;
 
         (*vc_it)->vector_value("ID", core_id);
         (*vc_it)->vector_value("CPUS", cpus);
+        (*vc_it)->vector_value("FREE", free_cpus);
 
-        set_core(core_id, cpus);
+        set_core(core_id, cpus, free_cpus, false);
     }
 
     vector<VectorAttribute *> vpages;
@@ -427,40 +521,91 @@ int HostShareNode::from_xml_node(const xmlNodePtr &node)
         (*vp_it)->vector_value("PAGES",nr);
         (*vp_it)->vector_value("FREE", free);
 
-        set_hugepage(size_kb, nr, free);
+        set_hugepage(size_kb, nr, free, false);
     }
 
     return 0;
 };
 
-bool HostShareNode::set_core(unsigned int core_id, std::string& cpus)
+// -----------------------------------------------------------------------------
+
+void HostShareNode::update_core(unsigned int tci)
 {
-    if ( cores.find(core_id) != cores.end() )
+    auto core_it = cores.find(tci);
+
+    if ( core_it == cores.end() )
     {
-        return false;
+        return;
     }
 
-    Core c(core_id, cpus);
+    vector<VectorAttribute *> vcores;
+
+    get("CORE", vcores);
+
+    for (auto vc_it = vcores.begin(); vc_it != vcores.end(); ++vc_it)
+    {
+        unsigned int core_id;
+
+        (*vc_it)->vector_value("ID", core_id);
+
+        if ( core_id == tci )
+        {
+            remove(*vc_it);
+
+            delete (*vc_it);
+
+            break;
+        }
+    }
+
+    set(core_it->second.to_attribute());
+}
+
+// -----------------------------------------------------------------------------
+
+void HostShareNode::set_core(unsigned int id, std::string& cpus, int free,
+        bool update)
+{
+    if ( cores.find(id) != cores.end() )
+    {
+        return;
+    }
+
+    Core c(id, cpus, free);
 
     cores.insert(make_pair(c.id, c));
 
-    return true;
+    if (update)
+    {
+        set(c.to_attribute());
+    }
 }
 
-bool HostShareNode::set_hugepage(unsigned long size, unsigned int nr,
-        unsigned int fr)
+// -----------------------------------------------------------------------------
+
+void HostShareNode::set_hugepage(unsigned long size, unsigned int nr,
+        unsigned int fr, bool update)
 {
     if ( pages.find(size) != pages.end() )
     {
-        return false;
+        return;
     }
 
     HugePage h = {size, nr, fr};
 
     pages.insert(make_pair(h.size_kb, h));
 
-    return true;
+    if (update)
+    {
+        set(h.to_attribute());
+    }
 }
+
+/* ************************************************************************** */
+/* ************************************************************************** */
+/* HostShareNUMA                                                              */
+/* ************************************************************************** */
+/* ************************************************************************** */
 
 int HostShareNUMA::from_xml_node(const vector<xmlNodePtr> &ns)
 {
@@ -478,6 +623,8 @@ int HostShareNUMA::from_xml_node(const vector<xmlNodePtr> &ns)
 
     return 0;
 }
+
+// -----------------------------------------------------------------------------
 
 void HostShareNUMA::set_monitorization(Template &ht)
 {
@@ -502,15 +649,7 @@ void HostShareNUMA::set_monitorization(Template &ht)
 
         HostShareNode& node = get_node(node_id);
 
-        if ( node.set_core(core_id, cpus) == true )
-        {
-            VectorAttribute * vcore = new VectorAttribute("CORE");
-
-            vcore->replace("ID", core_id);
-            vcore->replace("CPUS", cpus);
-
-            node.set(vcore);
-        }
+        node.set_core(core_id, cpus, -1, true);
     }
 
     std::vector<VectorAttribute *> pages;
@@ -535,18 +674,11 @@ void HostShareNUMA::set_monitorization(Template &ht)
 
         HostShareNode& node = get_node(node_id);
 
-        if ( node.set_hugepage(size, free, pages) == true )
-        {
-            VectorAttribute * vpage = new VectorAttribute("HUGEPAGE");
-
-            vpage->replace("SIZE", size);
-            vpage->replace("PAGES", pages);
-            vpage->replace("FREE", free);
-
-            node.set(vpage);
-        }
+        node.set_hugepage(size, free, pages, true);
     }
 }
+
+// -----------------------------------------------------------------------------
 
 HostShareNode& HostShareNUMA::get_node(unsigned int idx)
 {
@@ -563,6 +695,8 @@ HostShareNode& HostShareNUMA::get_node(unsigned int idx)
 
     return *(n);
 }
+
+// -----------------------------------------------------------------------------
 
 std::string& HostShareNUMA::to_xml(std::string& xml) const
 {
