@@ -21,6 +21,8 @@
 #include <stdexcept>
 #include <iomanip>
 
+#include <math.h>
+
 #include "HostShare.h"
 #include "Host.h"
 
@@ -579,6 +581,9 @@ void HostShareNode::set_core(unsigned int id, std::string& cpus, int free,
     {
         set(c.to_attribute());
     }
+
+    //update threads/core it assumes an homogenous architecture
+    threads_core = c.cpus.size();
 }
 
 // -----------------------------------------------------------------------------
@@ -620,6 +625,15 @@ int HostShareNUMA::from_xml_node(const vector<xmlNodePtr> &ns)
 
         nodes.insert(make_pair(n->node_id, n));
     }
+
+    if ( nodes.empty() )
+    {
+        return 0;
+    }
+
+    // Get threads per core from the first NUMA node, assumes an homogenous
+    // architecture
+    threads_core = nodes.begin()->second->threads_core;
 
     return 0;
 }
@@ -717,6 +731,116 @@ std::string& HostShareNUMA::to_xml(std::string& xml) const
 
     return xml;
 }
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
+static bool sort_node_mem(VectorAttribute *i, VectorAttribute *j)
+{
+    long long mem_i, mem_j;
+
+    i->vector_value("MEMORY", mem_i);
+    j->vector_value("MEMORY", mem_j);
+
+    return mem_i < mem_j;
+}
+
+void HostShareNUMA::make_topology(HostShareRequest &sr)
+{
+    int t_max; //Max threads per core for this topology
+    std::set<int> t_valid; //Viable threads per core combinations for all nodes
+
+    // -------------------------------------------------------------------------
+    // User preferences will be used if possible if not they fix an upperbound
+    // for the topology parameter.
+    // -------------------------------------------------------------------------
+    int v_t = 0;
+    int c_t = 0;
+    int s_t = 0;
+
+    sr.topology->vector_value("THREADS", v_t);
+    sr.topology->vector_value("CORES", c_t);
+    sr.topology->vector_value("SOCKETS", s_t);
+
+    //TODO: improve enum handler or dedicated method in VirtualMachine
+    std::string policy = sr.topology->vector_value("POLICY");
+
+    bool dedicated = one_util::toupper(policy) == "DEDICATED";
+
+    //--------------------------------------------------------------------------
+    // Compute threads per core in this host:
+    //   - prefer as close as possible to HW configuration, power of 2 (*).
+    //   - t_max = min(VM, Host). Do not exceed host threads/core
+    //   - possible thread number = 1, 2, 4, 8... t_max
+    //   - prefer higher number of threads and closer to user request
+    //   - It should be the same for each virtual numa node
+    //
+    // (*) Typically processores are 2-way or 4-way SMT
+    //--------------------------------------------------------------------------
+    if ( dedicated )
+    {
+        t_max = 1;
+
+        t_valid.insert(1);
+    }
+    else
+    {
+        t_max = v_t;
+
+        if ( t_max > threads_core || t_max == 0 )
+        {
+            t_max = threads_core;
+        }
+
+        t_max = 1 << (int) floor(log2((double) t_max));
+
+        //Number of virtual numa nodes compatible for each threads/core value
+        std::map<unsigned int, int> tc_node;
+
+        for (auto vn_it = sr.nodes.begin(); vn_it != sr.nodes.end(); ++vn_it)
+        {
+            unsigned int total_cpus = 0;
+
+            (*vn_it)->vector_value("TOTAL_CPUS", total_cpus);
+
+            for (int i = t_max; i >= 1 ; i = i / 2 )
+            {
+                std::div_t d = std::div(total_cpus, i);
+
+                if ( d.rem != 0 )
+                {
+                    continue;
+                }
+
+                tc_node[i] = tc_node[i] + 1;
+            }
+        }
+
+        for (int i = t_max; i >= 1 ; i = i / 2 )
+        {
+            if ( tc_node[i] == sr.nodes.size() )
+            {
+                t_valid.insert(i);
+            }
+        }
+    }
+
+    //--------------------------------------------------------------------------
+    // Schedule NUMA_NODES in the host using t_valid threads/core configurations
+    // Heuristc, Best fit
+    //--------------------------------------------------------------------------
+    std::sort(sr.nodes.begin(), sr.nodes.end(), sort_node_mem);
+
+    for (auto vn_it = sr.nodes.begin(); vn_it != sr.nodes.end(); ++vn_it)
+    {
+        long long    n_mem;
+        unsigned int n_cpu;
+
+        (*vn_it)->vector_value("TOTAL_CPUS", n_cpu);
+        (*vn_it)->vector_value("MEMORY", n_mem);
+    }
+};
+
 
 /* ************************************************************************ */
 /* HostShare :: Constructor/Destructor                                      */

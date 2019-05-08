@@ -23,8 +23,37 @@
 #include <set>
 #include <map>
 
+//Forward declarations
+class Host;
+class HostShareNUMA;
+
 /* ------------------------------------------------------------------------ */
 /* ------------------------------------------------------------------------ */
+
+/**
+ *   This class represents a HostShare capacity request from a VM. The following
+ *   attributes are updated with the final allocation in the Host:
+ *     - topology, number of sockets, cores and threads
+ *     - pci, with device address
+ *     - nodes with the numa nodes configured for the VM
+ */
+struct HostShareRequest
+{
+    unsigned int vcpu;
+
+    long long cpu;
+    long long mem;
+    long long disk;
+
+    vector<VectorAttribute *> pci;
+
+    VectorAttribute * topology;
+
+    vector<VectorAttribute *> nodes;
+};
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 
 class HostShareDatastore : public Template
 {
@@ -33,6 +62,9 @@ public:
 
     virtual ~HostShareDatastore(){};
 };
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 
 /**
  *  This class represents a PCI DEVICE list for the host. The list is in the
@@ -162,7 +194,9 @@ private:
     map <string, PCIDevice *> pci_devices;
 };
 
-class HostShareNUMA;
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 
 /**
  *  This class represents the NUMA nodes in a hypervisor for the following attr:
@@ -181,8 +215,9 @@ class HostShareNUMA;
 class HostShareNode : public Template
 {
 public:
-    HostShareNode() : Template(false, '=', "NODE"){};
-    HostShareNode(unsigned int i) : Template(false, '=', "NODE"), node_id(i)
+    HostShareNode() : Template(false, '=', "NODE"), threads_core(1){};
+    HostShareNode(unsigned int i) : Template(false, '=', "NODE"), node_id(i),
+        threads_core(1)
     {
         replace("NODE_ID", i);
     };
@@ -190,6 +225,24 @@ public:
     virtual ~HostShareNode(){};
 
     int from_xml_node(const xmlNodePtr &node);
+
+    /**
+     *  Get free capacity of the node
+     *    @param fcpus number of free virtual cores
+     *    @param memory free in the node
+     *    @param threads_core per virtual core
+     */
+    void free_capacity(unsigned int &fcpus, long long &memory, int threads_core)
+    {
+        fcpus  = 0;
+        memory = 0; //TODO copy from memory info
+
+        for (auto it = cores.begin(); it != cores.end(); ++it)
+        {
+            std::div_t div = std::div(it->second.free_cpus, threads_core);
+            fcpus += div.quot;
+        }
+    }
 
 private:
     friend class HostShareNUMA;
@@ -246,7 +299,15 @@ private:
         VectorAttribute * to_attribute();
     };
 
+    /**
+     *  ID of this node as reported by the Host
+     */
     unsigned int node_id;
+
+    /**
+     *  Threads per core in this node
+     */
+    unsigned int threads_core;
 
     std::map<unsigned int, struct Core> cores;
     std::map<unsigned long, struct HugePage> pages;
@@ -285,6 +346,9 @@ private:
     void update_hugepage(unsigned long size);
 };
 
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
 /**
  *  This class includes a list of all NUMA nodes in the host. And structure as
  *  follows:
@@ -313,7 +377,7 @@ private:
 class HostShareNUMA
 {
 public:
-    HostShareNUMA(){};
+    HostShareNUMA():threads_core(1){};
 
     virtual ~HostShareNUMA()
     {
@@ -339,11 +403,25 @@ public:
      */
     string& to_xml(string& xml) const;
 
+    /**
+     * Computes the virtual topology for this VM in this host based on:
+     *   - user preferences TOPOLOGY/[SOCKETS, CORES, THREADS].
+     *   - Architecture of the Host core_threads
+     *   - allocation policy
+     */
+    void make_topology(HostShareRequest &sr);
+
 private:
+    /**
+     *  Number of threads per core of the host
+     */
+    unsigned int threads_core;
+
     std::map<unsigned int, HostShareNode *> nodes;
 };
 
-class Host;
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 
 /**
  *  The HostShare class. It represents a logical partition of a host...
