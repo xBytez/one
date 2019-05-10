@@ -19,6 +19,7 @@
 
 #include <string>
 
+#include "Template.h"
 #include "PoolObjectSQL.h"
 
 using namespace std;
@@ -32,12 +33,36 @@ public:
      */
     enum HookType
     {
-        ALLOCATE = 0x01,
-        UPDATE   = 0x02,
-        REMOVE   = 0x04,
-        STATE    = 0x08,
-        API      = 0x10
+        STATE     = 0x01,
+        API       = 0x02,
+        UNDEFINED = 0x04
     };
+
+    static string hook_type_to_str(HookType ht)
+    {
+        switch(ht)
+        {
+            case STATE:     return "state";
+            case API:       return "api";
+            case UNDEFINED: return "";
+        }
+    };
+
+    static HookType str_to_hook_type(const string& ht)
+    {
+        if (ht == "state")
+        {
+            return STATE;
+        }
+        else if (ht == "api")
+        {
+            return API;
+        }
+        else
+        {
+            return UNDEFINED;
+        }
+    }
 
     /**
      *  Executes the hook it self (usually with the aid of the ExecutionManager)
@@ -45,30 +70,75 @@ public:
      */
     virtual void do_hook(void *arg) = 0;
 
-private:
-
-    friend class HookPool;
+protected:
 
     // *************************************************************************
     // Constructor/Destructor
     // *************************************************************************
 
-    Hook(
-        int id,
-        const string &_name,
-        const string &_cmd,
-        const string &_args,
-        HookType  _ht,
-        PoolObjectSQL::ObjectType  _rt,
-        bool _remote):
-            PoolObjectSQL(id,HOOK,_name,-1,-1,"","",table),
-            type(_ht),
-            resource_type(_rt),
-            cmd(_cmd),
-            args(_args),
-            remote(_remote){};
+    Hook(Template * tmpl):
+        PoolObjectSQL(-1,HOOK,"",-1,-1,"","",table),
+        type(HookType::UNDEFINED),
+        cmd(""),
+        args(""),
+        remote(false)
+    {
+        if (tmpl != 0)
+        {
+            obj_template = tmpl;
+        }
+        else
+        {
+            obj_template = new Template();
+        }
+    };
 
-    virtual ~Hook();
+    virtual ~Hook(){};
+
+    /**
+     *  Execute an INSERT or REPLACE Sql query.
+     *    @param db The SQL DB
+     *    @param replace Execute an INSERT or a REPLACE
+     *    @param error_str Returns the error reason, if any
+     *    @return 0 one success
+     */
+    int insert_replace(SqlDB *db, bool replace, string& error_str);
+
+    /**
+     *  Rebuilds the object from an xml formatted string
+     *    @param xml_str The xml-formatted string
+     *
+     *    @return 0 on success, -1 otherwise
+     */
+    virtual int from_xml(const string &xml_str);
+
+    // -------------------------------------------------------------------------
+    // Hook Attributes
+    // -------------------------------------------------------------------------
+
+    /**
+     * The hook type
+     */
+    HookType type;
+
+    /**
+     *  The command to be executed
+     */
+    string   cmd;
+
+    /**
+     *  The arguments for the command
+     */
+    string   args;
+
+    /**
+     *  True if the command is to be executed remotely
+     */
+    bool     remote;
+
+private:
+
+    friend class HookPool;
 
     /**
      *  Parses the arguments of the hook using a generic $ID identifier, and
@@ -87,15 +157,6 @@ private:
      */
     string& to_xml(string& xml) const;
 
-    /**
-     *  Rebuilds the object from an xml formatted string
-     *    @param xml_str The xml-formatted string
-     *
-     *    @return 0 on success, -1 otherwise
-     */
-    int from_xml(const string &xml_str);
-
-
     // *************************************************************************
     // Database implementation
     // *************************************************************************
@@ -105,15 +166,6 @@ private:
     static const char * db_bootstrap;
 
     static const char * table;
-
-    /**
-     *  Execute an INSERT or REPLACE Sql query.
-     *    @param db The SQL DB
-     *    @param replace Execute an INSERT or a REPLACE
-     *    @param error_str Returns the error reason, if any
-     *    @return 0 one success
-     */
-    int insert_replace(SqlDB *db, bool replace, string& error_str);
 
     /**
      *  Bootstraps the database table(s) associated to the Host
@@ -131,16 +183,6 @@ private:
     };
 
     /**
-     *  Writes the Host and its associated HostShares in the database.
-     *    @param db pointer to the db
-     *    @return 0 on success
-     */
-    int insert(SqlDB *db, string& error_str)
-    {
-        return insert_replace(db, false, error_str);
-    };
-
-    /**
      *  Writes/updates the Hosts data fields in the database.
      *    @param db pointer to the db
      *    @return 0 on success
@@ -150,35 +192,6 @@ private:
         string error_str;
         return insert_replace(db, true, error_str);
     };
-
-    // -------------------------------------------------------------------------
-    // Hook Attributes
-    // -------------------------------------------------------------------------
-
-    /**
-     * The hook type
-     */
-    HookType type;
-
-    /**
-     * The type of the resource which change trigger the hook
-     */
-    PoolObjectSQL::ObjectType resource_type;
-
-    /**
-     *  The command to be executed
-     */
-    string   cmd;
-
-    /**
-     *  The arguments for the command
-     */
-    string   args;
-
-    /**
-     *  True if the command is to be executed remotely
-     */
-    bool     remote;
 
 };
 

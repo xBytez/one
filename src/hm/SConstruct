@@ -24,6 +24,8 @@ lib_name='nebula_hm'
 source_files=[
     'Hook_.cc',
 	'Hook.cc',
+    'HookPool.cc',
+    'HookAPI.cc',
     'HookManager.cc',
     'HookManagerDriver.cc'
 ]

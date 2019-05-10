@@ -14,46 +14,63 @@
 /* limitations under the License.                                             */
 /* -------------------------------------------------------------------------- */
 
+#ifndef HOOK_API_H_
+#define HOOK_API_H_
+
+#include <string>
+
 #include "Hook.h"
-#include "HookAPI.h"
-#include "HookPool.h"
 
-int HookPool::allocate (Template * tmpl, Hook::HookType type, string& error_str)
+using namespace std;
+
+class HookAPI : public Hook
 {
-    Hook * hook;
-    int db_oid;
-
-    ostringstream oss;
-
-    hook = new HookAPI(tmpl);
-
-    int oid = PoolSQL::allocate(hook, error_str);
-
-    if (!PoolObjectSQL::name_is_valid(hook->name, error_str))
+public:
+    void do_hook(void *arg)
     {
-        goto error_name;
+        return;
     }
+private:
+    friend class HookPool;
+    // *************************************************************************
+    // Constructor/Destructor
+    // *************************************************************************
 
-    db_oid = exist(hook->name);
-
-    if ( db_oid != -1 )
+    HookAPI(Template * tmpl):
+        Hook(tmpl),
+        call("")
     {
-        goto error_duplicated;
-    }
+        if (tmpl != 0)
+        {
+            obj_template = tmpl;
+        }
+        else
+        {
+            obj_template = new Template();
+        }
+    };
 
-    return oid;
+    virtual ~HookAPI(){};
 
-error_duplicated:
-    oss << "NAME is already taken by Hook " << db_oid << ".";
-    error_str = oss.str();
+    /**
+     *  Writes the Host and its associated HostShares in the database.
+     *    @param db pointer to the db
+     *    @return 0 on success
+     */
+    int insert(SqlDB *db, string& error_str);
 
-    goto error_common;
-error_name:
-    oss << "Invalid name.";
-    error_str = oss.str();
+    /**
+     *  Rebuilds the object from an xml formatted string
+     *    @param xml_str The xml-formatted string
+     *
+     *    @return 0 on success, -1 otherwise
+     */
+    int from_xml(const string &xml_str);
 
-error_common:
-    oid = -1;
+    /**
+     *  String representation of the API call
+     */
+    string call;
+};
 
-    return oid;
-}
+#endif

@@ -25,23 +25,16 @@ using namespace std;
 class HookPool : public PoolSQL
 {
 public:
-    HostPool(SqlDB * db) : PoolSQL(db, Hook::table);
+    HookPool(SqlDB * db) : PoolSQL(db, Hook::table){};
 
-    ~HostPool(){};
+    ~HookPool(){};
 
     /**
      *  Function to allocate a new Hook object
      *    @param oid the id assigned to the Hook
      *    @return the oid assigned to the object or -1 in case of failure
      */
-    int allocate (
-        int *  oid,
-        const string& name,
-        const string& cmd,
-        const string& args,
-        HookType  _ht,
-        PoolObjectSQL::ObjectType  _rt,
-        bool remote);
+    int allocate (Template * tmpl, Hook::HookType type, string& error_str);
 
     /**
      *  Function to get a Hook from the pool, if the object is not in memory
@@ -93,7 +86,7 @@ public:
      */
     static int bootstrap(SqlDB *_db)
     {
-        return Host::bootstrap(_db);
+        return Hook::bootstrap(_db);
     };
 
     /**
@@ -109,6 +102,8 @@ public:
     int dump(string& oss, const string& where, const string& limit,
         bool desc)
     {
-        return PoolSQL::dump(oss, "HOOK_POOL", "body", Host::table, where, limit, desc);
+        return PoolSQL::dump(oss, "HOOK_POOL", "body", Hook::table, where, limit, desc);
     };
-}
+};
+
+#endif

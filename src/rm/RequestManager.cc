@@ -427,6 +427,7 @@ void RequestManager::register_xml_methods()
     xmlrpc_c::methodPtr vrouter_allocate(new VirtualRouterAllocate());
     xmlrpc_c::methodPtr vmg_allocate(new VMGroupAllocate());
     xmlrpc_c::methodPtr vntemplate_allocate(new VirtualNetworkTemplateAllocate());
+    xmlrpc_c::methodPtr hook_allocate(new HookAllocate());
 
     // Clone Methods
     xmlrpc_c::methodPtr template_clone(new VMTemplateClone());
@@ -570,6 +571,8 @@ void RequestManager::register_xml_methods()
 
     // Security Group methods
     xmlrpc_c::methodPtr secg_commit(new SecurityGroupCommit());
+
+    // Hook methods
 
     /* VM related methods  */
     RequestManagerRegistry.addMethod("one.vm.deploy", vm_deploy);
@@ -1201,6 +1204,18 @@ void RequestManager::register_xml_methods()
     RequestManagerRegistry.addMethod("one.marketapp.rename", marketapp_rename);
 
     RequestManagerRegistry.addMethod("one.marketapppool.info", marketapppool_info);
+
+    /* Hooks related methods */
+    RequestManagerRegistry.addMethod("one.hook.allocate", hook_allocate);
+    //RequestManagerRegistry.addMethod("one.hook.delete", );
+    //RequestManagerRegistry.addMethod("one.hook.update", );
+    //RequestManagerRegistry.addMethod("one.hook.run", );
+    //RequestManagerRegistry.addMethod("one.hook.rename", );
+    //RequestManagerRegistry.addMethod("one.hook.info", );
+    //RequestManagerRegistry.addMethod("one.hook.lock", );
+    //RequestManagerRegistry.addMethod("one.hook.unlock", );
+    //RequestManagerRegistry.addMethod("one.hookpool.info", );
+
 
     /* System related methods */
     RequestManagerRegistry.addMethod("one.system.version", system_version);

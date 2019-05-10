@@ -16,7 +16,7 @@
 
 #include "Hook.h"
 #include "Nebula.h"
-
+#include "string"
 
 /* ************************************************************************ */
 /* Hook :: Database Access Functions                                        */
@@ -27,7 +27,7 @@ const char * Hook::table = "hook_pool";
 const char * Hook::db_names =
     "oid, name, body, uid, gid, owner_u, group_u, other_u, type, resource_type";
 
-const char * Host::db_bootstrap = "CREATE TABLE IF NOT EXISTS hook_pool ("
+const char * Hook::db_bootstrap = "CREATE TABLE IF NOT EXISTS hook_pool ("
     "oid INTEGER PRIMARY KEY, name VARCHAR(128), body MEDIUMTEXT, uid INTEGER,"
     "gid INTEGER, owner_u INTEGER, group_u INTEGER, other_u INTEGER, type INTEGER,"
     " resource_type INTEGER)";
@@ -110,7 +110,6 @@ string& Hook::to_xml(string& xml) const
     "<HOOK>"
         "<ID>"     << oid    << "</ID>"     <<
         "<NAME>"   << name   << "</NAME>"   <<
-        "<REMOTE>" << remote << "</REMOTE>" <<
         "<TEMPLATE>" <<
             obj_template->to_xml(template_xml)  <<
         "</TEMPLATE>" <<
@@ -130,24 +129,12 @@ int Hook::from_xml(const string& xml)
 
     int rc = 0;
 
-    int remote_int;
-
     // Initialize the internal XML object
     update_from_str(xml);
 
     // Get class base attributes
     rc += xpath(oid,    "/HOOK/ID", -1);
     rc += xpath(name,   "/HOOK/NAME",   "not_found");
-    rc += xpath(remote_int, "/HOOK/REMOTE", -1);
-
-    if (remote_int > 0)
-    {
-        remote = true;
-    }
-    else
-    {
-        remote = false;
-    }
 
     // Set the owner and group to oneadmin
     set_user(0, "");
@@ -155,7 +142,7 @@ int Hook::from_xml(const string& xml)
 
     // ------------ Template ---------------
 
-    ObjectXML::get_nodes("/HOST/TEMPLATE", content);
+    ObjectXML::get_nodes("/HOOK/TEMPLATE", content);
 
     if( content.empty())
     {
@@ -218,7 +205,6 @@ int Hook::insert_replace(SqlDB *db, bool replace, string& error_str){
     }
 
     // Construct the SQL statement to Insert or Replace
-
     oss <<" INTO "<<table <<" ("<< db_names <<") VALUES ("
         <<          oid            << ","
         << "'" <<   sql_name       << "',"
@@ -228,8 +214,7 @@ int Hook::insert_replace(SqlDB *db, bool replace, string& error_str){
         <<          owner_u        << ","
         <<          group_u        << ","
         <<          other_u        << ","
-        <<          type           << ","
-        <<          resource_type  << ")";
+        <<          type           << ")";
 
     rc = db->exec_wr(oss);
 

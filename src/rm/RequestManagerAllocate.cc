@@ -21,6 +21,7 @@
 #include "MarketPlacePool.h"
 #include "MarketPlaceAppPool.h"
 #include "VirtualMachineDisk.h"
+#include "HookPool.h"
 
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
@@ -1325,3 +1326,24 @@ Request::ErrorCode VMGroupAllocate::pool_allocate(
     return Request::SUCCESS;
 }
 
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+Request::ErrorCode HookAllocate::pool_allocate(
+        xmlrpc_c::paramList const&  paramList,
+        Template *                  tmpl,
+        int&                        id,
+        RequestAttributes&          att)
+{
+    HookPool * hkpool = static_cast<HookPool *>(pool);
+    string     hk_type = xmlrpc_c::value_string(paramList.getString(1));
+
+    int rc = hkpool->allocate(tmpl, Hook::str_to_hook_type(hk_type), att.resp_msg);
+
+    if (rc < 0)
+    {
+        return Request::INTERNAL;
+    }
+
+    return Request::SUCCESS;
+}
