@@ -226,23 +226,62 @@ public:
 
     int from_xml_node(const xmlNodePtr &node);
 
+    //--------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     /**
      *  Get free capacity of the node
      *    @param fcpus number of free virtual cores
      *    @param memory free in the node
      *    @param threads_core per virtual core
      */
-    void free_capacity(unsigned int &fcpus, long long &memory, int threads_core)
+    void free_capacity(unsigned int &fcpus, long long &memory, unsigned int tc)
     {
         fcpus  = 0;
         memory = 0; //TODO copy from memory info
 
         for (auto it = cores.begin(); it != cores.end(); ++it)
         {
-            std::div_t div = std::div(it->second.free_cpus, threads_core);
-            fcpus += div.quot;
+            fcpus = fcpus + it->second.free_cpus / tc;
         }
     }
+
+    void free_dedicated_capacity(unsigned int &fcpus, long long &memory)
+    {
+        fcpus  = 0;
+        memory = 0; //TODO copy from memory info
+
+        for (auto it = cores.begin(); it != cores.end(); ++it)
+        {
+            if ( it->second.free_cpus == threads_core )
+            {
+                fcpus = fcpus + 1;
+            }
+        }
+    }
+
+    //--------------------------------------------------------------------------
+
+    /**
+     *  Allocate tcpus with a dedicated policy
+     *    @param id of the VM allocating the CPUs
+     *    @param tcpus total number of cpus
+     *    @param c_s the resulting allocation string CPUS="0,4,2,6"
+     *
+     *    @return 0 on success
+     */
+    int allocate_dedicated_cpus(int id, unsigned int tcpus, std::string &c_s);
+
+    /**
+     *  Allocate tcpus with a HT policy
+     *    @param id of the VM allocating the CPUs
+     *    @param tcpus total number of cpus
+     *    @param tc allocate cpus in tc (threads/core) chunks
+     *    @param c_s the resulting allocation string CPUS="0,4,2,6"
+     *
+     *    @return 0 on success
+     */
+    int allocate_ht_cpus(int id, unsigned int tcpus, unsigned int tc,
+            std::string &c_s);
 
 private:
     friend class HostShareNUMA;
@@ -328,9 +367,9 @@ private:
     void set_core(unsigned int id, std::string& cpus, int free, bool update);
 
     /**
-     *  Replaces the representation of the corresponding CORE attribute
+     *  Regenerate the template representation of the CORES for this node.
      */
-    void update_core(unsigned int core_id);
+    void update_template_cores();
 
     /**
      *  Creates a new HugePage element and associates it to this node. If a
@@ -409,7 +448,7 @@ public:
      *   - Architecture of the Host core_threads
      *   - allocation policy
      */
-    void make_topology(HostShareRequest &sr);
+    int make_topology(HostShareRequest &sr);
 
 private:
     /**

@@ -530,37 +530,105 @@ int HostShareNode::from_xml_node(const xmlNodePtr &node)
 };
 
 // -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 
-void HostShareNode::update_core(unsigned int tci)
+int HostShareNode::allocate_dedicated_cpus(int id, unsigned int tcpus,
+        std::string &c_s)
 {
-    auto core_it = cores.find(tci);
+    std::ostringstream oss;
 
-    if ( core_it == cores.end() )
+    for (auto vc_it = cores.begin(); vc_it != cores.end(); ++vc_it)
     {
-        return;
+        HostShareNode::Core &core = vc_it->second;
+
+        if ( core.free_cpus != threads_core )
+        {
+            continue;
+        }
+
+        core.cpus.begin()->second = id;
+
+        core.free_cpus = 0;
+
+        oss << core.cpus.begin()->first;
+
+        if ( --tcpus == 0 )
+        {
+            c_s = oss.str();
+            break;
+        }
+
+        oss << ",";
     }
 
-    vector<VectorAttribute *> vcores;
-
-    get("CORE", vcores);
-
-    for (auto vc_it = vcores.begin(); vc_it != vcores.end(); ++vc_it)
+    if ( tcpus != 0 )
     {
-        unsigned int core_id;
+        return -1;
+    }
 
-        (*vc_it)->vector_value("ID", core_id);
+    update_template_cores();
 
-        if ( core_id == tci )
+    return 0;
+}
+
+// -----------------------------------------------------------------------------
+
+int HostShareNode::allocate_ht_cpus(int id, unsigned int tcpus, unsigned int tc,
+        std::string &c_s)
+{
+    std::ostringstream oss;
+
+    for (auto vc_it = cores.begin(); vc_it != cores.end() && tcpus > 0; ++vc_it)
+    {
+        HostShareNode::Core &core = vc_it->second;
+
+        unsigned int c_to_alloc = ( core.free_cpus/tc ) * tc;
+
+        auto vit = core.cpus.begin();
+
+        for (int i=0; i < c_to_alloc && vit != core.cpus.end() ; ++i, ++vit)
         {
-            remove(*vc_it);
+            if (vit->second != -1)
+            {
+                continue;
+            }
 
-            delete (*vc_it);
+            vit->second = id;
 
-            break;
+            core.free_cpus--;
+
+            oss << vit->first;
+
+            if ( --tcpus == 0 )
+            {
+                break;
+            }
+
+            oss << ",";
         }
     }
 
-    set(core_it->second.to_attribute());
+    if ( --tcpus != 0 )
+    {
+        return -1;
+    }
+
+    update_template_cores();
+
+    return 0;
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
+void HostShareNode::update_template_cores()
+{
+    erase("CORE");
+
+    for (auto vc_it = cores.begin(); vc_it != cores.end(); ++vc_it)
+    {
+        set(vc_it->second.to_attribute());
+    }
 }
 
 // -----------------------------------------------------------------------------
@@ -734,9 +802,11 @@ std::string& HostShareNUMA::to_xml(std::string& xml) const
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-
+/*
 static bool sort_node_mem(VectorAttribute *i, VectorAttribute *j)
 {
+    std::sort(sr.nodes.begin(), sr.nodes.end(), sort_node_mem);
+
     long long mem_i, mem_j;
 
     i->vector_value("MEMORY", mem_i);
@@ -744,8 +814,20 @@ static bool sort_node_mem(VectorAttribute *i, VectorAttribute *j)
 
     return mem_i < mem_j;
 }
+*/
 
-void HostShareNUMA::make_topology(HostShareRequest &sr)
+struct NUMANodeRequest
+{
+    VectorAttribute * attr;
+
+    unsigned int total_cpus;
+    long long    memory;
+
+    int node_id;
+    std::string cpu_ids;
+};
+
+int HostShareNUMA::make_topology(HostShareRequest &sr)
 {
     int t_max; //Max threads per core for this topology
     std::set<int> t_valid; //Viable threads per core combinations for all nodes
@@ -767,12 +849,31 @@ void HostShareNUMA::make_topology(HostShareRequest &sr)
 
     bool dedicated = one_util::toupper(policy) == "DEDICATED";
 
+    // -------------------------------------------------------------------------
+    // Build NUMA NODE topology request vector
+    // -------------------------------------------------------------------------
+    std::vector<NUMANodeRequest> vm_nodes;
+
+    for (auto vn_it = sr.nodes.begin(); vn_it != sr.nodes.end(); ++vn_it)
+    {
+        VectorAttribute *a_node = *vn_it;
+        unsigned int total_cpus = 0;
+        long long memory        = 0;
+
+        a_node->vector_value("TOTAL_CPUS", total_cpus);
+        a_node->vector_value("MEMORY", memory);
+
+        NUMANodeRequest nr = {a_node, total_cpus, memory, -1};
+
+        vm_nodes.push_back(nr);
+    }
+
     //--------------------------------------------------------------------------
-    // Compute threads per core in this host:
-    //   - prefer as close as possible to HW configuration, power of 2 (*).
-    //   - t_max = min(VM, Host). Do not exceed host threads/core
-    //   - possible thread number = 1, 2, 4, 8... t_max
-    //   - prefer higher number of threads and closer to user request
+    // Compute threads per core (tc) in this host:
+    //   - Prefer as close as possible to HW configuration, power of 2 (*).
+    //   - t_max = min(tc_vm, tc_host). Do not exceed host threads/core
+    //   - Possible thread number = 1, 2, 4, 8... t_max
+    //   - Prefer higher number of threads and closer to user request
     //   - It should be the same for each virtual numa node
     //
     // (*) Typically processores are 2-way or 4-way SMT
@@ -794,20 +895,21 @@ void HostShareNUMA::make_topology(HostShareRequest &sr)
 
         t_max = 1 << (int) floor(log2((double) t_max));
 
-        //Number of virtual numa nodes compatible for each threads/core value
+        // Map <threads/core, virtual nodes>. This is only relevant for
+        // asymmetric configurations, different TOTAL_CPUS per NUMA_NODE stanza
+        //
+        // Example, for 2 numa nodes and 1,2,4 threads/per core
+        // 1 - 2 <---- valid in all nodes
+        // 2 - 2 <---- valid in all nodes
+        // 4 - 1
+        // We'll use 2 thread/core topology
         std::map<unsigned int, int> tc_node;
 
-        for (auto vn_it = sr.nodes.begin(); vn_it != sr.nodes.end(); ++vn_it)
+        for (auto vn_it = vm_nodes.begin(); vn_it != vm_nodes.end(); ++vn_it)
         {
-            unsigned int total_cpus = 0;
-
-            (*vn_it)->vector_value("TOTAL_CPUS", total_cpus);
-
-            for (int i = t_max; i >= 1 ; i = i / 2 )
+            for (unsigned int i = t_max; i >= 1 ; i = i / 2 )
             {
-                std::div_t d = std::div(total_cpus, i);
-
-                if ( d.rem != 0 )
+                if ( (*vn_it).total_cpus%i != 0 )
                 {
                     continue;
                 }
@@ -818,7 +920,7 @@ void HostShareNUMA::make_topology(HostShareRequest &sr)
 
         for (int i = t_max; i >= 1 ; i = i / 2 )
         {
-            if ( tc_node[i] == sr.nodes.size() )
+            if ( tc_node[i] == vm_nodes.size() )
             {
                 t_valid.insert(i);
             }
@@ -826,19 +928,124 @@ void HostShareNUMA::make_topology(HostShareRequest &sr)
     }
 
     //--------------------------------------------------------------------------
-    // Schedule NUMA_NODES in the host using t_valid threads/core configurations
-    // Heuristc, Best fit
+    // Schedule NUMA_NODES in the host exploring t_valid threads/core confs
+    // and using a best-fit heuristic (memory-guided). Valid nodes needs to:
+    //   - Have enough free memory
+    //   - Have enough free CPUS groups of a given number of threads/core.
+    //
+    // Example. TOTAL_CPUS = 4, threads/core = 2 ( - = free, X = used )
+    //   - (-XXX),(--XX), (X-XX) ---> Not valid 1 group of 2 threads (4 CPUS)
+    //   - (----),(--XX), (X---) ---> Valid 4 group of 2 threads (8 CPUS)
+    //
+    // NOTE: We want to pin CPUS in the same core in the VM also to CPUS in the
+    // same core in the host.
     //--------------------------------------------------------------------------
-    std::sort(sr.nodes.begin(), sr.nodes.end(), sort_node_mem);
+    unsigned int na;
 
-    for (auto vn_it = sr.nodes.begin(); vn_it != sr.nodes.end(); ++vn_it)
+    for (auto tc_it = t_valid.begin(); tc_it != t_valid.end(); ++tc_it, na = 0)
     {
-        long long    n_mem;
-        unsigned int n_cpu;
+        for (auto vn_it = vm_nodes.begin(); vn_it != vm_nodes.end(); ++vn_it)
+        {
+            long long mem_after    = 0;
 
-        (*vn_it)->vector_value("TOTAL_CPUS", n_cpu);
-        (*vn_it)->vector_value("MEMORY", n_mem);
+            long long vn_mem    = (*vn_it).memory;
+            unsigned int vn_cpu = (*vn_it).total_cpus;
+
+            (*vn_it).node_id = -1;
+
+            for (auto it = nodes.begin(); it != nodes.end(); ++it)
+            {
+                long long    n_fmem;
+                unsigned int n_fcpu;
+
+                if ( dedicated )
+                {
+                    it->second->free_dedicated_capacity(n_fcpu, n_fmem);
+                }
+                else
+                {
+                    it->second->free_capacity(n_fcpu, n_fmem, (*tc_it));
+                }
+
+                if ( n_fmem <= vn_mem || n_fcpu * (*tc_it) < vn_cpu )
+                {
+                    continue; //virtual node does not fit in host node
+                }
+
+                if ( (*vn_it).node_id == -1 )
+                {
+                    mem_after = n_fmem - vn_mem;
+                    (*vn_it).node_id = it->first;
+                }
+                else if ( (n_fmem - vn_mem) < mem_after ) //node is a better fit
+                {
+                    mem_after = n_fmem - vn_mem;
+                    (*vn_it).node_id = it->first;
+                }
+            }
+
+            if ((*vn_it).node_id == -1)
+            {
+                continue; //Node cannot be allocated with *tc_it threads/core
+            }
+
+            na++;
+        }
+
+        if (na == vm_nodes.size())
+        {
+            v_t = (*tc_it);
+            break;
+        }
     }
+
+    if (na != vm_nodes.size())
+    {
+        return -1;
+    }
+
+    //--------------------------------------------------------------------------
+    // Allocation of NUMA_NODES. Get CPU_IDs for each node
+    //--------------------------------------------------------------------------
+    for (auto vn_it = vm_nodes.begin(); vn_it != vm_nodes.end(); ++vn_it)
+    {
+        auto it = nodes.find((*vn_it).node_id);
+
+        if ( it == nodes.end() ) //Consistency check
+        {
+            return -1;
+        }
+
+        if ( dedicated )
+        {
+            it->second->allocate_dedicated_cpus(0, (*vn_it).total_cpus,
+                    (*vn_it).cpu_ids);
+        }
+        else
+        {
+            it->second->allocate_ht_cpus(0, (*vn_it).total_cpus, v_t,
+                    (*vn_it).cpu_ids);
+        }
+    }
+
+    //--------------------------------------------------------------------------
+    // Update VM topology
+    //--------------------------------------------------------------------------
+    if ( c_t != 0 )
+    {
+        s_t = sr.vcpu / ( v_t * c_t );
+    }
+    else if ( s_t != 0 )
+    {
+        c_t = sr.vcpu / ( v_t * s_t);
+
+    }
+
+    sr.topology->replace("THREADS", v_t);
+    sr.topology->vector_value("CORES", c_t);
+    sr.topology->vector_value("SOCKETS", s_t);
+
+    return 0;
 };
 
 
