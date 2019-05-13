@@ -101,7 +101,7 @@ void Hook::parse_hook_arguments(PoolObjectSQL *obj,
 
 string& Hook::to_xml(string& xml) const
 {
-    string template_xml;
+    string template_xml, lock_str;
 
     ostringstream oss;
 
@@ -110,6 +110,7 @@ string& Hook::to_xml(string& xml) const
         "<ID>"     << oid    << "</ID>"     <<
         "<NAME>"   << name   << "</NAME>"   <<
         "<TYPE>"   << type   << "</TYPE>"   <<
+        lock_db_to_xml(lock_str)            <<
         obj_template->to_xml(template_xml)  <<
     "</HOOK>";
 
@@ -137,6 +138,8 @@ int Hook::from_xml(const string& xml)
     rc += xpath(type_str,   "/HOOK/TYPE",   "");
 
     type = str_to_hook_type(type_str);
+
+    rc += lock_db_from_xml();
 
     // Set the owner and group to oneadmin
     set_user(0, "");

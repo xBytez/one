@@ -73,6 +73,8 @@ string Request::object_name(PoolObjectSQL::ObjectType ob)
             return "vm group";
         case PoolObjectSQL::VNTEMPLATE:
             return "virtual network template";
+        case PoolObjectSQL::HOOK:
+            return "hook";
         default:
             return "-";
       }

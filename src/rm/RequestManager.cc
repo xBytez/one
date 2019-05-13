@@ -447,6 +447,7 @@ void RequestManager::register_xml_methods()
     xmlrpc_c::methodPtr vrouter_delete(new VirtualRouterDelete());
     xmlrpc_c::methodPtr vmg_delete(new VMGroupDelete());
     xmlrpc_c::methodPtr vntemplate_delete(new VirtualNetworkTemplateDelete());
+    xmlrpc_c::methodPtr hook_delete(new HookDelete());
 
     // Info Methods
     xmlrpc_c::methodPtr vm_info(new VirtualMachineInfo());
@@ -480,6 +481,8 @@ void RequestManager::register_xml_methods()
     xmlrpc_c::methodPtr vmg_unlock(new VMGroupUnlock());
     xmlrpc_c::methodPtr vntemplate_lock(new VNTemplateLock());
     xmlrpc_c::methodPtr vntemplate_unlock(new VNTemplateUnlock());
+    xmlrpc_c::methodPtr hook_lock(new HookLock());
+    xmlrpc_c::methodPtr hook_unlock(new HookUnlock());
 
     // PoolInfo Methods
     xmlrpc_c::methodPtr hostpool_info(new HostPoolInfo());
@@ -565,6 +568,7 @@ void RequestManager::register_xml_methods()
     xmlrpc_c::methodPtr vrouter_rename(new VirtualRouterRename());
     xmlrpc_c::methodPtr vmg_rename(new VMGroupRename());
     xmlrpc_c::methodPtr vntemplate_rename(new VirtualNetworkTemplateRename());
+    xmlrpc_c::methodPtr hook_rename(new HookRename());
 
     // Virtual Router Methods
     xmlrpc_c::methodPtr vrouter_instantiate(new VirtualRouterInstantiate());
@@ -1209,13 +1213,13 @@ void RequestManager::register_xml_methods()
 
     /* Hooks related methods */
     RequestManagerRegistry.addMethod("one.hook.allocate", hook_allocate);
-    //RequestManagerRegistry.addMethod("one.hook.delete", );
+    RequestManagerRegistry.addMethod("one.hook.delete", hook_delete);
     //RequestManagerRegistry.addMethod("one.hook.update", );
     //RequestManagerRegistry.addMethod("one.hook.run", );
-    //RequestManagerRegistry.addMethod("one.hook.rename", );
+    RequestManagerRegistry.addMethod("one.hook.rename", hook_rename);
     RequestManagerRegistry.addMethod("one.hook.info", hook_info);
-    //RequestManagerRegistry.addMethod("one.hook.lock", );
-    //RequestManagerRegistry.addMethod("one.hook.unlock", );
+    RequestManagerRegistry.addMethod("one.hook.lock", hook_lock);
+    RequestManagerRegistry.addMethod("one.hook.unlock", hook_unlock);
     RequestManagerRegistry.addMethod("one.hookpool.info", hookpool_info);
 
 

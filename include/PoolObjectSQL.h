@@ -108,6 +108,7 @@ public:
             case MARKETPLACEAPP: return "MARKETPLACEAPP" ; break;
             case VMGROUP:        return "VMGROUP" ; break;
             case VNTEMPLATE:     return "VNTEMPLATE"; break;
+            case HOOK:           return "HOOK"; break;
             default:             return "";
         }
     };
@@ -133,6 +134,7 @@ public:
         else if ( type == "MARKETPLACEAPP" ) return MARKETPLACEAPP ;
         else if ( type == "VMGROUP" )        return VMGROUP ;
         else if ( type == "VNTEMPLATE" )     return VNTEMPLATE ;
+        else if ( type == "HOOK" )           return HOOK;
         else                                 return NONE;
     };
 
