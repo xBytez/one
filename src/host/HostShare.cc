@@ -568,6 +568,8 @@ int HostShareNode::allocate_dedicated_cpus(int id, unsigned int tcpus,
 
     update_template_cores();
 
+    c_s = oss.str();
+
     return 0;
 }
 
@@ -586,7 +588,7 @@ int HostShareNode::allocate_ht_cpus(int id, unsigned int tcpus, unsigned int tc,
 
         auto vit = core.cpus.begin();
 
-        for (int i=0; i < c_to_alloc && vit != core.cpus.end() ; ++i, ++vit)
+        for (unsigned int i=0; i < c_to_alloc && vit != core.cpus.end() ; ++i, ++vit)
         {
             if (vit->second != -1)
             {
@@ -608,12 +610,14 @@ int HostShareNode::allocate_ht_cpus(int id, unsigned int tcpus, unsigned int tc,
         }
     }
 
-    if ( --tcpus != 0 )
+    if ( tcpus != 0 )
     {
         return -1;
     }
 
     update_template_cores();
+
+    c_s = oss.str();
 
     return 0;
 }
@@ -829,7 +833,7 @@ struct NUMANodeRequest
 
 int HostShareNUMA::make_topology(HostShareRequest &sr)
 {
-    int t_max; //Max threads per core for this topology
+    unsigned int t_max; //Max threads per core for this topology
     std::set<int> t_valid; //Viable threads per core combinations for all nodes
 
     // -------------------------------------------------------------------------
@@ -918,9 +922,11 @@ int HostShareNUMA::make_topology(HostShareRequest &sr)
             }
         }
 
+        int t_nodes = static_cast<int>(vm_nodes.size());
+
         for (int i = t_max; i >= 1 ; i = i / 2 )
         {
-            if ( tc_node[i] == vm_nodes.size() )
+            if (tc_node.find(i) != tc_node.end() && tc_node[i] == t_nodes)
             {
                 t_valid.insert(i);
             }
@@ -940,13 +946,13 @@ int HostShareNUMA::make_topology(HostShareRequest &sr)
     // NOTE: We want to pin CPUS in the same core in the VM also to CPUS in the
     // same core in the host.
     //--------------------------------------------------------------------------
-    unsigned int na;
+    unsigned int na = 0;
 
     for (auto tc_it = t_valid.begin(); tc_it != t_valid.end(); ++tc_it, na = 0)
     {
         for (auto vn_it = vm_nodes.begin(); vn_it != vm_nodes.end(); ++vn_it)
         {
-            long long mem_after    = 0;
+            long long mem_after = 0;
 
             long long vn_mem    = (*vn_it).memory;
             unsigned int vn_cpu = (*vn_it).total_cpus;
@@ -967,7 +973,7 @@ int HostShareNUMA::make_topology(HostShareRequest &sr)
                     it->second->free_capacity(n_fcpu, n_fmem, (*tc_it));
                 }
 
-                if ( n_fmem <= vn_mem || n_fcpu * (*tc_it) < vn_cpu )
+                if ( n_fmem < vn_mem || n_fcpu * (*tc_it) < vn_cpu )
                 {
                     continue; //virtual node does not fit in host node
                 }
@@ -1039,6 +1045,11 @@ int HostShareNUMA::make_topology(HostShareRequest &sr)
     {
         c_t = sr.vcpu / ( v_t * s_t);
 
+    }
+    else
+    {
+        s_t = 1;
+        c_t = sr.vcpu / v_t;
     }
 
     sr.topology->replace("THREADS", v_t);
