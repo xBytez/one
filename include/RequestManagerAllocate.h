@@ -748,7 +748,7 @@ public:
         RequestManagerAllocate("one.hook.allocate",
                                "Allocates a new hook",
                                "A:ssssi",
-                               false)
+                               true)
     {
         Nebula& nd  = Nebula::instance();
         pool        = nd.get_hkpool();
@@ -758,6 +758,11 @@ public:
     ~HookAllocate(){};
 
     /* --------------------------------------------------------------------- */
+
+    Template * get_object_template()
+    {
+        return new Template;
+    };
 
     Request::ErrorCode pool_allocate(xmlrpc_c::paramList const& _paramList,
                       Template * tmpl,

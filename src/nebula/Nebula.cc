@@ -406,6 +406,7 @@ void Nebula::start(bool bootstrap_only)
             rc += VirtualRouterPool::bootstrap(logdb);
             rc += VMGroupPool::bootstrap(logdb);
             rc += VNTemplatePool::bootstrap(logdb);
+            rc += HookPool::bootstrap(logdb);
 
             // Create the system tables only if bootstrap went well
             if (rc == 0)
@@ -692,6 +693,8 @@ void Nebula::start(bool bootstrap_only)
         apppool    = new MarketPlaceAppPool(db_ptr);
 
         vmgrouppool = new VMGroupPool(logdb);
+
+        hkpool = new HookPool(logdb);
 
         default_user_quota.select();
         default_group_quota.select();

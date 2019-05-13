@@ -25,12 +25,11 @@
 const char * Hook::table = "hook_pool";
 
 const char * Hook::db_names =
-    "oid, name, body, uid, gid, owner_u, group_u, other_u, type, resource_type";
+    "oid, name, body, uid, gid, owner_u, group_u, other_u, type";
 
 const char * Hook::db_bootstrap = "CREATE TABLE IF NOT EXISTS hook_pool ("
     "oid INTEGER PRIMARY KEY, name VARCHAR(128), body MEDIUMTEXT, uid INTEGER,"
-    "gid INTEGER, owner_u INTEGER, group_u INTEGER, other_u INTEGER, type INTEGER,"
-    " resource_type INTEGER)";
+    "gid INTEGER, owner_u INTEGER, group_u INTEGER, other_u INTEGER, type INTEGER)";
 
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */

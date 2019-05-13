@@ -1335,12 +1335,25 @@ Request::ErrorCode HookAllocate::pool_allocate(
         int&                        id,
         RequestAttributes&          att)
 {
+    string hk_type;
+
     HookPool * hkpool = static_cast<HookPool *>(pool);
-    string     hk_type = xmlrpc_c::value_string(paramList.getString(1));
 
-    int rc = hkpool->allocate(tmpl, Hook::str_to_hook_type(hk_type), att.resp_msg);
+    tmpl->get("TYPE", hk_type);
 
-    if (rc < 0)
+    if (Hook::str_to_hook_type(hk_type) == Hook::UNDEFINED)
+    {
+        ostringstream oss;
+
+        oss << "Invalid Hook type: " << hk_type;
+        att.resp_msg = oss.str();
+
+        return Request::INTERNAL;
+    }
+
+    id = hkpool->allocate(tmpl, Hook::str_to_hook_type(hk_type), att.resp_msg);
+
+    if (id < 0)
     {
         return Request::INTERNAL;
     }

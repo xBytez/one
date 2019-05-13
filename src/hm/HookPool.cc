@@ -22,27 +22,42 @@ int HookPool::allocate (Template * tmpl, Hook::HookType type, string& error_str)
 {
     Hook * hook;
     int db_oid;
+    string name;
 
     ostringstream oss;
 
-    hook = new HookAPI(tmpl);
+    int oid = -1;
 
-    int oid = PoolSQL::allocate(hook, error_str);
+    tmpl->get("NAME", name);
 
-    if (!PoolObjectSQL::name_is_valid(hook->name, error_str))
+    if (!PoolObjectSQL::name_is_valid(name, error_str))
     {
         goto error_name;
     }
 
-    db_oid = exist(hook->name);
+    db_oid = exist(name);
 
     if ( db_oid != -1 )
     {
         goto error_duplicated;
     }
 
+    hook = create(tmpl, type);
+
+    if (hook == 0)
+    {
+        goto error_type;
+    }
+
+    oid = PoolSQL::allocate(hook, error_str);
+
     return oid;
 
+error_type:
+    oss << "Invalid type " << Hook::hook_type_to_str(type) << ".";
+    error_str = oss.str();
+
+    goto error_common;
 error_duplicated:
     oss << "NAME is already taken by Hook " << db_oid << ".";
     error_str = oss.str();

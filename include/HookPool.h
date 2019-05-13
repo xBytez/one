@@ -19,12 +19,30 @@
 
 #include "PoolSQL.h"
 #include "Hook.h"
+#include "HookAPI.h"
 
 using namespace std;
 
 class HookPool : public PoolSQL
 {
 public:
+
+    static Hook * create(Template * tmpl, Hook::HookType type)
+    {
+        Hook * hook;
+
+        switch(type)
+        {
+            case Hook::STATE:     return 0;
+            case Hook::API:
+                hook = new HookAPI(tmpl);
+                break;
+            case Hook::UNDEFINED: return 0;
+        }
+
+        return hook;
+    }
+
     HookPool(SqlDB * db) : PoolSQL(db, Hook::table){};
 
     ~HookPool(){};
@@ -103,6 +121,15 @@ public:
         bool desc)
     {
         return PoolSQL::dump(oss, "HOOK_POOL", "body", Hook::table, where, limit, desc);
+    };
+
+    /**
+     *  Factory method to produce Hook objects
+     *    @return a pointer to the new VN
+     */
+    PoolObjectSQL * create()
+    {
+        return new HookAPI(0);
     };
 };
 
