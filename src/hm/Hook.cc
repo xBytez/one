@@ -110,9 +110,7 @@ string& Hook::to_xml(string& xml) const
         "<ID>"     << oid    << "</ID>"     <<
         "<NAME>"   << name   << "</NAME>"   <<
         "<TYPE>"   << type   << "</TYPE>"   <<
-        "<TEMPLATE>" <<
-            obj_template->to_xml(template_xml)  <<
-        "</TEMPLATE>" <<
+        obj_template->to_xml(template_xml)  <<
     "</HOOK>";
 
     xml = oss.str();
@@ -139,7 +137,7 @@ int Hook::from_xml(const string& xml)
     rc += xpath(type_str,   "/HOOK/TYPE",   "");
 
     type = str_to_hook_type(type_str);
-    
+
     // Set the owner and group to oneadmin
     set_user(0, "");
     set_group(GroupPool::ONEADMIN_ID, GroupPool::ONEADMIN_NAME);

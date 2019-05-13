@@ -29,14 +29,13 @@ public:
 
     static Hook * create(Template * tmpl, Hook::HookType type)
     {
-        Hook * hook;
+        Hook * hook = 0;
 
         switch(type)
         {
             case Hook::STATE:     return 0;
             case Hook::API:
-                hook = new HookAPI(tmpl);
-                break;
+                return static_cast<Hook *>(new HookAPI(tmpl));
             case Hook::UNDEFINED: return 0;
         }
 
@@ -88,28 +87,6 @@ public:
             case Hook::API: return new HookAPI(tmp);
             case Hook::UNDEFINED: return 0;
         }
-    }
-
-    /**
-     *  Function to get a Hook from the pool, if the object is not in memory
-     *  it is loaded from the DB
-     *    @param oid Hook unique id
-     *    @return a pointer to the Hook, 0 if the Hook could not be loaded
-     */
-    Hook * get(string name)
-    {
-        return static_cast<Hook *>(PoolSQL::get(name, -1));
-    };
-
-    /**
-     *  Function to get a read only Hook from the pool, if the object is not in memory
-     *  it is loaded from the DB
-     *    @param oid Hook unique id
-     *    @return a pointer to the Hook, 0 if the Host could not be loaded
-     */
-    Hook * get_ro(string name)
-    {
-        return static_cast<Hook *>(PoolSQL::get_ro(name, -1));
     }
 
     /**

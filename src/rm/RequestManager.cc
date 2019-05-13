@@ -461,6 +461,7 @@ void RequestManager::register_xml_methods()
     xmlrpc_c::methodPtr secg_info(new SecurityGroupInfo());
     xmlrpc_c::methodPtr vrouter_info(new VirtualRouterInfo());
     xmlrpc_c::methodPtr vmg_info(new VMGroupInfo());
+    xmlrpc_c::methodPtr hook_info(new HookInfo());
 
     // Lock Methods
     xmlrpc_c::methodPtr doc_lock(new DocumentLock());
@@ -494,6 +495,7 @@ void RequestManager::register_xml_methods()
     xmlrpc_c::methodPtr secgpool_info(new SecurityGroupPoolInfo());
     xmlrpc_c::methodPtr vmgpool_info(new VMGroupPoolInfo());
     xmlrpc_c::methodPtr vrouter_pool_info(new VirtualRouterPoolInfo());
+    xmlrpc_c::methodPtr hookpool_info(new HookPoolInfo());
 
     // Host Methods
     xmlrpc_c::methodPtr host_status(new HostStatus());
@@ -1211,10 +1213,10 @@ void RequestManager::register_xml_methods()
     //RequestManagerRegistry.addMethod("one.hook.update", );
     //RequestManagerRegistry.addMethod("one.hook.run", );
     //RequestManagerRegistry.addMethod("one.hook.rename", );
-    //RequestManagerRegistry.addMethod("one.hook.info", );
+    RequestManagerRegistry.addMethod("one.hook.info", hook_info);
     //RequestManagerRegistry.addMethod("one.hook.lock", );
     //RequestManagerRegistry.addMethod("one.hook.unlock", );
-    //RequestManagerRegistry.addMethod("one.hookpool.info", );
+    RequestManagerRegistry.addMethod("one.hookpool.info", hookpool_info);
 
 
     /* System related methods */
