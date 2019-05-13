@@ -64,11 +64,16 @@ public:
         }
     }
 
+    HookType get_type()
+    {
+        return type;
+    }
+
     /**
      *  Executes the hook it self (usually with the aid of the ExecutionManager)
      *    @param arg additional arguments for the hook
      */
-    virtual void do_hook(void *arg) = 0;
+    //virtual void do_hook(void *arg) = 0;
 
 protected:
 
@@ -191,6 +196,20 @@ private:
     {
         string error_str;
         return insert_replace(db, true, error_str);
+    };
+
+    /**
+     *  Writes the Hook in the database.
+     *    @param db pointer to the db
+     *    @return 0 on success
+     */
+    int insert(SqlDB *db, string& error_str)
+    {
+        ostringstream oss;
+
+        oss << "Undefined insert function for hook type: " << type;
+        
+        return -1;
     };
 
 };

@@ -50,10 +50,17 @@ private:
         }
     };
 
+    HookAPI(Hook * hook):
+    Hook(0),
+    call("")
+    {
+        //Implement
+    };
+
     virtual ~HookAPI(){};
 
     /**
-     *  Writes the Host and its associated HostShares in the database.
+     *  Writes the Hook in the database.
      *    @param db pointer to the db
      *    @return 0 on success
      */

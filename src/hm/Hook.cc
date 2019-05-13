@@ -109,6 +109,7 @@ string& Hook::to_xml(string& xml) const
     "<HOOK>"
         "<ID>"     << oid    << "</ID>"     <<
         "<NAME>"   << name   << "</NAME>"   <<
+        "<TYPE>"   << type   << "</TYPE>"   <<
         "<TEMPLATE>" <<
             obj_template->to_xml(template_xml)  <<
         "</TEMPLATE>" <<
@@ -125,6 +126,7 @@ string& Hook::to_xml(string& xml) const
 int Hook::from_xml(const string& xml)
 {
     vector<xmlNodePtr> content;
+    string type_str;
 
     int rc = 0;
 
@@ -132,9 +134,12 @@ int Hook::from_xml(const string& xml)
     update_from_str(xml);
 
     // Get class base attributes
-    rc += xpath(oid,    "/HOOK/ID", -1);
-    rc += xpath(name,   "/HOOK/NAME",   "not_found");
+    rc += xpath(oid,        "/HOOK/ID", -1);
+    rc += xpath(name,       "/HOOK/NAME",   "not_found");
+    rc += xpath(type_str,   "/HOOK/TYPE",   "");
 
+    type = str_to_hook_type(type_str);
+    
     // Set the owner and group to oneadmin
     set_user(0, "");
     set_group(GroupPool::ONEADMIN_ID, GroupPool::ONEADMIN_NAME);

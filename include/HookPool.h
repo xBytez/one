@@ -62,7 +62,14 @@ public:
      */
     Hook * get(int oid)
     {
-        return static_cast<Hook *>(PoolSQL::get(oid));
+        Hook * tmp = static_cast<Hook *>(PoolSQL::get(oid));
+
+        switch (tmp->get_type())
+        {
+            case Hook::STATE: return 0;
+            case Hook::API: return new HookAPI(tmp);
+            case Hook::UNDEFINED: return 0;
+        }
     };
 
     /**
@@ -73,7 +80,14 @@ public:
      */
     Hook * get_ro(int oid)
     {
-        return static_cast<Hook *>(PoolSQL::get_ro(oid));
+        Hook * tmp = static_cast<Hook *>(PoolSQL::get_ro(oid));
+
+        switch (tmp->get_type())
+        {
+            case Hook::STATE: return 0;
+            case Hook::API: return new HookAPI(tmp);
+            case Hook::UNDEFINED: return 0;
+        }
     }
 
     /**
@@ -129,7 +143,7 @@ public:
      */
     PoolObjectSQL * create()
     {
-        return new HookAPI(0);
+        return new Hook(0);
     };
 };
 
