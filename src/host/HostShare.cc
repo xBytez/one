@@ -588,7 +588,7 @@ int HostShareNode::allocate_ht_cpus(int id, unsigned int tcpus, unsigned int tc,
 
         auto vit = core.cpus.begin();
 
-        for (unsigned int i=0; i < c_to_alloc && vit != core.cpus.end() ; ++i, ++vit)
+        for (auto vit = core.cpus.begin(); vit != core.cpus.end() && c_to_alloc > 0; ++vit)
         {
             if (vit->second != -1)
             {
@@ -598,6 +598,8 @@ int HostShareNode::allocate_ht_cpus(int id, unsigned int tcpus, unsigned int tc,
             vit->second = id;
 
             core.free_cpus--;
+
+            c_to_alloc--;
 
             oss << vit->first;
 
@@ -948,7 +950,7 @@ int HostShareNUMA::make_topology(HostShareRequest &sr)
     //--------------------------------------------------------------------------
     unsigned int na = 0;
 
-    for (auto tc_it = t_valid.begin(); tc_it != t_valid.end(); ++tc_it, na = 0)
+    for (auto tc_it = t_valid.rbegin(); tc_it != t_valid.rend(); ++tc_it, na = 0)
     {
         for (auto vn_it = vm_nodes.begin(); vn_it != vm_nodes.end(); ++vn_it)
         {
