@@ -952,6 +952,8 @@ int HostShareNUMA::make_topology(HostShareRequest &sr)
 
     for (auto tc_it = t_valid.rbegin(); tc_it != t_valid.rend(); ++tc_it, na = 0)
     {
+        clear_allocations();
+
         for (auto vn_it = vm_nodes.begin(); vn_it != vm_nodes.end(); ++vn_it)
         {
             long long mem_after = 0;
@@ -975,6 +977,9 @@ int HostShareNUMA::make_topology(HostShareRequest &sr)
                     it->second->free_capacity(n_fcpu, n_fmem, (*tc_it));
                 }
 
+                n_fcpu -= (it->second->allocated_cpus / (*tc_it));
+                n_fmem -= it->second->allocated_memory;
+
                 if ( n_fmem < vn_mem || n_fcpu * (*tc_it) < vn_cpu )
                 {
                     continue; //virtual node does not fit in host node
@@ -983,12 +988,28 @@ int HostShareNUMA::make_topology(HostShareRequest &sr)
                 if ( (*vn_it).node_id == -1 )
                 {
                     mem_after = n_fmem - vn_mem;
+
                     (*vn_it).node_id = it->first;
+
+                    it->second->allocated_cpus   += vn_cpu;
+                    it->second->allocated_memory += vn_mem;
                 }
                 else if ( (n_fmem - vn_mem) < mem_after ) //node is a better fit
                 {
                     mem_after = n_fmem - vn_mem;
+
+                    auto prev_node = nodes.find((*vn_it).node_id);
+
+                    if (prev_node != nodes.end())
+                    {
+                        prev_node->second->allocated_cpus   -= vn_cpu;
+                        prev_node->second->allocated_memory -= vn_mem;
+                    }
+
                     (*vn_it).node_id = it->first;
+
+                    it->second->allocated_cpus   += vn_cpu;
+                    it->second->allocated_memory += vn_mem;
                 }
             }
 

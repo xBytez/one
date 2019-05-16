@@ -353,6 +353,13 @@ private:
 
     //TODO: Memory allocation information
 
+    /**
+     *  Temporal allocation on the node. This is used by the scheduling
+     */
+    unsigned int allocated_cpus;
+
+    long long    allocated_memory;
+
     //--------------------------------------------------------------------------
     //--------------------------------------------------------------------------
 
@@ -457,6 +464,15 @@ private:
     unsigned int threads_core;
 
     std::map<unsigned int, HostShareNode *> nodes;
+
+    void clear_allocations()
+    {
+        for(auto it = nodes.begin(); it != nodes.end(); ++it)
+        {
+            it->second->allocated_cpus   = 0;
+            it->second->allocated_memory = 0;
+        }
+    }
 };
 
 /* -------------------------------------------------------------------------- */
