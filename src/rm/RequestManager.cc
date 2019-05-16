@@ -413,6 +413,7 @@ void RequestManager::register_xml_methods()
     xmlrpc_c::methodPtr vrouter_update(new VirtualRouterUpdateTemplate());
     xmlrpc_c::methodPtr vmg_update(new VMGroupUpdateTemplate());
     xmlrpc_c::methodPtr vntemplate_update(new VirtualNetworkTemplateUpdateTemplate());
+    xmlrpc_c::methodPtr hook_update(new HookUpdateTemplate());
 
     // Allocate Methods
     xmlrpc_c::methodPtr vm_allocate(new VirtualMachineAllocate());
@@ -1214,7 +1215,7 @@ void RequestManager::register_xml_methods()
     /* Hooks related methods */
     RequestManagerRegistry.addMethod("one.hook.allocate", hook_allocate);
     RequestManagerRegistry.addMethod("one.hook.delete", hook_delete);
-    //RequestManagerRegistry.addMethod("one.hook.update", );
+    RequestManagerRegistry.addMethod("one.hook.update", hook_update);
     //RequestManagerRegistry.addMethod("one.hook.run", );
     RequestManagerRegistry.addMethod("one.hook.rename", hook_rename);
     RequestManagerRegistry.addMethod("one.hook.info", hook_info);

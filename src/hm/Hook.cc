@@ -107,11 +107,11 @@ string& Hook::to_xml(string& xml) const
 
     oss <<
     "<HOOK>"
-        "<ID>"     << oid    << "</ID>"     <<
-        "<NAME>"   << name   << "</NAME>"   <<
-        "<TYPE>"   << type   << "</TYPE>"   <<
-        lock_db_to_xml(lock_str)            <<
-        obj_template->to_xml(template_xml)  <<
+        "<ID>"     << oid    << "</ID>"              <<
+        "<NAME>"   << name   << "</NAME>"            <<
+        "<TYPE>"   << Hook::hook_type_to_str(type)   << "</TYPE>"   <<
+        lock_db_to_xml(lock_str)                     <<
+        obj_template->to_xml(template_xml)           <<
     "</HOOK>";
 
     xml = oss.str();
@@ -136,6 +136,9 @@ int Hook::from_xml(const string& xml)
     rc += xpath(oid,        "/HOOK/ID", -1);
     rc += xpath(name,       "/HOOK/NAME",   "not_found");
     rc += xpath(type_str,   "/HOOK/TYPE",   "");
+    rc += xpath(cmd,        "/HOOK/TEMPLATE/COMMAND", "");
+    rc += xpath(args,       "/HOOK/TEMPLATE/ARGUMENTS", "");
+    rc += xpath(remote,     "/HOOK/TEMPLATE/REMOTE", false);
 
     type = str_to_hook_type(type_str);
 
@@ -161,6 +164,40 @@ int Hook::from_xml(const string& xml)
     content.clear();
 
     return 0;
+}
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+int Hook::post_update_template(string& error)
+{
+    string new_cmd;
+    string new_remote;
+
+    get_template_attribute("COMMAND", new_cmd);
+    get_template_attribute("REMOTE", new_remote);
+
+    if (new_cmd != "")
+    {
+        cmd = new_cmd;
+    }
+
+    new_remote = one_util::toupper(new_remote);
+
+    if (new_remote == "YES")
+    {
+        remote = true;
+    }
+    else if (new_remote == "NO")
+    {
+        remote = false;
+    }
+
+    replace_template_attribute("COMMAND", cmd);
+    replace_template_attribute("REMOTE", remote);
+
+    return 0;
+
 }
 
 /* -------------------------------------------------------------------------- */

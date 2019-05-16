@@ -20,6 +20,7 @@
 int HookAPI::insert(SqlDB *db, string& error_str)
 {
     string type_str;
+    string remote_str;
 
     obj_template->get("NAME", name);
     obj_template->erase("NAME");
@@ -37,6 +38,19 @@ int HookAPI::insert(SqlDB *db, string& error_str)
     }
 
     add_template_attribute("COMMAND", cmd);
+
+    erase_template_attribute("REMOTE", remote_str);
+
+    if (!remote_str.empty() && one_util::toupper(remote_str) == "YES")
+    {
+        remote = true;
+    }
+    else
+    {
+        remote = false;
+    }
+
+    add_template_attribute("REMOTE", remote);
 
     erase_template_attribute("TYPE", type_str);
 
@@ -102,6 +116,30 @@ int HookAPI::from_xml(const string &xml_str)
     {
         return -1;
     }
+
+    return 0;
+}
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+int HookAPI::post_update_template(string& error)
+{
+    string new_call;
+
+    if (Hook::post_update_template(error) != 0)
+    {
+        return -1;
+    }
+
+    get_template_attribute("CALL", new_call);
+
+    if (new_call != "")
+    {
+        call = new_call;
+    }
+
+    replace_template_attribute("CALL", call);
 
     return 0;
 }

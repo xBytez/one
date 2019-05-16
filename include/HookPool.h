@@ -59,7 +59,7 @@ public:
      *    @param oid Hook unique id
      *    @return a pointer to the Hook, 0 if the Hook could not be loaded
      */
-    Hook * get(int oid)
+    PoolObjectSQL * get(int oid)
     {
         Hook * tmp = static_cast<Hook *>(PoolSQL::get(oid));
 

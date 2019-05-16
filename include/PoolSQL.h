@@ -65,7 +65,7 @@ public:
      *
      *   @return a pointer to the object, 0 in case of failure
      */
-    PoolObjectSQL * get(int oid);
+    virtual PoolObjectSQL * get(int oid);
 
     /**
      *  Gets a read only object from the pool (if needed the object is loaded from the

@@ -117,6 +117,12 @@ protected:
      */
     virtual int from_xml(const string &xml_str);
 
+    /* Checks the mandatory templates attrbutes
+     *    @param error string describing the error if any
+     *    @return 0 on success
+     */
+    virtual int post_update_template(string& error);
+
     // -------------------------------------------------------------------------
     // Hook Attributes
     // -------------------------------------------------------------------------
@@ -161,6 +167,14 @@ private:
      *  @return a reference to the generated string
      */
     string& to_xml(string& xml) const;
+
+    /**
+     *  Factory method for Hook templates
+     */
+    Template * get_new_template() const
+    {
+        return new Template;
+    }
 
     // *************************************************************************
     // Database implementation
@@ -208,7 +222,7 @@ private:
         ostringstream oss;
 
         oss << "Undefined insert function for hook type: " << type;
-        
+
         return -1;
     };
 

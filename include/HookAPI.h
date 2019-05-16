@@ -74,6 +74,16 @@ private:
      */
     int from_xml(const string &xml_str);
 
+    /* Checks the mandatory template attributes
+     *    @param error string describing the error if any
+     *    @return 0 on success
+     */
+    int post_update_template(string& error);
+
+    // -------------------------------------------------------------------------
+    // Hook API Attributes
+    // -------------------------------------------------------------------------
+
     /**
      *  String representation of the API call
      */
