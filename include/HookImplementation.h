@@ -14,62 +14,23 @@
 /* limitations under the License.                                             */
 /* -------------------------------------------------------------------------- */
 
-#include "HookAPI.h"
-#include "NebulaLog.h"
+#ifndef HOOK_IMPLEMENTATION_H_
+#define HOOK_IMPLEMENTATION_H_
 
-int HookAPI::check_insert(Template * tmpl, string& error_str)
+#include <string>
+#include "Hook.h"
+#include "Template.h"
+
+class HookImplementation
 {
-    tmpl->get("CALL",call);
-    tmpl->erase("CALL");
+private:
+    friend class Hook;
 
-    if (call.empty()) //&& !call exists
-    {
-        goto error_call;
-    }
+    virtual int from_template(const Template * tmpl) = 0;
 
-    tmpl->add("CALL", call);
+    virtual int post_update_template(Template * tmpl, string& error) = 0;
 
-    return 0;
+    virtual int check_insert(Template *tmpl, string& error_str) = 0;
+};
 
-error_call:
-    error_str = "No CALL in template for API type Hook";
-
-    NebulaLog::log("HKM", Log::ERROR, error_str);
-    return -1;
-}
-
-/* -------------------------------------------------------------------------- */
-/* -------------------------------------------------------------------------- */
-
-
-int HookAPI::from_template(const Template * tmpl)
-{
-
-    tmpl->get("CALL", call);
-
-    if (call.empty()) //&& !call exists
-    {
-        return -1;
-    }
-
-    return 0;
-}
-
-/* -------------------------------------------------------------------------- */
-/* -------------------------------------------------------------------------- */
-
-int HookAPI::post_update_template(Template * tmpl, string& error)
-{
-    string new_call;
-
-    tmpl->get("CALL", new_call);
-
-    if (new_call != "") //&& call exists
-    {
-        call = new_call;
-    }
-
-    tmpl->replace("CALL", call);
-
-    return 0;
-}
+#endif

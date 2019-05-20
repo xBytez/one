@@ -21,6 +21,9 @@
 
 #include "Template.h"
 #include "PoolObjectSQL.h"
+#include "HookImplementation.h"
+
+class HookAPI;
 
 using namespace std;
 
@@ -75,7 +78,9 @@ public:
      */
     //virtual void do_hook(void *arg) = 0;
 
-protected:
+private:
+
+    friend class HookPool;
 
     // *************************************************************************
     // Constructor/Destructor
@@ -85,8 +90,8 @@ protected:
         PoolObjectSQL(-1,HOOK,"",-1,-1,"","",table),
         type(HookType::UNDEFINED),
         cmd(""),
-        args(""),
-        remote(false)
+        remote(false),
+        hook_implementation(0)
     {
         if (tmpl != 0)
         {
@@ -98,60 +103,14 @@ protected:
         }
     };
 
-    virtual ~Hook(){};
+    ~Hook(){};
 
     /**
-     *  Execute an INSERT or REPLACE Sql query.
-     *    @param db The SQL DB
-     *    @param replace Execute an INSERT or a REPLACE
-     *    @param error_str Returns the error reason, if any
-     *    @return 0 one success
+     * Set hook implementation attribute depending of the hook type.
      */
-    int insert_replace(SqlDB *db, bool replace, string& error_str);
+    int set_hook_implementation(HookType hook_type);
 
-    /**
-     *  Rebuilds the object from an xml formatted string
-     *    @param xml_str The xml-formatted string
-     *
-     *    @return 0 on success, -1 otherwise
-     */
-    virtual int from_xml(const string &xml_str);
-
-    /* Checks the mandatory templates attrbutes
-     *    @param error string describing the error if any
-     *    @return 0 on success
-     */
-    virtual int post_update_template(string& error);
-
-    // -------------------------------------------------------------------------
-    // Hook Attributes
-    // -------------------------------------------------------------------------
-
-    /**
-     * The hook type
-     */
-    HookType type;
-
-    /**
-     *  The command to be executed
-     */
-    string   cmd;
-
-    /**
-     *  The arguments for the command
-     */
-    string   args;
-
-    /**
-     *  True if the command is to be executed remotely
-     */
-    bool     remote;
-
-private:
-
-    friend class HookPool;
-
-    /**
+     /**
      *  Parses the arguments of the hook using a generic $ID identifier, and
      *  the target object.  $TEMPLATE will be the base64 encoding of the
      *  template and $ID the oid of the object.
@@ -175,6 +134,44 @@ private:
     {
         return new Template;
     }
+
+    /**
+     *  Rebuilds the object from an xml formatted string
+     *    @param xml_str The xml-formatted string
+     *
+     *    @return 0 on success, -1 otherwise
+     */
+    int from_xml(const string &xml_str);
+
+    /* Checks the mandatory templates attrbutes
+     *    @param error string describing the error if any
+     *    @return 0 on success
+     */
+    int post_update_template(string& error);
+
+    // -------------------------------------------------------------------------
+    // Hook Attributes
+    // -------------------------------------------------------------------------
+
+    /**
+     * The hook type
+     */
+    HookType type;
+
+    /**
+     *  The command to be executed
+     */
+    string   cmd;
+
+    /**
+     *  True if the command is to be executed remotely
+     */
+    bool     remote;
+
+    /**
+     * Object which implement type dependent methods.
+     */
+    HookImplementation* hook_implementation;
 
     // *************************************************************************
     // Database implementation
@@ -217,15 +214,16 @@ private:
      *    @param db pointer to the db
      *    @return 0 on success
      */
-    int insert(SqlDB *db, string& error_str)
-    {
-        ostringstream oss;
+    int insert(SqlDB *db, string& error_str);
 
-        oss << "Undefined insert function for hook type: " << type;
-
-        return -1;
-    };
-
+    /**
+     *  Execute an INSERT or REPLACE Sql query.
+     *    @param db The SQL DB
+     *    @param replace Execute an INSERT or a REPLACE
+     *    @param error_str Returns the error reason, if any
+     *    @return 0 one success
+     */
+    int insert_replace(SqlDB *db, bool replace, string& error_str);
 };
 
 #endif /*HOOK_H_*/

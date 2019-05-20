@@ -16,7 +16,8 @@
 
 #include "Hook.h"
 #include "Nebula.h"
-#include "string"
+
+#include <string>
 
 /* ************************************************************************ */
 /* Hook :: Database Access Functions                                        */
@@ -125,7 +126,7 @@ string& Hook::to_xml(string& xml) const
 int Hook::from_xml(const string& xml)
 {
     vector<xmlNodePtr> content;
-    string type_str;
+    string type_str, remote_str;
 
     int rc = 0;
 
@@ -136,9 +137,6 @@ int Hook::from_xml(const string& xml)
     rc += xpath(oid,        "/HOOK/ID", -1);
     rc += xpath(name,       "/HOOK/NAME",   "not_found");
     rc += xpath(type_str,   "/HOOK/TYPE",   "");
-    rc += xpath(cmd,        "/HOOK/TEMPLATE/COMMAND", "");
-    rc += xpath(args,       "/HOOK/TEMPLATE/ARGUMENTS", "");
-    rc += xpath(remote,     "/HOOK/TEMPLATE/REMOTE", false);
 
     type = str_to_hook_type(type_str);
 
@@ -152,16 +150,32 @@ int Hook::from_xml(const string& xml)
 
     ObjectXML::get_nodes("/HOOK/TEMPLATE", content);
 
-    if( content.empty())
+    if(content.empty())
     {
         return -1;
     }
 
     rc += obj_template->from_xml_node( content[0] );
 
+    if(set_hook_implementation(type) == -1)
+    {
+        return -1;
+    }
+
+    rc += hook_implementation->from_template(obj_template);
+
+    get_template_attribute("COMMAND", cmd);
+    get_template_attribute("REMOTE",  remote);
+
     ObjectXML::free_nodes(content);
 
     content.clear();
+
+    if (rc != 0)
+    {
+        return -1;
+    }
+
 
     return 0;
 }
@@ -196,8 +210,83 @@ int Hook::post_update_template(string& error)
     replace_template_attribute("COMMAND", cmd);
     replace_template_attribute("REMOTE", remote);
 
+    hook_implementation->post_update_template(obj_template, error);
+
     return 0;
 
+}
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+int Hook::insert(SqlDB *db, string& error_str)
+{
+    string type_str;
+    string remote_str;
+    int rc;
+
+    obj_template->get("NAME", name);
+    obj_template->erase("NAME");
+
+    if (name.empty())
+    {
+        goto error_name;
+    }
+
+    erase_template_attribute("COMMAND", cmd);
+
+    if (cmd.empty())
+    {
+        goto error_cmd;
+    }
+
+    add_template_attribute("COMMAND", cmd);
+
+    erase_template_attribute("REMOTE", remote);
+
+    add_template_attribute("REMOTE", remote);
+
+    erase_template_attribute("TYPE", type_str);
+
+    if (type_str.empty())
+    {
+        goto error_type;
+    }
+    else
+    {
+        type = Hook::str_to_hook_type(type_str);
+
+        if (type == Hook::UNDEFINED)
+        {
+            goto error_type;
+        }
+    }
+
+    if (set_hook_implementation(type) == -1)
+    {
+        goto error_type;
+    }
+
+    rc = hook_implementation->check_insert(obj_template, error_str);
+
+    if (rc == -1)
+    {
+        goto error_common;
+    }
+
+    return insert_replace(db, false, error_str);
+
+error_type:
+    error_str = "No TYPE or invalid one in template for Hook.";
+    goto error_common;
+error_cmd:
+    error_str = "No COMMAND in template for Hook.";
+    goto error_common;
+error_name:
+    error_str = "No NAME in template for Hook.";
+error_common:
+    NebulaLog::log("HKM", Log::ERROR, error_str);
+    return -1;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -284,4 +373,30 @@ error_generic:
     error_str = "Error inserting Hook in DB.";
 error_common:
     return -1;
+}
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+int Hook::set_hook_implementation(HookType hook_type)
+{
+    string type_str;
+
+    if (hook_type == UNDEFINED)
+    {
+        return -1;
+    }
+
+    switch (hook_type)
+    {
+        case STATE:
+            hook_implementation = 0;
+            return -1;
+        case API:
+            hook_implementation = new HookAPI(obj_template);
+            return 0;
+        case UNDEFINED:
+            hook_implementation = 0;
+            return -1;
+    };
 }

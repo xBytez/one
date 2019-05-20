@@ -18,7 +18,7 @@
 #include "HookAPI.h"
 #include "HookPool.h"
 
-int HookPool::allocate (Template * tmpl, Hook::HookType type, string& error_str)
+int HookPool::allocate (Template * tmpl, string& error_str)
 {
     Hook * hook;
     int db_oid;
@@ -42,22 +42,12 @@ int HookPool::allocate (Template * tmpl, Hook::HookType type, string& error_str)
         goto error_duplicated;
     }
 
-    hook = create(tmpl, type);
-
-    if (hook == 0)
-    {
-        goto error_type;
-    }
+    hook = create(tmpl);
 
     oid = PoolSQL::allocate(hook, error_str);
 
     return oid;
 
-error_type:
-    oss << "Invalid type " << Hook::hook_type_to_str(type) << ".";
-    error_str = oss.str();
-
-    goto error_common;
 error_duplicated:
     oss << "NAME is already taken by Hook " << db_oid << ".";
     error_str = oss.str();

@@ -20,65 +20,56 @@
 #include <string>
 
 #include "Hook.h"
+#include "HookImplementation.h"
 
-using namespace std;
-
-class HookAPI : public Hook
+class HookAPI : public HookImplementation
 {
 public:
+
     void do_hook(void *arg)
     {
         return;
     }
+
 private:
     friend class HookPool;
+    friend class Hook;
+
     // *************************************************************************
     // Constructor/Destructor
     // *************************************************************************
 
-    HookAPI(Template * tmpl):
-        Hook(tmpl),
-        call("")
+    HookAPI():call(""){};
+
+    HookAPI(const Template * tmpl)
     {
-        if (tmpl != 0)
-        {
-            obj_template = tmpl;
-        }
-        else
-        {
-            obj_template = new Template();
-        }
+        tmpl->get("CALL",call);
     };
 
-    HookAPI(Hook * hook):
-    Hook(0),
-    call("")
-    {
-        //Implement
-    };
-
-    virtual ~HookAPI(){};
+    ~HookAPI(){};
 
     /**
-     *  Writes the Hook in the database.
-     *    @param db pointer to the db
+     *  Check if type dependent attributes are well defined.
+     *    @param tmpl pointer to the Hook template
+     *    @param error_str string with error information
      *    @return 0 on success
      */
-    int insert(SqlDB *db, string& error_str);
+    int check_insert(Template *tmpl, string& error_str);
 
     /**
-     *  Rebuilds the object from an xml formatted string
-     *    @param xml_str The xml-formatted string
+     *  Rebuilds the object from a template
+     *    @param tmpl The template
      *
      *    @return 0 on success, -1 otherwise
      */
-    int from_xml(const string &xml_str);
+    int from_template(const Template * tmpl);
 
     /* Checks the mandatory template attributes
+     *    @param tmpl The hook template
      *    @param error string describing the error if any
      *    @return 0 on success
      */
-    int post_update_template(string& error);
+    int post_update_template(Template * tmpl, string& error);
 
     // -------------------------------------------------------------------------
     // Hook API Attributes

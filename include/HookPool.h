@@ -27,21 +27,6 @@ class HookPool : public PoolSQL
 {
 public:
 
-    static Hook * create(Template * tmpl, Hook::HookType type)
-    {
-        Hook * hook = 0;
-
-        switch(type)
-        {
-            case Hook::STATE:     return 0;
-            case Hook::API:
-                return static_cast<Hook *>(new HookAPI(tmpl));
-            case Hook::UNDEFINED: return 0;
-        }
-
-        return hook;
-    }
-
     HookPool(SqlDB * db) : PoolSQL(db, Hook::table){};
 
     ~HookPool(){};
@@ -51,7 +36,7 @@ public:
      *    @param oid the id assigned to the Hook
      *    @return the oid assigned to the object or -1 in case of failure
      */
-    int allocate (Template * tmpl, Hook::HookType type, string& error_str);
+    int allocate (Template * tmpl, string& error_str);
 
     /**
      *  Function to get a Hook from the pool, if the object is not in memory
@@ -59,16 +44,9 @@ public:
      *    @param oid Hook unique id
      *    @return a pointer to the Hook, 0 if the Hook could not be loaded
      */
-    PoolObjectSQL * get(int oid)
+    Hook * get(int oid)
     {
-        Hook * tmp = static_cast<Hook *>(PoolSQL::get(oid));
-
-        switch (tmp->get_type())
-        {
-            case Hook::STATE: return 0;
-            case Hook::API: return new HookAPI(tmp);
-            case Hook::UNDEFINED: return 0;
-        }
+        return static_cast<Hook *>(PoolSQL::get(oid));
     };
 
     /**
@@ -79,14 +57,7 @@ public:
      */
     Hook * get_ro(int oid)
     {
-        Hook * tmp = static_cast<Hook *>(PoolSQL::get_ro(oid));
-
-        switch (tmp->get_type())
-        {
-            case Hook::STATE: return 0;
-            case Hook::API: return new HookAPI(tmp);
-            case Hook::UNDEFINED: return 0;
-        }
+        return static_cast<Hook *>(PoolSQL::get_ro(oid));
     }
 
     /**
@@ -122,6 +93,12 @@ public:
     {
         return new Hook(0);
     };
+
+    Hook * create(Template * tmpl)
+    {
+
+        return new Hook(tmpl);
+    }
 };
 
 #endif

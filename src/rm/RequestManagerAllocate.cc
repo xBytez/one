@@ -1351,7 +1351,7 @@ Request::ErrorCode HookAllocate::pool_allocate(
         return Request::INTERNAL;
     }
 
-    id = hkpool->allocate(tmpl, Hook::str_to_hook_type(hk_type), att.resp_msg);
+    id = hkpool->allocate(tmpl, att.resp_msg);
 
     if (id < 0)
     {
