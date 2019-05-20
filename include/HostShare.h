@@ -36,6 +36,13 @@ class HostShareNUMA;
  *     - topology, number of sockets, cores and threads
  *     - pci, with device address
  *     - nodes with the numa nodes configured for the VM
+ *
+ *    NUMA node requests are described by an attribute:
+ *
+ *    NUMA_NODE = [ TOTAL_CPUS=, MEMORY="...", CPUS="...", NODE_ID="..." ]
+ *
+ *    CPUS: list of CPU IDs to pin the vCPUs in this host
+ *    NODE_ID: the ID of the numa node in the host to pin this virtual node
  */
 struct HostShareRequest
 {
@@ -454,8 +461,12 @@ public:
      *   - user preferences TOPOLOGY/[SOCKETS, CORES, THREADS].
      *   - Architecture of the Host core_threads
      *   - allocation policy
+     *
+     *   @param sr the resource allocation request
+     *   @param vm_id of the VM making the request
+     *   @return 0 success (vm was allocated) -1 otherwise
      */
-    int make_topology(HostShareRequest &sr);
+    int make_topology(HostShareRequest &sr, int vm_id);
 
 private:
     /**

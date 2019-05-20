@@ -833,7 +833,7 @@ struct NUMANodeRequest
     std::string cpu_ids;
 };
 
-int HostShareNUMA::make_topology(HostShareRequest &sr)
+int HostShareNUMA::make_topology(HostShareRequest &sr, int vm_id)
 {
     unsigned int t_max; //Max threads per core for this topology
     std::set<int> t_valid; //Viable threads per core combinations for all nodes
@@ -932,6 +932,20 @@ int HostShareNUMA::make_topology(HostShareRequest &sr)
             {
                 t_valid.insert(i);
             }
+        }
+
+        // If the user requested an specific threads/core config, check that
+        // we can fulfill it in this host for all the VM nodes.
+        if ( v_t != 0 )
+        {
+            if (t_valid.count(v_t) == 0 )
+            {
+                return -1;
+            }
+
+            t_valid.clear();
+
+            t_valid.insert(v_t);
         }
     }
 
@@ -1047,14 +1061,20 @@ int HostShareNUMA::make_topology(HostShareRequest &sr)
 
         if ( dedicated )
         {
-            it->second->allocate_dedicated_cpus(0, (*vn_it).total_cpus,
+            it->second->allocate_dedicated_cpus(vm_id, (*vn_it).total_cpus,
                     (*vn_it).cpu_ids);
         }
         else
         {
-            it->second->allocate_ht_cpus(0, (*vn_it).total_cpus, v_t,
+            it->second->allocate_ht_cpus(vm_id, (*vn_it).total_cpus, v_t,
                     (*vn_it).cpu_ids);
         }
+
+        VectorAttribute * a_node = (*vn_it).attr;
+
+        a_node->replace("NODE_ID", (*vn_it).node_id);
+        a_node->replace("CPUS", (*vn_it).cpu_ids);
+        a_node->replace("MEMORY", 0); //TODO
     }
 
     //--------------------------------------------------------------------------
@@ -1076,8 +1096,8 @@ int HostShareNUMA::make_topology(HostShareRequest &sr)
     }
 
     sr.topology->replace("THREADS", v_t);
-    sr.topology->vector_value("CORES", c_t);
-    sr.topology->vector_value("SOCKETS", s_t);
+    sr.topology->replace("CORES", c_t);
+    sr.topology->replace("SOCKETS", s_t);
 
     return 0;
 };
