@@ -214,6 +214,8 @@ private:
  *    CORE = [ ID = "1", CPUS = "1:23,5:-1", FREE = 0 ]
  *    CORE = [ ID = "2", CPUS = "2:47,6:-1", FREE = 1]
  *    CORE = [ ID = "0", CPUS = "0:23,4:-1", FREE = 0]
+ *    MEMORY = [ TOTAL = "66806708", FREE = "390568", USED = "66416140",
+ *               DISTANCE = "0 1", USAGE = "8388608" ]
  *
  *  - NODE_ID
  *  - HUGEPAGE is the total PAGES and FREE hugepages of a given SIZE in the node
@@ -222,9 +224,8 @@ private:
 class HostShareNode : public Template
 {
 public:
-    HostShareNode() : Template(false, '=', "NODE"), threads_core(1){};
-    HostShareNode(unsigned int i) : Template(false, '=', "NODE"), node_id(i),
-        threads_core(1)
+    HostShareNode() : Template(false, '=', "NODE"){};
+    HostShareNode(unsigned int i) : Template(false, '=', "NODE"), node_id(i)
     {
         replace("NODE_ID", i);
     };
@@ -336,8 +337,6 @@ private:
         unsigned int  nr;
         unsigned int  free;
 
-        //TODO?: allocation information
-
         /**
          *  @return a VectorAttribute representing this core in the form:
          *    HUGEPAGE = [ SIZE = "1048576", PAGES = "0", FREE = "0"]
@@ -353,19 +352,37 @@ private:
     /**
      *  Threads per core in this node
      */
-    unsigned int threads_core;
+    unsigned int threads_core = 1;
 
+    /**
+     *  CPU Cores in this node
+     */
     std::map<unsigned int, struct Core> cores;
+
+    /**
+     *  Huge pages configured in this node
+     */
     std::map<unsigned long, struct HugePage> pages;
 
-    //TODO: Memory allocation information
+    /**
+     *  Memory information for this node:
+     *    - total, free and used memory as reported by IM (meminfo file)
+     *    - mem_used memory allocated to VMs by oned in this node
+     *    - distance sorted list of nodes, first is the closest (this one)
+     */
+    long long total_mem = 0;
+    long long free_mem  = 0;
+    long long used_mem  = 0;
+
+    long long mem_usage = 0;
+
+    std::vector<unsigned int> distance;
 
     /**
      *  Temporal allocation on the node. This is used by the scheduling
      */
-    unsigned int allocated_cpus;
-
-    long long    allocated_memory;
+    unsigned int allocated_cpus   = 0;
+    long long    allocated_memory = 0;
 
     //--------------------------------------------------------------------------
     //--------------------------------------------------------------------------
@@ -383,7 +400,7 @@ private:
     /**
      *  Regenerate the template representation of the CORES for this node.
      */
-    void update_template_cores();
+    void update_cores();
 
     /**
      *  Creates a new HugePage element and associates it to this node. If a
@@ -397,6 +414,18 @@ private:
             bool update);
 
     void update_hugepage(unsigned long size);
+
+
+    /**
+     *  Adds a new memory attribute based on the moniroting attributes and
+     *  current mem usage.
+     */
+    void set_memory();
+
+    /**
+     *  Updates the memory usage for the node in the template representation
+     */
+    void update_memory();
 };
 
 /* -------------------------------------------------------------------------- */

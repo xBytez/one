@@ -526,6 +526,22 @@ int HostShareNode::from_xml_node(const xmlNodePtr &node)
         set_hugepage(size_kb, nr, free, false);
     }
 
+    std::string distance_s;
+    VectorAttribute * memory = get("MEMORY");
+
+    if (memory != 0)
+    {
+        memory->vector_value("TOTAL", total_mem);
+        memory->vector_value("FREE", free_mem);
+        memory->vector_value("USED", used_mem);
+
+        memory->vector_value("USAGE", mem_usage);
+
+        memory->vector_value("DISTANCE", distance_s);
+
+        one_util::split(distance_s, ' ', distance);
+    }
+
     return 0;
 };
 
@@ -566,7 +582,7 @@ int HostShareNode::allocate_dedicated_cpus(int id, unsigned int tcpus,
         return -1;
     }
 
-    update_template_cores();
+    update_cores();
 
     c_s = oss.str();
 
@@ -585,8 +601,6 @@ int HostShareNode::allocate_ht_cpus(int id, unsigned int tcpus, unsigned int tc,
         HostShareNode::Core &core = vc_it->second;
 
         unsigned int c_to_alloc = ( core.free_cpus/tc ) * tc;
-
-        auto vit = core.cpus.begin();
 
         for (auto vit = core.cpus.begin(); vit != core.cpus.end() && c_to_alloc > 0; ++vit)
         {
@@ -617,7 +631,7 @@ int HostShareNode::allocate_ht_cpus(int id, unsigned int tcpus, unsigned int tc,
         return -1;
     }
 
-    update_template_cores();
+    update_cores();
 
     c_s = oss.str();
 
@@ -627,7 +641,7 @@ int HostShareNode::allocate_ht_cpus(int id, unsigned int tcpus, unsigned int tc,
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-void HostShareNode::update_template_cores()
+void HostShareNode::update_cores()
 {
     erase("CORE");
 
@@ -635,6 +649,47 @@ void HostShareNode::update_template_cores()
     {
         set(vc_it->second.to_attribute());
     }
+}
+
+void HostShareNode::update_memory()
+{
+    VectorAttribute * mem = get("MEMORY");
+
+    if ( mem == 0 )
+    {
+        return;
+    }
+
+    mem->replace("USAGE", mem_usage);
+}
+
+void HostShareNode::set_memory()
+{
+    erase("MEMORY");
+
+    VectorAttribute * mem = new VectorAttribute("MEMORY");
+
+    mem->replace("TOTAL", total_mem);
+    mem->replace("USED", used_mem);
+    mem->replace("FREE", free_mem);
+
+    mem->replace("USAGE", mem_usage);
+
+    std::ostringstream oss;
+
+    for (auto it = distance.begin(); it != distance.end(); ++it)
+    {
+        if (it!= distance.begin())
+        {
+            oss << " ";
+        }
+
+        oss << *it;
+    }
+
+    mem->replace("DISTANCE", oss.str());
+
+    set(mem);
 }
 
 // -----------------------------------------------------------------------------
@@ -763,6 +818,34 @@ void HostShareNUMA::set_monitorization(Template &ht)
         HostShareNode& node = get_node(node_id);
 
         node.set_hugepage(size, free, pages, true);
+    }
+
+    std::vector<VectorAttribute *> memory;
+
+    ht.remove("MEMORY", memory);
+
+    for (auto it = memory.begin(); it != memory.end(); ++it)
+    {
+        std::string distance_s;
+
+        if ( (*it)->vector_value("NODE_ID", node_id) == -1 )
+        {
+            continue;
+        }
+
+        HostShareNode& node = get_node(node_id);
+
+        (*it)->vector_value("TOTAL", node.total_mem);
+        (*it)->vector_value("FREE", node.free_mem);
+        (*it)->vector_value("USED", node.used_mem);
+
+        (*it)->vector_value("DISTANCE", distance_s);
+
+        node.distance.clear();
+
+        one_util::split(distance_s, ' ', node.distance);
+
+        node.set_memory();
     }
 }
 
