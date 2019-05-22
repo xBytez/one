@@ -602,7 +602,8 @@ int HostShareNode::allocate_ht_cpus(int id, unsigned int tcpus, unsigned int tc,
 
         unsigned int c_to_alloc = ( core.free_cpus/tc ) * tc;
 
-        for (auto vit = core.cpus.begin(); vit != core.cpus.end() && c_to_alloc > 0; ++vit)
+        for (auto vit = core.cpus.begin(); vit != core.cpus.end() &&
+                c_to_alloc > 0; ++vit)
         {
             if (vit->second != -1)
             {
@@ -891,6 +892,8 @@ std::string& HostShareNUMA::to_xml(std::string& xml) const
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 /*
 static bool sort_node_mem(VectorAttribute *i, VectorAttribute *j)
 {
@@ -905,16 +908,80 @@ static bool sort_node_mem(VectorAttribute *i, VectorAttribute *j)
 }
 */
 
-struct NUMANodeRequest
+
+// -----------------------------------------------------------------------------
+
+bool HostShareNUMA::schedule_nodes(NUMANodeRequest &nr, unsigned int threads,
+        bool dedicated)
 {
-    VectorAttribute * attr;
+    std::vector<std::tuple<int,int> > cpu_fits;
+    std::set<unsigned int> mem_fits;
 
-    unsigned int total_cpus;
-    long long    memory;
+    for (auto it = nodes.begin(); it != nodes.end(); ++it)
+    {
+        long long    n_fmem;
+        unsigned int n_fcpu;
 
-    int node_id;
-    std::string cpu_ids;
-};
+        if ( dedicated )
+        {
+            it->second->free_dedicated_capacity(n_fcpu, n_fmem);
+        }
+        else
+        {
+            it->second->free_capacity(n_fcpu, n_fmem, threads);
+        }
+
+        n_fcpu -= (it->second->allocated_cpus / threads);
+        n_fmem -= it->second->allocated_memory;
+
+        if ( n_fcpu * threads >= nr.total_cpus )
+        {
+            unsigned int fcpu_after =  n_fcpu * threads - nr.total_cpus;
+
+            cpu_fits.push_back(std::make_tuple(fcpu_after, it->first));
+        }
+
+        if ( n_fmem >= nr.memory )
+        {
+            mem_fits.insert(it->first);
+        }
+    }
+
+    //--------------------------------------------------------------------------
+    // Allocate nodes using a best-fit heuristic for the CPU nodes. Closer
+    // memory allocations are prioritized.
+    //--------------------------------------------------------------------------
+    std::sort(cpu_fits.begin(), cpu_fits.end());
+
+    for (unsigned int hop = 0 ; hop < nodes.size() ; ++hop)
+    {
+        for (auto it = cpu_fits.begin(); it != cpu_fits.end() ; ++it)
+        {
+            unsigned int snode = std::get<1>(*it);
+
+            HostShareNode &n = get_node(snode);
+
+            unsigned int mem_snode = n.distance[hop];
+
+            if ( mem_fits.find(mem_snode) != mem_fits.end() )
+            {
+                HostShareNode &mem_n = get_node(snode);
+
+                nr.node_id     = snode;
+                nr.mem_node_id = mem_snode;
+
+                n.allocated_cpus += nr.total_cpus;
+                mem_n.allocated_memory += nr.memory;
+
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+/* -------------------------------------------------------------------------- */
 
 int HostShareNUMA::make_topology(HostShareRequest &sr, int vm_id)
 {
@@ -952,7 +1019,7 @@ int HostShareNUMA::make_topology(HostShareRequest &sr, int vm_id)
         a_node->vector_value("TOTAL_CPUS", total_cpus);
         a_node->vector_value("MEMORY", memory);
 
-        NUMANodeRequest nr = {a_node, total_cpus, memory, -1};
+        NUMANodeRequest nr = {a_node, total_cpus, memory, -1, "", -1};
 
         vm_nodes.push_back(nr);
     }
@@ -1034,7 +1101,7 @@ int HostShareNUMA::make_topology(HostShareRequest &sr, int vm_id)
 
     //--------------------------------------------------------------------------
     // Schedule NUMA_NODES in the host exploring t_valid threads/core confs
-    // and using a best-fit heuristic (memory-guided). Valid nodes needs to:
+    // and using a best-fit heuristic (cpu-guided). Valid nodes needs to:
     //   - Have enough free memory
     //   - Have enough free CPUS groups of a given number of threads/core.
     //
@@ -1042,77 +1109,24 @@ int HostShareNUMA::make_topology(HostShareRequest &sr, int vm_id)
     //   - (-XXX),(--XX), (X-XX) ---> Not valid 1 group of 2 threads (4 CPUS)
     //   - (----),(--XX), (X---) ---> Valid 4 group of 2 threads (8 CPUS)
     //
-    // NOTE: We want to pin CPUS in the same core in the VM also to CPUS in the
-    // same core in the host.
+    // NOTE: We want to pin CPUS in the same core in the VM to CPUS in the same
+    // core in the host as well.
     //--------------------------------------------------------------------------
     unsigned int na = 0;
 
     for (auto tc_it = t_valid.rbegin(); tc_it != t_valid.rend(); ++tc_it, na = 0)
     {
-        clear_allocations();
+        for(auto it = nodes.begin(); it != nodes.end(); ++it)
+        {
+            it->second->allocated_cpus   = 0;
+            it->second->allocated_memory = 0;
+        }
 
         for (auto vn_it = vm_nodes.begin(); vn_it != vm_nodes.end(); ++vn_it)
         {
-            long long mem_after = 0;
-
-            long long vn_mem    = (*vn_it).memory;
-            unsigned int vn_cpu = (*vn_it).total_cpus;
-
-            (*vn_it).node_id = -1;
-
-            for (auto it = nodes.begin(); it != nodes.end(); ++it)
+            if (schedule_nodes(*vn_it, *tc_it, dedicated) == false)
             {
-                long long    n_fmem;
-                unsigned int n_fcpu;
-
-                if ( dedicated )
-                {
-                    it->second->free_dedicated_capacity(n_fcpu, n_fmem);
-                }
-                else
-                {
-                    it->second->free_capacity(n_fcpu, n_fmem, (*tc_it));
-                }
-
-                n_fcpu -= (it->second->allocated_cpus / (*tc_it));
-                n_fmem -= it->second->allocated_memory;
-
-                if ( n_fmem < vn_mem || n_fcpu * (*tc_it) < vn_cpu )
-                {
-                    continue; //virtual node does not fit in host node
-                }
-
-                if ( (*vn_it).node_id == -1 )
-                {
-                    mem_after = n_fmem - vn_mem;
-
-                    (*vn_it).node_id = it->first;
-
-                    it->second->allocated_cpus   += vn_cpu;
-                    it->second->allocated_memory += vn_mem;
-                }
-                else if ( (n_fmem - vn_mem) < mem_after ) //node is a better fit
-                {
-                    mem_after = n_fmem - vn_mem;
-
-                    auto prev_node = nodes.find((*vn_it).node_id);
-
-                    if (prev_node != nodes.end())
-                    {
-                        prev_node->second->allocated_cpus   -= vn_cpu;
-                        prev_node->second->allocated_memory -= vn_mem;
-                    }
-
-                    (*vn_it).node_id = it->first;
-
-                    it->second->allocated_cpus   += vn_cpu;
-                    it->second->allocated_memory += vn_mem;
-                }
-            }
-
-            if ((*vn_it).node_id == -1)
-            {
-                continue; //Node cannot be allocated with *tc_it threads/core
+                break; //Node cannot be allocated with *tc_it threads/core
             }
 
             na++;
@@ -1153,11 +1167,20 @@ int HostShareNUMA::make_topology(HostShareRequest &sr, int vm_id)
                     (*vn_it).cpu_ids);
         }
 
+        it = nodes.find((*vn_it).mem_node_id);
+
+        if ( it == nodes.end() ) //Consistency check
+        {
+            return -1;
+        }
+
+        it->second->mem_usage += (*vn_it).memory;
+
         VectorAttribute * a_node = (*vn_it).attr;
 
         a_node->replace("NODE_ID", (*vn_it).node_id);
         a_node->replace("CPUS", (*vn_it).cpu_ids);
-        a_node->replace("MEMORY", 0); //TODO
+        a_node->replace("MEMORY_NODE_ID", (*vn_it).mem_node_id);
     }
 
     //--------------------------------------------------------------------------

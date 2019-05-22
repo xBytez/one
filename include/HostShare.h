@@ -245,7 +245,7 @@ public:
     void free_capacity(unsigned int &fcpus, long long &memory, unsigned int tc)
     {
         fcpus  = 0;
-        memory = 0; //TODO copy from memory info
+        memory = total_mem - mem_usage;
 
         for (auto it = cores.begin(); it != cores.end(); ++it)
         {
@@ -256,7 +256,7 @@ public:
     void free_dedicated_capacity(unsigned int &fcpus, long long &memory)
     {
         fcpus  = 0;
-        memory = 0; //TODO copy from memory info
+        memory = total_mem - mem_usage;
 
         for (auto it = cores.begin(); it != cores.end(); ++it)
         {
@@ -505,14 +505,29 @@ private:
 
     std::map<unsigned int, HostShareNode *> nodes;
 
-    void clear_allocations()
+    /* ---------------------------------------------------------------------- */
+    /* ---------------------------------------------------------------------- */
+
+    /**
+     *  This is an internal structure to represent a virtual node allocation
+     *  request and the resulting schedule
+     */
+    struct NUMANodeRequest
     {
-        for(auto it = nodes.begin(); it != nodes.end(); ++it)
-        {
-            it->second->allocated_cpus   = 0;
-            it->second->allocated_memory = 0;
-        }
-    }
+        VectorAttribute * attr;
+
+        unsigned int total_cpus;
+        long long    memory;
+
+        //NUMA node to allocate CPU cores from
+        int node_id;
+        std::string cpu_ids;
+
+        //NUMA node to allocate memory from
+        int mem_node_id;
+    };
+
+    bool schedule_nodes(NUMANodeRequest &nr, unsigned int thr, bool dedicated);
 };
 
 /* -------------------------------------------------------------------------- */
