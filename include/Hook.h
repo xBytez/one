@@ -98,7 +98,10 @@ private:
         }
     };
 
-    ~Hook(){};
+    ~Hook()
+    {
+        delete hook_implementation;
+    };
 
     /**
      * Set hook implementation attribute depending of the hook type.
@@ -166,7 +169,7 @@ private:
     /**
      * Object which implement type dependent methods.
      */
-    HookImplementation* hook_implementation;
+    HookImplementation * hook_implementation;
 
     // *************************************************************************
     // Database implementation
