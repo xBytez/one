@@ -947,6 +947,11 @@ bool HostShareNUMA::schedule_nodes(NUMANodeRequest &nr, unsigned int threads,
         }
     }
 
+    if ( cpu_fits.empty() || mem_fits.empty() )
+    {
+        return false;
+    }
+
     //--------------------------------------------------------------------------
     // Allocate nodes using a best-fit heuristic for the CPU nodes. Closer
     // memory allocations are prioritized.
