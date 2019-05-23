@@ -22,7 +22,6 @@ int HookStateHost::check_insert(Template * tmpl, string& error_str)
     string state;
     ostringstream oss;
 
-    //Chec STATE attribute
     tmpl->get("STATE", state);
     tmpl->erase("STATE");
 

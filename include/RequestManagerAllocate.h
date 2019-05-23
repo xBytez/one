@@ -751,7 +751,7 @@ public:
     HookAllocate():
         RequestManagerAllocate("one.hook.allocate",
                                "Allocates a new hook",
-                               "A:ssssi",
+                               "A:ss",
                                true)
     {
         Nebula& nd  = Nebula::instance();

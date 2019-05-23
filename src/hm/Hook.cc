@@ -190,25 +190,13 @@ int Hook::from_xml(const string& xml)
 int Hook::post_update_template(string& error)
 {
     string new_cmd;
-    string new_remote;
 
     get_template_attribute("COMMAND", new_cmd);
-    get_template_attribute("REMOTE", new_remote);
+    get_template_attribute("REMOTE", remote);
 
     if (new_cmd != "")
     {
         cmd = new_cmd;
-    }
-
-    new_remote = one_util::toupper(new_remote);
-
-    if (new_remote == "YES")
-    {
-        remote = true;
-    }
-    else if (new_remote == "NO")
-    {
-        remote = false;
     }
 
     replace_template_attribute("COMMAND", cmd);
@@ -464,11 +452,24 @@ int Hook::set_hook_implementation(HookType hook_type, string& error)
                     get_template_attribute("STATE", state_str);
                     state = HookStateHost::str_to_state(state_str);
 
+                    if (state == HookStateHost::NONE)
+                    {
+                        error = "A valid STATE attribute is required for hooks of state type.";
+                        return -1;
+                    }
+
                     hook_implementation = new HookStateHost(state);
                     return 0;
                 }
                 default:
+                {
+                    ostringstream oss;
+
+                    oss << "Invalid resource type: " << resource;
+                    error = oss.str();
+
                     return -1;
+                }
             }
         }
         case API:

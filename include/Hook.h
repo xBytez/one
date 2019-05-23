@@ -67,11 +67,6 @@ public:
         }
     }
 
-    HookType get_type()
-    {
-        return type;
-    }
-
     /**
      *  Executes the hook it self (usually with the aid of the ExecutionManager)
      *    @param arg additional arguments for the hook
