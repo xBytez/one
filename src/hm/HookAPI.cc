@@ -15,7 +15,9 @@
 /* -------------------------------------------------------------------------- */
 
 #include "HookAPI.h"
+#include "Nebula.h"
 #include "NebulaLog.h"
+#include "Client.h"
 
 int HookAPI::check_insert(Template * tmpl, string& error_str)
 {
@@ -24,7 +26,7 @@ int HookAPI::check_insert(Template * tmpl, string& error_str)
     tmpl->get("CALL",call);
     tmpl->erase("CALL");
 
-    if (call.empty()) //&& !call exists
+    if (call.empty() || !check_api_call(call))
     {
         oss <<  "Invalid CALL \"" << call << "\" in template for API type Hook";
         error_str = oss.str();
@@ -46,7 +48,7 @@ int HookAPI::from_template(const Template * tmpl)
 
     tmpl->get("CALL", call);
 
-    if (call.empty()) //&& !call exists
+    if (call.empty() || !check_api_call(call))
     {
         return -1;
     }
@@ -63,7 +65,7 @@ int HookAPI::post_update_template(Template * tmpl, string& error)
 
     tmpl->get("CALL", new_call);
 
-    if (!new_call.empty()) //&& call exists
+    if (!new_call.empty() && check_api_call(new_call))
     {
         call = new_call;
     }
@@ -71,4 +73,14 @@ int HookAPI::post_update_template(Template * tmpl, string& error)
     tmpl->replace("CALL", call);
 
     return 0;
+}
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+bool HookAPI::check_api_call(const string& api_call)
+{
+    RequestManager * rm = Nebula::instance().get_rm();
+
+    return rm->exist_method(api_call);
 }

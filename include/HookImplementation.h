@@ -17,12 +17,13 @@
 #ifndef HOOK_IMPLEMENTATION_H_
 #define HOOK_IMPLEMENTATION_H_
 
-#include <string>
 #include "Hook.h"
 #include "Template.h"
 
 class HookImplementation
 {
+protected:
+    virtual ~HookImplementation(){};
 private:
     friend class Hook;
 

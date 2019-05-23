@@ -68,6 +68,13 @@ private:
      */
     int post_update_template(Template * tmpl, string& error);
 
+    /**
+     * Check if an api call does exists in the XMLRPC server.
+     * @param api call
+     * @return 0 if the call exists, -1 otherwise
+     */
+    bool check_api_call(const string& api_call);
+
     // -------------------------------------------------------------------------
     // Hook API Attributes
     // -------------------------------------------------------------------------

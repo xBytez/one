@@ -222,7 +222,7 @@ xmlrpc_c::serverAbyss * RequestManager::create_abyss()
 {
     xmlrpc_c::serverAbyss::constrOpt opt = xmlrpc_c::serverAbyss::constrOpt();
 
-    opt.registryP(&RequestManagerRegistry);
+    opt.registryP(&RequestManagerRegistry.registry);
     opt.keepaliveTimeout(keepalive_timeout);
     opt.keepaliveMaxConn(keepalive_max_conn);
     opt.timeout(timeout);
