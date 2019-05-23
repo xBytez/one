@@ -14,17 +14,57 @@
 /* limitations under the License.                                             */
 /* -------------------------------------------------------------------------- */
 
-#ifndef HOOK_API_H_
-#define HOOK_API_H_
+#ifndef HOOK_STATE_VM_H_
+#define HOOK_STATE_VM_H_
 
 #include <string>
 
 #include "Hook.h"
+#include "VirtualMachine.h"
 #include "HookImplementation.h"
 
-class HookAPI : public HookImplementation
+class HookStateVM : public HookImplementation
 {
 public:
+
+    enum HookVMStates
+    {
+        CREATE   = 0,
+        RUNNING  = 1,
+        SHUTDOWN = 2,
+        STOP     = 3,
+        DONE     = 4,
+        UNKNOWN  = 5,
+        CUSTOM   = 6,
+        NONE     = 7
+    };
+
+    static string state_to_str(HookVMStates st)
+    {
+        switch(st)
+        {
+            case CREATE:   return "CREATE";   break;
+            case RUNNING:  return "RUNNING";  break;
+            case SHUTDOWN: return "SHUTDOWN"; break;
+            case STOP:     return "STOP";     break;
+            case DONE:     return "DONE";     break;
+            case UNKNOWN:  return "UNKNOWN";  break;
+            case CUSTOM:   return "CUSTOM";   break;
+            default:       return "";
+        }
+    };
+
+    static HookVMStates str_to_state(string st)
+    {
+        if ( st == "CREATE" )        return CREATE;
+        else if ( st == "RUNNING" )  return RUNNING;
+        else if ( st == "SHUTDOWN" ) return SHUTDOWN;
+        else if ( st == "STOP" )     return STOP;
+        else if ( st == "DONE" )     return DONE;
+        else if ( st == "UNKNOWN" )  return UNKNOWN;
+        else if ( st == "CUSTOM" )   return CUSTOM;
+        else                         return NONE;
+    };
 
     void do_hook(void *arg)
     {
@@ -39,11 +79,17 @@ private:
     // Constructor/Destructor
     // *************************************************************************
 
-    HookAPI():call(""){};
+    HookStateVM():hook_state(NONE){};
 
-    HookAPI(const string& _call): call(_call){};
+    HookStateVM(const HookVMStates state): hook_state(state){};
 
-    ~HookAPI(){};
+    HookStateVM(const HookVMStates state, const VirtualMachine::VmState vm_state,
+                const VirtualMachine::LcmState vm_lcm_state):
+    hook_state(state),
+    custom_state(vm_state),
+    custom_lcm_state(vm_lcm_state){};
+
+    ~HookStateVM(){};
 
     /**
      *  Check if type dependent attributes are well defined.
@@ -73,9 +119,22 @@ private:
     // -------------------------------------------------------------------------
 
     /**
-     *  String representation of the API call
+     *  States hook_state state which trigger the hook
      */
-    string call;
+    HookVMStates hook_state;
+
+    /**
+     * VirtualMachine::VmState custom_state VM state which trigger the hook
+     * if hook_state is set to CUSTOM
+     */
+    VirtualMachine::VmState custom_state;
+
+    /**
+     * VirtualMachine::LcmState custom_lcm_state VM LCM state which trigger the hook
+     * if hook_state is set to CUSTOM
+     */
+    VirtualMachine::LcmState custom_lcm_state;
+
 };
 
 #endif

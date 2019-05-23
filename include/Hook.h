@@ -108,7 +108,7 @@ private:
     /**
      * Set hook implementation attribute depending of the hook type.
      */
-    int set_hook_implementation(HookType hook_type);
+    int set_hook_implementation(HookType hook_type, string& error);
 
      /**
      *  Parses the arguments of the hook using a generic $ID identifier, and

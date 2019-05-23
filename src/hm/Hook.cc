@@ -16,6 +16,9 @@
 
 #include "Hook.h"
 #include "Nebula.h"
+#include "HookImplementation.h"
+#include "HookStateHost.h"
+#include "HookStateVM.h"
 
 #include <string>
 
@@ -127,6 +130,7 @@ int Hook::from_xml(const string& xml)
 {
     vector<xmlNodePtr> content;
     string type_str, remote_str;
+    string error_msg;
 
     int rc = 0;
 
@@ -157,7 +161,7 @@ int Hook::from_xml(const string& xml)
 
     rc += obj_template->from_xml_node( content[0] );
 
-    if(set_hook_implementation(type) == -1)
+    if(set_hook_implementation(type, error_msg) == -1)
     {
         return -1;
     }
@@ -262,9 +266,9 @@ int Hook::insert(SqlDB *db, string& error_str)
         }
     }
 
-    if (set_hook_implementation(type) == -1)
+    if (set_hook_implementation(type, error_str) == -1)
     {
-        goto error_type;
+        goto error_common;
     }
 
     rc = hook_implementation->check_insert(obj_template, error_str);
@@ -378,7 +382,7 @@ error_common:
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-int Hook::set_hook_implementation(HookType hook_type)
+int Hook::set_hook_implementation(HookType hook_type, string& error)
 {
     string type_str;
 
@@ -390,13 +394,94 @@ int Hook::set_hook_implementation(HookType hook_type)
     switch (hook_type)
     {
         case STATE:
-            hook_implementation = 0;
-            return -1;
+        {
+            string resource;
+
+            if (obj_template == 0)
+            {
+                return -1;
+            }
+
+            get_template_attribute("RESOURCE", resource);
+
+            if (resource.empty())
+            {
+                error = "Resource attribute is required for hooks of state type.";
+                return -1;
+            }
+
+            switch(PoolObjectSQL::str_to_type(resource))
+            {
+                case PoolObjectSQL::VM:
+                {
+                    string state_str;
+                    HookStateVM::HookVMStates state;
+
+                    get_template_attribute("STATE", state_str);
+                    state = HookStateVM::str_to_state(state_str);
+
+                    if (state == HookStateVM::NONE)
+                    {
+                        error = "A valid STATE attribute is required for hooks of state type.";
+                        return -1;
+                    }
+                    else if (state == HookStateVM::CUSTOM)
+                    {
+                        string vm_state_str, lcm_state_str;
+                        VirtualMachine::VmState vm_state;
+                        VirtualMachine::LcmState lcm_state;
+
+                        get_template_attribute("CUSTOM_STATE", vm_state_str);
+
+                        if (VirtualMachine::vm_state_from_str(vm_state_str, vm_state) == -1)
+                        {
+                            error = "A valid CUSTOM_STATE attribute is required.";
+                            return -1;
+                        }
+
+                        get_template_attribute("CUSTOM_LCM_STATE", lcm_state_str);
+
+                        if (VirtualMachine::lcm_state_from_str(lcm_state_str, lcm_state) == -1)
+                        {
+                            error = "A valid CUSTOM_LCM_STATE attribute is required.";
+                            return -1;
+                        }
+
+                        hook_implementation = new HookStateVM(state, vm_state, lcm_state);
+                    }
+                    else
+                    {
+                        hook_implementation = new HookStateVM(state);
+                    }
+
+                    return 0;
+                }
+                case PoolObjectSQL::HOST:
+                {
+                    string state_str;
+                    HookStateHost::HookHostStates state;
+
+                    get_template_attribute("STATE", state_str);
+                    state = HookStateHost::str_to_state(state_str);
+
+                    hook_implementation = new HookStateHost(state);
+                    return 0;
+                }
+                default:
+                    return -1;
+            }
+        }
         case API:
-            hook_implementation = new HookAPI(obj_template);
+        {
+            string call;
+            get_template_attribute("CALL", call);
+
+            hook_implementation = new HookAPI(call);
+
             return 0;
+        }
         case UNDEFINED:
-            hook_implementation = 0;
+            error = "Invalid hook type.";
             return -1;
     };
 }

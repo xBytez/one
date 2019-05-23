@@ -14,17 +14,50 @@
 /* limitations under the License.                                             */
 /* -------------------------------------------------------------------------- */
 
-#ifndef HOOK_API_H_
-#define HOOK_API_H_
+#ifndef HOOK_STATE_HOST_H_
+#define HOOK_STATE_HOST_H_
 
 #include <string>
 
 #include "Hook.h"
 #include "HookImplementation.h"
 
-class HookAPI : public HookImplementation
+class HookStateHost : public HookImplementation
 {
 public:
+
+    enum HookHostStates
+    {
+        CREATE  = 0,
+        ERROR   = 1,
+        DISABLE = 2,
+        ENABLE  = 3,
+        OFFLINE = 4,
+        NONE    = 5
+    };
+
+    static string state_to_str(HookHostStates st)
+    {
+        switch(st)
+        {
+            case CREATE:  return "CREATE";  break;
+            case ERROR:   return "ERROR";   break;
+            case DISABLE: return "DISABLE"; break;
+            case ENABLE:  return "ENABLE";  break;
+            case OFFLINE: return "OFFLINE"; break;
+            default:      return "";
+        };
+    };
+
+    static HookHostStates str_to_state(string st)
+    {
+        if ( st == "CREATE" )       return CREATE;
+        else if ( st == "ERROR" )   return ERROR;
+        else if ( st == "DISABLE" ) return DISABLE;
+        else if ( st == "ENABLE" )  return ENABLE;
+        else if ( st == "OFFLINE" ) return OFFLINE;
+        else                        return NONE;
+    };
 
     void do_hook(void *arg)
     {
@@ -39,11 +72,11 @@ private:
     // Constructor/Destructor
     // *************************************************************************
 
-    HookAPI():call(""){};
+    HookStateHost():hook_state(NONE){};
 
-    HookAPI(const string& _call): call(_call){};
+    HookStateHost(const HookHostStates state): hook_state(state){};
 
-    ~HookAPI(){};
+    ~HookStateHost(){};
 
     /**
      *  Check if type dependent attributes are well defined.
@@ -73,9 +106,10 @@ private:
     // -------------------------------------------------------------------------
 
     /**
-     *  String representation of the API call
+     *  States hook_state state which trigger the hook
      */
-    string call;
+    HookHostStates hook_state;
+
 };
 
 #endif

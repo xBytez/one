@@ -14,25 +14,29 @@
 /* limitations under the License.                                             */
 /* -------------------------------------------------------------------------- */
 
-#include "HookAPI.h"
+#include "HookStateHost.h"
 #include "NebulaLog.h"
 
-int HookAPI::check_insert(Template * tmpl, string& error_str)
+int HookStateHost::check_insert(Template * tmpl, string& error_str)
 {
+    string state;
     ostringstream oss;
 
-    tmpl->get("CALL",call);
-    tmpl->erase("CALL");
+    //Chec STATE attribute
+    tmpl->get("STATE", state);
+    tmpl->erase("STATE");
 
-    if (call.empty()) //&& !call exists
+    hook_state = str_to_state(state);
+
+    if (hook_state == NONE)
     {
-        oss <<  "Invalid CALL \"" << call << "\" in template for API type Hook";
+        oss << "Invalid STATE \"" << state << "\" in template for STATE type Hook";
         error_str = oss.str();
 
         return -1;
     }
 
-    tmpl->add("CALL", call);
+    tmpl->add("STATE", state_to_str(hook_state));
 
     return 0;
 }
@@ -41,12 +45,15 @@ int HookAPI::check_insert(Template * tmpl, string& error_str)
 /* -------------------------------------------------------------------------- */
 
 
-int HookAPI::from_template(const Template * tmpl)
+int HookStateHost::from_template(const Template * tmpl)
 {
+    string state_str;
 
-    tmpl->get("CALL", call);
+    tmpl->get("STATE", state_str);
 
-    if (call.empty()) //&& !call exists
+    hook_state = str_to_state(state_str);
+
+    if (hook_state == NONE)
     {
         return -1;
     }
@@ -57,18 +64,27 @@ int HookAPI::from_template(const Template * tmpl)
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-int HookAPI::post_update_template(Template * tmpl, string& error)
+int HookStateHost::post_update_template(Template * tmpl, string& error)
 {
-    string new_call;
+    string new_state, resource;
 
-    tmpl->get("CALL", new_call);
+    tmpl->get("STATE", new_state);
 
-    if (!new_call.empty()) //&& call exists
+    if (str_to_state(new_state) == NONE)
     {
-        call = new_call;
+        new_state = state_to_str(hook_state);
     }
 
-    tmpl->replace("CALL", call);
+    tmpl->replace("STATE", new_state);
+
+    tmpl->get("RESOURCE", resource);
+
+    if (PoolObjectSQL::str_to_type(resource) != PoolObjectSQL::HOST)
+    {
+        resource = PoolObjectSQL::type_to_str(PoolObjectSQL::HOST);
+    }
+
+    tmpl->replace("RESOURCE", resource);
 
     return 0;
 }
