@@ -527,7 +527,7 @@ int HostShareNode::from_xml_node(const xmlNodePtr &node)
     }
 
     std::string distance_s;
-    VectorAttribute * memory = get("MEMORY");
+    VectorAttribute * memory = get("MEMORY_NODE");
 
     if (memory != 0)
     {

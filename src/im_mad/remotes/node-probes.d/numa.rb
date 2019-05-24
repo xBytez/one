@@ -62,7 +62,7 @@ def node_to_template(node, nid)
                 node_s << " CPUS = \"#{c['cpus'].join(',')}\" ]\n"
             end
         when 'memory'
-            node_s << "MEMORY = [ NODE_ID = \"#{nid}\","
+            node_s << "MEMORY_NODE = [ NODE_ID = \"#{nid}\","
             node_s << " TOTAL = \"#{v['total']}\","
             node_s << " FREE = \"#{v['free']}\","
             node_s << " USED = \"#{v['used']}\","
