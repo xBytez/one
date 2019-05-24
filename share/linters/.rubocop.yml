@@ -613,12 +613,6 @@ Layout/IndentationWidth:
 Layout/SpaceInsideBlockBraces:
     SpaceBeforeBlockParameters: false
 
-# X indentation raw & method call
-Layout/IndentFirstArrayElement:
-    EnforcedStyle: consistent
-
-Layout/IndentFirstHashElement:
-    EnforcedStyle: consistent
 ###
 
 # Align the end keyword
@@ -807,9 +801,6 @@ Naming/ConstantName:
     Enabled: true
 
 Naming/HeredocDelimiterNaming:
-    Enabled: false
-
-Naming/RescuedExceptionsVariableName:
     Enabled: false
 
 ###

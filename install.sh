@@ -676,6 +676,7 @@ BIN_FILES="src/nebula/oned \
            src/cli/onemarketapp \
            src/cli/onevcenter \
            src/cli/onevntemplate \
+           src/cli/onehook \
            src/onedb/onedb \
            share/scripts/one"
 
@@ -1820,7 +1821,8 @@ ONE_CLI_LIB_FILES="src/cli/one_helper/onegroup_helper.rb \
                    src/cli/one_helper/onemarketapp_helper.rb \
                    src/cli/one_helper/onevcenter_helper.rb \
                    src/cli/one_helper/onemarket_helper.rb \
-                   src/cli/one_helper/onevntemplate_helper.rb"
+                   src/cli/one_helper/onevntemplate_helper.rb \
+                   src/cli/one_helper/onehook_helper.rb"
 
 CLI_BIN_FILES="src/cli/onevm \
                src/cli/onehost \
@@ -1843,7 +1845,8 @@ CLI_BIN_FILES="src/cli/onevm \
                src/cli/onevrouter \
                src/cli/onemarketapp \
                src/cli/onemarket \
-               src/cli/onevntemplate"
+               src/cli/onevntemplate \
+               src/cli/onehook"
 
 CLI_CONF_FILES="src/cli/etc/onegroup.yaml \
                 src/cli/etc/onehost.yaml \
@@ -1864,7 +1867,8 @@ CLI_CONF_FILES="src/cli/etc/onegroup.yaml \
                 src/cli/etc/onevrouter.yaml \
                 src/cli/etc/onemarketapp.yaml \
                 src/cli/etc/onemarket.yaml \
-                src/cli/etc/onevntemplate.yaml"
+                src/cli/etc/onevntemplate.yaml \
+                src/cli/etc/onehook.yaml"
 
 #-----------------------------------------------------------------------------
 # Provision files
