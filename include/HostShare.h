@@ -39,13 +39,17 @@ class HostShareNUMA;
  *
  *    NUMA node requests are described by an attribute:
  *
- *    NUMA_NODE = [ TOTAL_CPUS=, MEMORY="...", CPUS="...", NODE_ID="..." ]
+ *    NUMA_NODE = [ TOTAL_CPUS=, MEMORY="...", CPUS="...", NODE_ID="...",
+ *      MEMORY_NODE_ID="..." ]
  *
  *    CPUS: list of CPU IDs to pin the vCPUs in this host
  *    NODE_ID: the ID of the numa node in the host to pin this virtual node
+ *    MEMORY_NODE_ID: the ID of the node to allocate memory for this virtual node
  */
 struct HostShareRequest
 {
+    int vmid;
+
     unsigned int vcpu;
 
     long long cpu;
@@ -225,6 +229,7 @@ class HostShareNode : public Template
 {
 public:
     HostShareNode() : Template(false, '=', "NODE"){};
+
     HostShareNode(unsigned int i) : Template(false, '=', "NODE"), node_id(i)
     {
         replace("NODE_ID", i);
@@ -232,42 +237,23 @@ public:
 
     virtual ~HostShareNode(){};
 
+    /**
+     *  Builds the node from its XML representation. This function is used when
+     *  loading the host from the DB.
+     *    @param node xmlNode for the template
+     *    @return 0 on success
+     */
     int from_xml_node(const xmlNodePtr &node);
 
-    //--------------------------------------------------------------------------
-    //--------------------------------------------------------------------------
     /**
      *  Get free capacity of the node
      *    @param fcpus number of free virtual cores
      *    @param memory free in the node
      *    @param threads_core per virtual core
      */
-    void free_capacity(unsigned int &fcpus, long long &memory, unsigned int tc)
-    {
-        fcpus  = 0;
-        memory = total_mem - mem_usage;
+    void free_capacity(unsigned int &fcpus, long long &memory, unsigned int tc);
 
-        for (auto it = cores.begin(); it != cores.end(); ++it)
-        {
-            fcpus = fcpus + it->second.free_cpus / tc;
-        }
-    }
-
-    void free_dedicated_capacity(unsigned int &fcpus, long long &memory)
-    {
-        fcpus  = 0;
-        memory = total_mem - mem_usage;
-
-        for (auto it = cores.begin(); it != cores.end(); ++it)
-        {
-            if ( it->second.free_cpus == threads_core )
-            {
-                fcpus = fcpus + 1;
-            }
-        }
-    }
-
-    //--------------------------------------------------------------------------
+    void free_dedicated_capacity(unsigned int &fcpus, long long &memory);
 
     /**
      *  Allocate tcpus with a dedicated policy
@@ -415,7 +401,6 @@ private:
 
     void update_hugepage(unsigned long size);
 
-
     /**
      *  Adds a new memory attribute based on the moniroting attributes and
      *  current mem usage.
@@ -469,12 +454,25 @@ public:
         }
     };
 
+    /**
+     *  Builds the NUMA nodes from its XML representation. This function is used
+     *  when loading the host from the DB.
+     *    @param node xmlNode for the template
+     *    @return 0 on success
+     */
     int from_xml_node(const vector<xmlNodePtr> &ns);
 
+    /**
+     *  Updates the NUMA node information with monitor data
+     *    @param ht template with the information returned by monitor probes.
+     */
     void set_monitorization(Template &ht);
 
-    //Returns the node with the given id if the node does not exist a new one
-    //is created
+    /**
+     *  @param idx of the node
+     *  @return the NUMA node for the the fiven index. If the node does not
+     *  exit it is created
+     */
     HostShareNode& get_node(unsigned int idx);
 
     /**
@@ -486,16 +484,29 @@ public:
     string& to_xml(string& xml) const;
 
     /**
-     * Computes the virtual topology for this VM in this host based on:
-     *   - user preferences TOPOLOGY/[SOCKETS, CORES, THREADS].
-     *   - Architecture of the Host core_threads
-     *   - allocation policy
-     *
-     *   @param sr the resource allocation request
-     *   @param vm_id of the VM making the request
-     *   @return 0 success (vm was allocated) -1 otherwise
+     *  Test if the virtual nodes and topology request fits in the host.
+     *    @param sr the share request with the node/topology
+     *    @return true if the nodes fit in the host, false otherwise
      */
-    int make_topology(HostShareRequest &sr, int vm_id);
+    bool test(HostShareRequest &sr)
+    {
+        return make_topology(sr, -1, false) == 0;
+    }
+
+    /**
+     *  Assign the requested nodes to the host.
+     *    @param sr the share request with the node/topology
+     *    @param vmid of the VM
+     */
+    void add(HostShareRequest &sr, int vmid)
+    {
+        make_topology(sr, vmid, true);
+    }
+
+    /**
+     *  Remove the VM assignment from the PCI device list
+     */
+    void del(const vector<VectorAttribute *> &devs);
 
 private:
     /**
@@ -507,6 +518,18 @@ private:
 
     /* ---------------------------------------------------------------------- */
     /* ---------------------------------------------------------------------- */
+    /**
+     * Computes the virtual topology for this VM in this host based on:
+     *   - user preferences TOPOLOGY/[SOCKETS, CORES, THREADS].
+     *   - Architecture of the Host core_threads
+     *   - allocation policy
+     *
+     *   @param sr the resource allocation request
+     *   @param vm_id of the VM making the request
+     *   @param do_alloc actually allocate the nodes (true) or just test (false)
+     *   @return 0 success (vm was allocated) -1 otherwise
+     */
+    int make_topology(HostShareRequest &sr, int vm_id, bool do_alloc);
 
     /**
      *  This is an internal structure to represent a virtual node allocation
@@ -527,7 +550,8 @@ private:
         int mem_node_id;
     };
 
-    bool schedule_nodes(NUMANodeRequest &nr, unsigned int thr, bool dedicated);
+    bool schedule_nodes(NUMANodeRequest &nr, unsigned int thr, bool dedicated,
+            bool do_alloc);
 };
 
 /* -------------------------------------------------------------------------- */
@@ -571,6 +595,17 @@ public:
         disk_usage += disk;
 
         pci.add(pci_devs, vmid);
+
+        running_vms++;
+    }
+
+    void add(HostShareRequest &sr)
+    {
+        cpu_usage  += sr.cpu;
+        mem_usage  += sr.mem;
+        disk_usage += sr.disk;
+
+        pci.add(sr.pci, sr.vmid);
 
         running_vms++;
     }
@@ -676,6 +711,10 @@ public:
      */
     string& to_xml(string& xml) const;
 
+    /**
+     *  Set host information based on the monitorinzation attributes
+     *  sent by the probes.
+     */
     void set_ds_monitorization(const vector<VectorAttribute*> &ds_att);
 
     void set_pci_monitorization(vector<VectorAttribute*> &pci_att)

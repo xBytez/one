@@ -24,7 +24,122 @@
 #include "HostShare.h"
 #include "PoolObjectAuth.h"
 
-using namespace std;
+/**
+ *  This class represents the needed information HostShare for a Host to 
+ *  perform the scheduling
+ */
+class HostShareXML
+{
+public:
+    HostShareXML(ObjectXML * host)
+    {
+        init_attributes(host);
+    };
+
+    virtual ~HostShareXML(){};
+
+    /**
+     *  Tests whether a new VM can be hosted by the host or not
+     *    @param sr the share request including CPU, memory, PCI and NUMA nodes
+     *    @return true if the share can host the VM
+     */
+    bool test_capacity(HostShareRequest& sr, string & error);
+
+    /**
+     *  Adds a new VM to the given share by incrementing the cpu,mem and disk
+     *  counters
+     *    @param cpu needed by the VM (percentage)
+     *    @param mem needed by the VM (in KB)
+     *    @return 0 on success
+     */
+    void add_capacity(HostShareRequest& sr)
+    {
+        cpu_usage  += sr.cpu;
+        mem_usage  += sr.mem;
+
+        pci.add(sr.pci, sr.vmid);
+
+        numa.add(sr, sr.vmid);
+
+        running_vms++;
+    };
+
+    /**
+     *  Deletes a VM to the given host by updating the cpu,mem and disk
+     *  counters
+     *    @param cpu needed by the VM (percentage)
+     *    @param mem needed by the VM (in KB)
+     *    @return 0 on success
+     */
+    void del_capacity(HostShareRequest& sr)
+    {
+        cpu_usage  -= sr.cpu;
+        mem_usage  -= sr.mem;
+
+        running_vms--;
+    };
+
+    /**
+     *  Tests whether a new VM can be hosted by the local system DS or not
+     *    @param dsid DS id
+     *    @param vm_disk_mb System disk needed by the VM (in MB)
+     *    @return true if the share can host the VM
+     */
+    bool test_ds_capacity(int dsid, long long vm_disk_mb)
+    {
+        if (ds_free_disk.count(dsid) == 0)
+        {
+            ds_free_disk[dsid] = free_disk;
+        }
+
+        return (vm_disk_mb < ds_free_disk[dsid]);
+    }
+
+    /**
+     *  Adds a new VM to the given local sytem DS share by incrementing the disk
+     *  counter
+     *    @param dsid DS id
+     *    @param vm_disk_mb System disk needed by the VM (in MB)
+     */
+    void add_ds_capacity(int dsid, long long vm_disk_mb)
+    {
+        if (ds_free_disk.count(dsid) == 0)
+        {
+            ds_free_disk[dsid] = free_disk;
+        }
+
+        ds_free_disk[dsid] -= vm_disk_mb;
+    }
+
+private:
+    friend class HostXML;
+
+    // Host computing capacity and usage
+    long long mem_usage;
+    long long cpu_usage;
+
+    long long max_mem;
+    long long max_cpu;
+
+    long long running_vms;
+
+    // PCI devices
+    HostSharePCI pci;
+
+    // System datastore
+    long long free_disk;
+    map<int, long long> ds_free_disk;
+
+    //Numa Nodes
+    HostShareNUMA numa;
+
+    /**
+     *  Construct the share information from the XML information in the
+     *  <HOST> element
+     */
+    void init_attributes(ObjectXML * host);
+};
+
 
 class HostXML : public ObjectXML
 {
@@ -178,12 +293,17 @@ private:
     int oid;
     int cluster_id;
 
+    // -------------------------------------------------------------------------
     // Host share values
-    long long mem_usage; /**< Memory allocated to VMs (in KB)      */
-    long long cpu_usage; /**< CPU  allocated to VMs (in percentage)*/
-
+    //   - memory in KB
+    //   - cpu in percentage
+    //   - disk in MB
+   // -------------------------------------------------------------------------
     long long max_mem; /**< Total memory capacity (in KB)     */
     long long max_cpu; /**< Total cpu capacity (in percentage)*/
+
+    long long cpu_usage;
+    long long mem_usage;
 
     HostSharePCI pci;  /**< PCI devices of the host */
 
@@ -192,6 +312,16 @@ private:
     map<int, long long> ds_free_disk; /**< Free MB for local system DS */
 
     long long running_vms;   /**< Number of running VMs in this Host        */
+
+
+
+
+
+
+
+
+
+
     set<int> dispatched_vms; /**< Dispatched VMs to this host in this cycle */
 
     bool public_cloud; /**< This host is a public cloud */

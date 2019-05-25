@@ -736,6 +736,36 @@ void HostShareNode::set_hugepage(unsigned long size, unsigned int nr,
     }
 }
 
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
+void HostShareNode::free_capacity(unsigned int &fcpus, long long &memory,
+        unsigned int tc)
+{
+    fcpus  = 0;
+    memory = total_mem - mem_usage;
+
+    for (auto it = cores.begin(); it != cores.end(); ++it)
+    {
+        fcpus = fcpus + it->second.free_cpus / tc;
+    }
+}
+
+void HostShareNode::free_dedicated_capacity(unsigned int &fcpus, 
+        long long &memory)
+{
+    fcpus  = 0;
+    memory = total_mem - mem_usage;
+
+    for (auto it = cores.begin(); it != cores.end(); ++it)
+    {
+        if ( it->second.free_cpus == threads_core )
+        {
+            fcpus = fcpus + 1;
+        }
+    }
+}
+
 /* ************************************************************************** */
 /* ************************************************************************** */
 /* HostShareNUMA                                                              */
@@ -912,7 +942,7 @@ static bool sort_node_mem(VectorAttribute *i, VectorAttribute *j)
 // -----------------------------------------------------------------------------
 
 bool HostShareNUMA::schedule_nodes(NUMANodeRequest &nr, unsigned int threads,
-        bool dedicated)
+        bool dedicated, bool do_alloc)
 {
     std::vector<std::tuple<int,int> > cpu_fits;
     std::set<unsigned int> mem_fits;
@@ -952,6 +982,11 @@ bool HostShareNUMA::schedule_nodes(NUMANodeRequest &nr, unsigned int threads,
         return false;
     }
 
+    if ( do_alloc == false )
+    {
+        return true;
+    }
+
     //--------------------------------------------------------------------------
     // Allocate nodes using a best-fit heuristic for the CPU nodes. Closer
     // memory allocations are prioritized.
@@ -988,7 +1023,7 @@ bool HostShareNUMA::schedule_nodes(NUMANodeRequest &nr, unsigned int threads,
 
 /* -------------------------------------------------------------------------- */
 
-int HostShareNUMA::make_topology(HostShareRequest &sr, int vm_id)
+int HostShareNUMA::make_topology(HostShareRequest &sr, int vm_id, bool do_alloc)
 {
     unsigned int t_max; //Max threads per core for this topology
     std::set<int> t_valid; //Viable threads per core combinations for all nodes
@@ -1129,7 +1164,7 @@ int HostShareNUMA::make_topology(HostShareRequest &sr, int vm_id)
 
         for (auto vn_it = vm_nodes.begin(); vn_it != vm_nodes.end(); ++vn_it)
         {
-            if (schedule_nodes(*vn_it, *tc_it, dedicated) == false)
+            if (schedule_nodes(*vn_it, *tc_it, dedicated, do_alloc) == false)
             {
                 break; //Node cannot be allocated with *tc_it threads/core
             }
@@ -1147,6 +1182,11 @@ int HostShareNUMA::make_topology(HostShareRequest &sr, int vm_id)
     if (na != vm_nodes.size())
     {
         return -1;
+    }
+
+    if ( do_alloc == false )
+    {
+        return 0;
     }
 
     //--------------------------------------------------------------------------

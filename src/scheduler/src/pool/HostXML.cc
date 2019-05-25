@@ -35,6 +35,105 @@ const char *HostXML::host_paths[] = {
 
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+void HostShareXML::init_attributes(ObjectXML * host)
+{
+    //------------------ HostShare Computing Capacity --------------------------
+    host->xpath<long long>(mem_usage, "/HOST/HOST_SHARE/MEM_USAGE", 0);
+    host->xpath<long long>(cpu_usage, "/HOST/HOST_SHARE/CPU_USAGE", 0);
+
+    host->xpath<long long>(max_mem, "/HOST/HOST_SHARE/MAX_MEM", 0);
+    host->xpath<long long>(max_cpu, "/HOST/HOST_SHARE/MAX_CPU", 0);
+
+    host->xpath<long long>(free_disk, "/HOST/HOST_SHARE/FREE_DISK", 0);
+    host->xpath<long long>(running_vms, "/HOST/HOST_SHARE/RUNNING_VMS", 0);
+
+    //-------------------- HostShare Datastores ------------------------------
+    std::vector<int> ds_ids;
+    std::vector<long long> ds_free;
+
+    host->xpaths<int>(ds_ids, "/HOST/HOST_SHARE/DATASTORES/DS/ID");
+    host->xpaths<long long>(ds_free, "/HOST/HOST_SHARE/DATASTORES/DS/FREE_MB");
+
+    for (size_t i = 0; i < ds_ids.size() && i < ds_free.size(); i++)
+    {
+        ds_free_disk[ds_ids[i]] = ds_free[i];
+    }
+
+    //-------------------- HostShare PCI Devices ------------------------------
+    vector<xmlNodePtr> content;
+
+    host->get_nodes("/HOST/HOST_SHARE/PCI_DEVICES", content);
+
+    if( !content.empty())
+    {
+        pci.from_xml_node(content[0]);
+
+        host->free_nodes(content);
+
+        content.clear();
+    }
+
+    //---------------------- HostShare NUMA Nodes ------------------------------
+    host->get_nodes("/HOST_SHARE/NUMA_NODES/NODE", content);
+
+    if(!content.empty())
+    {
+        numa.from_xml_node(content);
+
+        host->free_nodes(content);
+
+        content.clear();
+    }
+};
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+bool HostShareXML::test_capacity(HostShareRequest &sr, string & error)
+{
+    bool pci_fit  = pci.test(sr.pci);
+    bool numa_fit = numa.test(sr);
+    bool cpu_fit  = (max_cpu  - cpu_usage ) >= sr.cpu;
+    bool mem_fit  = (max_mem  - mem_usage ) >= sr.mem;
+
+    bool fits = cpu_fit && mem_fit && numa_fit && pci_fit;
+
+    if ( fits )
+    {
+        return true;
+    }
+
+    ostringstream oss;
+
+    if (!cpu_fit)
+    {
+        oss << "Not enough CPU capacity: " << sr.cpu << "/" << max_cpu  - cpu_usage;
+    }
+    else if (!mem_fit)
+    {
+        oss << "Not enough memory: " << sr.mem << "/" << max_mem  - mem_usage;
+    }
+    else if (!numa_fit)
+    {
+        oss << "Cannot allocate NUMA topology";
+    }
+    else if (!pci_fit)
+    {
+        oss <<  "Unavailable PCI device.";
+    }
+
+    error = oss.str();
+
+    return false;
+}
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 
 void HostXML::init_attributes()
 {
