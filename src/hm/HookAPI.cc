@@ -43,13 +43,18 @@ int HookAPI::check_insert(Template * tmpl, string& error_str)
 /* -------------------------------------------------------------------------- */
 
 
-int HookAPI::from_template(const Template * tmpl)
+int HookAPI::from_template(const Template * tmpl, string& error)
 {
 
     tmpl->get("CALL", call);
 
     if (call.empty() || !check_api_call(call))
     {
+        ostringstream oss;
+
+        oss << "Invalid CALL: " << call;
+        error = oss.str();
+
         return -1;
     }
 

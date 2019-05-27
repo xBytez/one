@@ -59,7 +59,7 @@ private:
      *
      *    @return 0 on success, -1 otherwise
      */
-    int from_template(const Template * tmpl);
+    int from_template(const Template * tmpl, string& error);
 
     /* Checks the mandatory template attributes
      *    @param tmpl The hook template

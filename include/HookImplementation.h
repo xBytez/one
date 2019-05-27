@@ -27,7 +27,7 @@ protected:
 private:
     friend class Hook;
 
-    virtual int from_template(const Template * tmpl) = 0;
+    virtual int from_template(const Template * tmpl, string& error) = 0;
 
     virtual int post_update_template(Template * tmpl, string& error) = 0;
 

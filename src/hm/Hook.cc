@@ -166,7 +166,7 @@ int Hook::from_xml(const string& xml)
         return -1;
     }
 
-    rc += hook_implementation->from_template(obj_template);
+    rc += hook_implementation->from_template(obj_template, error_msg);
 
     get_template_attribute("COMMAND", cmd);
     get_template_attribute("REMOTE",  remote);
@@ -202,10 +202,7 @@ int Hook::post_update_template(string& error)
     replace_template_attribute("COMMAND", cmd);
     replace_template_attribute("REMOTE", remote);
 
-    hook_implementation->post_update_template(obj_template, error);
-
-    return 0;
-
+    return hook_implementation->post_update_template(obj_template, error);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -401,66 +398,11 @@ int Hook::set_hook_implementation(HookType hook_type, string& error)
             switch(PoolObjectSQL::str_to_type(resource))
             {
                 case PoolObjectSQL::VM:
-                {
-                    string state_str;
-                    HookStateVM::HookVMStates state;
-
-                    get_template_attribute("STATE", state_str);
-                    state = HookStateVM::str_to_state(state_str);
-
-                    if (state == HookStateVM::NONE)
-                    {
-                        error = "A valid STATE attribute is required for hooks of state type.";
-                        return -1;
-                    }
-                    else if (state == HookStateVM::CUSTOM)
-                    {
-                        string vm_state_str, lcm_state_str;
-                        VirtualMachine::VmState vm_state;
-                        VirtualMachine::LcmState lcm_state;
-
-                        get_template_attribute("CUSTOM_STATE", vm_state_str);
-
-                        if (VirtualMachine::vm_state_from_str(vm_state_str, vm_state) == -1)
-                        {
-                            error = "A valid CUSTOM_STATE attribute is required.";
-                            return -1;
-                        }
-
-                        get_template_attribute("CUSTOM_LCM_STATE", lcm_state_str);
-
-                        if (VirtualMachine::lcm_state_from_str(lcm_state_str, lcm_state) == -1)
-                        {
-                            error = "A valid CUSTOM_LCM_STATE attribute is required.";
-                            return -1;
-                        }
-
-                        hook_implementation = new HookStateVM(state, vm_state, lcm_state);
-                    }
-                    else
-                    {
-                        hook_implementation = new HookStateVM(state);
-                    }
-
-                    return 0;
-                }
+                    hook_implementation = new HookStateVM();
+                    break;
                 case PoolObjectSQL::HOST:
-                {
-                    string state_str;
-                    HookStateHost::HookHostStates state;
-
-                    get_template_attribute("STATE", state_str);
-                    state = HookStateHost::str_to_state(state_str);
-
-                    if (state == HookStateHost::NONE)
-                    {
-                        error = "A valid STATE attribute is required for hooks of state type.";
-                        return -1;
-                    }
-
-                    hook_implementation = new HookStateHost(state);
-                    return 0;
-                }
+                    hook_implementation = new HookStateHost();
+                    break;
                 default:
                 {
                     ostringstream oss;
@@ -471,18 +413,16 @@ int Hook::set_hook_implementation(HookType hook_type, string& error)
                     return -1;
                 }
             }
+
+            break;
         }
         case API:
-        {
-            string call;
-            get_template_attribute("CALL", call);
-
-            hook_implementation = new HookAPI(call);
-
-            return 0;
-        }
+            hook_implementation = new HookAPI();
+            break;
         case UNDEFINED:
             error = "Invalid hook type.";
             return -1;
     };
+
+    return hook_implementation->from_template(obj_template, error);
 }

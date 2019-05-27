@@ -78,7 +78,7 @@ int HookStateVM::check_insert(Template * tmpl, string& error_str)
 /* -------------------------------------------------------------------------- */
 
 
-int HookStateVM::from_template(const Template * tmpl)
+int HookStateVM::from_template(const Template * tmpl, string& error)
 {
     string state_str;
 
@@ -88,6 +88,11 @@ int HookStateVM::from_template(const Template * tmpl)
 
     if (hook_state == NONE)
     {
+        ostringstream oss;
+
+        oss << "Invalid STATE: " << state_str;
+        error = oss.str();
+
         return -1;
     }
 
@@ -99,6 +104,11 @@ int HookStateVM::from_template(const Template * tmpl)
 
         if (VirtualMachine::vm_state_from_str(vm_state_str, custom_state) == -1)
         {
+            ostringstream oss;
+
+            oss << "Invalid CUSTOM_STATE: " << custom_state;
+            error = oss.str();
+
             return -1;
         }
 
@@ -106,6 +116,11 @@ int HookStateVM::from_template(const Template * tmpl)
 
         if (VirtualMachine::lcm_state_from_str(lcm_state_str, custom_lcm_state) == -1)
         {
+            ostringstream oss;
+
+            oss << "Invalid CUSTOM_LCM_STATE: " << lcm_state_str;
+            error = oss.str();
+
             return -1;
         }
     }

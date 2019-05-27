@@ -44,7 +44,7 @@ int HookStateHost::check_insert(Template * tmpl, string& error_str)
 /* -------------------------------------------------------------------------- */
 
 
-int HookStateHost::from_template(const Template * tmpl)
+int HookStateHost::from_template(const Template * tmpl, string& error)
 {
     string state_str;
 
@@ -54,6 +54,11 @@ int HookStateHost::from_template(const Template * tmpl)
 
     if (hook_state == NONE)
     {
+        ostringstream oss;
+
+        oss << "Invalid STATE: " << state_str;
+        error = oss.str();
+
         return -1;
     }
 
