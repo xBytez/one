@@ -31,7 +31,7 @@ class HostShareNUMA;
 /* ------------------------------------------------------------------------ */
 
 /**
- *   This class represents a HostShare capacity request from a VM. The following
+ *   This class represents a HostShare capacity allocation from a VM. The following
  *   attributes are updated with the final allocation in the Host:
  *     - topology, number of sockets, cores and threads
  *     - pci, with device address
@@ -46,7 +46,7 @@ class HostShareNUMA;
  *    NODE_ID: the ID of the numa node in the host to pin this virtual node
  *    MEMORY_NODE_ID: the ID of the node to allocate memory for this virtual node
  */
-struct HostShareRequest
+struct HostShareCapacity
 {
     int vmid;
 
@@ -488,7 +488,7 @@ public:
      *    @param sr the share request with the node/topology
      *    @return true if the nodes fit in the host, false otherwise
      */
-    bool test(HostShareRequest &sr)
+    bool test(HostShareCapacity &sr)
     {
         return make_topology(sr, -1, false) == 0;
     }
@@ -498,7 +498,7 @@ public:
      *    @param sr the share request with the node/topology
      *    @param vmid of the VM
      */
-    void add(HostShareRequest &sr, int vmid)
+    void add(HostShareCapacity &sr, int vmid)
     {
         make_topology(sr, vmid, true);
     }
@@ -529,7 +529,7 @@ private:
      *   @param do_alloc actually allocate the nodes (true) or just test (false)
      *   @return 0 success (vm was allocated) -1 otherwise
      */
-    int make_topology(HostShareRequest &sr, int vm_id, bool do_alloc);
+    int make_topology(HostShareCapacity &sr, int vm_id, bool do_alloc);
 
     /**
      *  This is an internal structure to represent a virtual node allocation
@@ -599,7 +599,7 @@ public:
         running_vms++;
     }
 
-    void add(HostShareRequest &sr)
+    void add(HostShareCapacity &sr)
     {
         cpu_usage  += sr.cpu;
         mem_usage  += sr.mem;

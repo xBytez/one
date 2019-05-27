@@ -510,9 +510,7 @@ int Scheduler::set_up_pools()
  *  @param acl pool
  *  @param users the user pool
  *  @param vm the virtual machine
- *  @param vm_memory vm requirement
- *  @param vm_cpu vm requirement
- *  @param vm_pci vm requirement
+ *  @param sr share capacity request
  *  @param host to evaluate vm assgiment
  *  @param n_auth number of hosts authorized for the user, incremented if needed
  *  @param n_error number of requirement errors, incremented if needed
@@ -522,13 +520,13 @@ int Scheduler::set_up_pools()
  *  @return true for a positive match
  */
 static bool match_host(AclXML * acls, UserPoolXML * upool, VirtualMachineXML* vm,
-    int vmem, int vcpu, vector<VectorAttribute *>& vpci, HostXML * host,
-    int &n_auth, int& n_error, int &n_fits, int &n_matched, string &error)
+    HostShareCapacity &sr, HostXML * host, int &n_auth, int& n_error, int &n_fits, 
+    int &n_matched, string &error)
 {
     // -------------------------------------------------------------------------
     // Filter current Hosts for resched VMs
     // -------------------------------------------------------------------------
-    if (vm->is_resched() && vm->get_hid() == host->get_hid())
+    if (vm->is_resched() && vm->hid() == host->get_hid())
     {
         error = "VM cannot be migrated to its current Host.";
         return false;
@@ -546,13 +544,13 @@ static bool match_host(AclXML * acls, UserPoolXML * upool, VirtualMachineXML* vm
     // -------------------------------------------------------------------------
     // Check if user is authorized
     // -------------------------------------------------------------------------
-    if ( vm->get_uid() != 0 && vm->get_gid() != 0 )
+    if ( vm->uid() != 0 && vm->gid() != 0 )
     {
         PoolObjectAuth hperms;
 
         host->get_permissions(hperms);
 
-        UserXML * user = upool->get(vm->get_uid());
+        UserXML * user = upool->get(vm->uid());
 
         if (user == 0)
         {
@@ -564,7 +562,7 @@ static bool match_host(AclXML * acls, UserPoolXML * upool, VirtualMachineXML* vm
 
         set<int> gids(vgids.begin(), vgids.end());
 
-        if ( !acls->authorize(vm->get_uid(), gids, hperms, AuthRequest::MANAGE))
+        if ( !acls->authorize(vm->uid(), gids, hperms, AuthRequest::MANAGE))
         {
             error = "Permission denied.";
             return false;
@@ -576,7 +574,7 @@ static bool match_host(AclXML * acls, UserPoolXML * upool, VirtualMachineXML* vm
     // -------------------------------------------------------------------------
     // Check host capacity
     // -------------------------------------------------------------------------
-    if (host->test_capacity(vcpu, vmem, vpci, error) != true)
+    if (host->test_capacity(sr.cpu, sr.mem, sr.pci, error) != true)
     {
         return false;
     }
@@ -649,13 +647,13 @@ static bool match_system_ds(AclXML * acls, UserPoolXML * upool,
     // -------------------------------------------------------------------------
     // Check if user is authorized
     // -------------------------------------------------------------------------
-    if ( vm->get_uid() != 0 && vm->get_gid() != 0 )
+    if ( vm->uid() != 0 && vm->gid() != 0 )
     {
         PoolObjectAuth dsperms;
 
         ds->get_permissions(dsperms);
 
-        UserXML * user = upool->get(vm->get_uid());
+        UserXML * user = upool->get(vm->uid());
 
         if (user == 0)
         {
@@ -667,7 +665,7 @@ static bool match_system_ds(AclXML * acls, UserPoolXML * upool,
 
         set<int> gids(vgids.begin(), vgids.end());
 
-        if ( !acls->authorize(vm->get_uid(), gids, dsperms, AuthRequest::USE))
+        if ( !acls->authorize(vm->uid(), gids, dsperms, AuthRequest::USE))
         {
             error = "Permission denied.";
             return false;
@@ -755,13 +753,13 @@ static bool match_network(AclXML * acls, UserPoolXML * upool,
     // -------------------------------------------------------------------------
     // Check if user is authorized
     // -------------------------------------------------------------------------
-    if ( vm->get_uid() != 0 && vm->get_gid() != 0 )
+    if ( vm->uid() != 0 && vm->gid() != 0 )
     {
         PoolObjectAuth netperms;
 
         net->get_permissions(netperms);
 
-        UserXML * user = upool->get(vm->get_uid());
+        UserXML * user = upool->get(vm->uid());
 
         if (user == 0)
         {
@@ -773,7 +771,7 @@ static bool match_network(AclXML * acls, UserPoolXML * upool,
 
         set<int> gids(vgids.begin(), vgids.end());
 
-        if ( !acls->authorize(vm->get_uid(), gids, netperms, AuthRequest::USE))
+        if ( !acls->authorize(vm->uid(), gids, netperms, AuthRequest::USE))
         {
             error = "Permission denied.";
             return false;
@@ -846,10 +844,7 @@ void Scheduler::match_schedule()
 {
     VirtualMachineXML * vm;
 
-    int vm_memory;
-    int vm_cpu;
-    long long vm_disk;
-    vector<VectorAttribute *> vm_pci;
+    HostShareCapacity sr;
 
     int n_resources;
     int n_matched;
@@ -888,7 +883,7 @@ void Scheduler::match_schedule()
     {
         vm = static_cast<VirtualMachineXML*>(vm_it->second);
 
-        vm->get_requirements(vm_cpu, vm_memory, vm_disk, vm_pci);
+        vm->get_capacity(sr);
 
         n_resources = 0;
         n_fits    = 0;
@@ -909,7 +904,7 @@ void Scheduler::match_schedule()
                 }
                 else
                 {
-                    log_match(vm->get_oid(), "Cannot schedule VM. "+ m_error);
+                    log_match(vm->oid(), "Cannot schedule VM. "+ m_error);
 
                     vm->log("Cannot schedule VM. "+ m_error);
                     vmpool->update(vm);
@@ -928,8 +923,8 @@ void Scheduler::match_schedule()
         {
             host = static_cast<HostXML *>(obj_it->second);
 
-            if (match_host(acls, upool, vm, vm_memory, vm_cpu, vm_pci, host,
-                    n_auth, n_error, n_fits, n_matched, m_error))
+            if (match_host(acls, upool, vm, sr, host, n_auth, n_error, n_fits,
+                        n_matched, m_error))
             {
                 vm->add_match_host(host->get_hid());
 
@@ -939,14 +934,14 @@ void Scheduler::match_schedule()
             {
                 if ( n_error > 0 )
                 {
-                    log_match(vm->get_oid(), "Cannot schedule VM. " + m_error);
+                    log_match(vm->oid(), "Cannot schedule VM. " + m_error);
                     break;
                 }
                 else if (NebulaLog::log_level() >= Log::DDEBUG)
                 {
                     ostringstream oss;
                     oss << "Host " << host->get_hid() << " discarded for VM "
-                        << vm->get_oid() << ". " << m_error;
+                        << vm->oid() << ". " << m_error;
 
                     NebulaLog::log("SCHED", Log::DDEBUG, oss);
                 }
@@ -992,7 +987,7 @@ void Scheduler::match_schedule()
 
             vmpool->update(vm);
 
-            log_match(vm->get_oid(),
+            log_match(vm->oid(),
                     "Cannot schedule VM, there is no suitable host.");
 
             continue;
@@ -1014,7 +1009,7 @@ void Scheduler::match_schedule()
 
         if (vm->is_resched())//Will use same system DS for migrations
         {
-            vm->add_match_datastore(vm->get_dsid());
+            vm->add_match_datastore(vm->dsid());
 
             continue;
         }
@@ -1035,7 +1030,7 @@ void Scheduler::match_schedule()
         {
             ds = static_cast<DatastoreXML *>(obj_it->second);
 
-            if (match_system_ds(acls, upool, vm, vm_disk, ds, n_auth, n_error,
+            if (match_system_ds(acls, upool, vm, sr.disk, ds, n_auth, n_error,
                         n_fits, n_matched, m_error))
             {
                 vm->add_match_datastore(ds->get_oid());
@@ -1046,14 +1041,14 @@ void Scheduler::match_schedule()
             {
                 if (n_error > 0)
                 {
-                    log_match(vm->get_oid(), "Cannot schedule VM. " + m_error);
+                    log_match(vm->oid(), "Cannot schedule VM. " + m_error);
                     break;
                 }
                 else if (NebulaLog::log_level() >= Log::DDEBUG)
                 {
                     ostringstream oss;
                     oss << "System DS " << ds->get_oid() << " discarded for VM "
-                        << vm->get_oid() << ". " << m_error;
+                        << vm->oid() << ". " << m_error;
 
                     NebulaLog::log("SCHED", Log::DDEBUG, oss);
                 }
@@ -1109,7 +1104,7 @@ void Scheduler::match_schedule()
 
                 vmpool->update(vm);
 
-                log_match(vm->get_oid(), "Cannot schedule VM, there is no suitable "
+                log_match(vm->oid(), "Cannot schedule VM, there is no suitable "
                     "system ds.");
 
                 continue;
@@ -1168,14 +1163,14 @@ void Scheduler::match_schedule()
                 {
                     if (n_error > 0)
                     {
-                        log_match(vm->get_oid(), "Cannot schedule VM. " + m_error);
+                        log_match(vm->oid(), "Cannot schedule VM. " + m_error);
                         break;
                     }
                     else if (NebulaLog::log_level() >= Log::DDEBUG)
                     {
                         ostringstream oss;
                         oss << "Network " << net->get_oid() << " discarded for VM "
-                            << vm->get_oid() << " and NIC " << nic_id << ". " << m_error;
+                            << vm->oid() << " and NIC " << nic_id << ". " << m_error;
 
                         NebulaLog::log("SCHED", Log::DDEBUG, oss);
                     }
@@ -1215,7 +1210,7 @@ void Scheduler::match_schedule()
 
                 vmpool->update(vm);
 
-                log_match(vm->get_oid(), "Cannot schedule VM, there is no "
+                log_match(vm->oid(), "Cannot schedule VM, there is no "
                     "suitable network.");
 
                 break;
@@ -1301,9 +1296,7 @@ void Scheduler::dispatch()
     ostringstream dss;
     string        error;
 
-    int cpu, mem;
-    long long dsk;
-    vector<VectorAttribute *> pci;
+    HostShareCapacity sr;
 
     int hid, dsid, cid, netid;
 
@@ -1369,7 +1362,7 @@ void Scheduler::dispatch()
             }
         }
 
-        vm->get_requirements(cpu, mem, dsk, pci);
+        vm->get_capacity(sr);
 
         //----------------------------------------------------------------------
         // Get the highest ranked host and best System DS for it
@@ -1406,7 +1399,7 @@ void Scheduler::dispatch()
                 std::ostringstream mss;
 
                 mss << "Host " << hid << " no longer meets requirements for VM "
-                    << vm->get_oid();
+                    << vm->oid();
 
                 NebulaLog::log("SCHED", Log::DEBUG, mss);
                 continue;
@@ -1415,7 +1408,7 @@ void Scheduler::dispatch()
             //------------------------------------------------------------------
             // Test host capacity
             //------------------------------------------------------------------
-            if (host->test_capacity(cpu, mem, pci) != true)
+            if (host->test_capacity(sr.cpu, sr.mem, sr.pci) != true)
             {
                 continue;
             }
@@ -1490,12 +1483,12 @@ void Scheduler::dispatch()
                     }
                     else
                     {
-                        ds_capacity =  ds->test_capacity(dsk);
+                        ds_capacity =  ds->test_capacity(sr.disk);
                     }
                 }
                 else
                 {
-                    ds_capacity = host->test_ds_capacity(ds->get_oid(), dsk);
+                    ds_capacity = host->test_ds_capacity(ds->get_oid(), sr.disk);
                 }
 
                 if (!ds_capacity)
@@ -1642,12 +1635,12 @@ void Scheduler::dispatch()
                 {
                     if (!vm->is_resched() && !vm->is_resume())
                     {
-                        ds->add_capacity(dsk);
+                        ds->add_capacity(sr.disk);
                     }
                 }
                 else
                 {
-                    host->add_ds_capacity(ds->get_oid(), dsk);
+                    host->add_ds_capacity(ds->get_oid(), sr.disk);
                 }
 
                 // ---------- Add image DS usage (i.e. clone = self) ----------
@@ -1683,7 +1676,7 @@ void Scheduler::dispatch()
             //------------------------------------------------------------------
             // Update usage and statistics counters
             //------------------------------------------------------------------
-            host->add_capacity(vm->get_oid(), cpu, mem, pci);
+            host->add_capacity(vm->oid(), sr.cpu, sr.mem, sr.pci);
 
             dispatched_vms++;
 
@@ -1747,7 +1740,7 @@ int Scheduler::do_scheduled_actions()
             int rc = VirtualMachineXML::parse_action_name(action_st);
 
             oss << "Executing action '" << action_st << "' for VM "
-                << vm->get_oid() << " : ";
+                << vm->oid() << " : ";
 
             if ( rc != 0 )
             {
@@ -1755,7 +1748,7 @@ int Scheduler::do_scheduled_actions()
             }
             else
             {
-                rc = vmapool->action(vm->get_oid(), action_st, error_msg);
+                rc = vmapool->action(vm->oid(), action_st, error_msg);
 
                 if (rc == 0)
                 {

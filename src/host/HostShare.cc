@@ -1023,7 +1023,7 @@ bool HostShareNUMA::schedule_nodes(NUMANodeRequest &nr, unsigned int threads,
 
 /* -------------------------------------------------------------------------- */
 
-int HostShareNUMA::make_topology(HostShareRequest &sr, int vm_id, bool do_alloc)
+int HostShareNUMA::make_topology(HostShareCapacity &sr, int vm_id, bool do_alloc)
 {
     unsigned int t_max; //Max threads per core for this topology
     std::set<int> t_valid; //Viable threads per core combinations for all nodes

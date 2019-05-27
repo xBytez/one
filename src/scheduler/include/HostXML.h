@@ -43,7 +43,7 @@ public:
      *    @param sr the share request including CPU, memory, PCI and NUMA nodes
      *    @return true if the share can host the VM
      */
-    bool test_capacity(HostShareRequest& sr, string & error);
+    bool test_capacity(HostShareCapacity& sr, string & error);
 
     /**
      *  Adds a new VM to the given share by incrementing the cpu,mem and disk
@@ -52,7 +52,7 @@ public:
      *    @param mem needed by the VM (in KB)
      *    @return 0 on success
      */
-    void add_capacity(HostShareRequest& sr)
+    void add_capacity(HostShareCapacity& sr)
     {
         cpu_usage  += sr.cpu;
         mem_usage  += sr.mem;
@@ -71,7 +71,7 @@ public:
      *    @param mem needed by the VM (in KB)
      *    @return 0 on success
      */
-    void del_capacity(HostShareRequest& sr)
+    void del_capacity(HostShareCapacity& sr)
     {
         cpu_usage  -= sr.cpu;
         mem_usage  -= sr.mem;

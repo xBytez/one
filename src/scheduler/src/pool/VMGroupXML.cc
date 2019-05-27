@@ -289,7 +289,7 @@ static void schecule_affined_set(const std::set<int>& vms,
             continue;
         }
 
-        int hid = vm->get_hid();
+        int hid = vm->hid();
 
         if ( vm->is_active() && hid != -1 )
         {
@@ -330,10 +330,7 @@ static void schecule_affined_set(const std::set<int>& vms,
 
         for ( ++it ; it != vms.end() ; ++it )
         {
-            float cpu;
-            int   memory;
-
-            long long disk;
+            HostShareCapacity sr;
 
             VirtualMachineXML * tmp = vmpool->get(*it);
 
@@ -342,19 +339,19 @@ static void schecule_affined_set(const std::set<int>& vms,
                 continue;
             }
 
-            tmp->reset_requirements(cpu, memory, disk);
+            tmp->reset_capacity(sr);
 
-            vm->add_requirements(cpu, memory, disk);
+            vm->add_capacity(sr);
             vm->add_requirements(tmp->get_requirements());
             vm->add_affined(*it);
 
             tmp->add_requirements(areqs_s);
 
-            oss << left << setw(8) << tmp->get_oid() << " "
+            oss << left << setw(8) << tmp->oid() << " "
                 << tmp->get_requirements() << "\n";
         }
 
-        oss << left << setw(8) << vm->get_oid() << " "
+        oss << left << setw(8) << vm->oid() << " "
             << vm->get_requirements() << "\n";
     }
     else
@@ -381,7 +378,7 @@ static void schecule_affined_set(const std::set<int>& vms,
 
             vm->add_requirements(reqs);
 
-            oss << left << setw(8) << vm->get_oid() << " "
+            oss << left << setw(8) << vm->oid() << " "
                 << vm->get_requirements() << "\n";
         }
     }

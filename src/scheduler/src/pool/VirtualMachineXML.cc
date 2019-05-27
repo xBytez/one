@@ -24,6 +24,12 @@
 #include "History.h"
 #include "RankScheduler.h"
 
+/******************************************************************************/
+/******************************************************************************/
+/*  INITIALIZE VM object attributes from its XML representation               */
+/******************************************************************************/
+/******************************************************************************/
+
 void VirtualMachineXML::init_attributes()
 {
     vector<xmlNodePtr> nodes;
@@ -35,9 +41,9 @@ void VirtualMachineXML::init_attributes()
     string automatic_ds_requirements;
     string automatic_nic_requirements;
 
-    xpath(oid, "/VM/ID", -1);
-    xpath(uid, "/VM/UID", -1);
-    xpath(gid, "/VM/GID", -1);
+    xpath(_oid, "/VM/ID", -1);
+    xpath(_uid, "/VM/UID", -1);
+    xpath(_gid, "/VM/GID", -1);
 
     xpath(state, "/VM/STATE", -1);
 
@@ -56,8 +62,15 @@ void VirtualMachineXML::init_attributes()
 
     xpath(ds_rank, "/VM/USER_TEMPLATE/SCHED_DS_RANK", "");
 
-    // ------------------- HOST REQUIREMENTS -----------------------------------
-
+    /**************************************************************************/
+    /*  Scheduling requirements for:                                          */
+    /*    - host                                                              */
+    /*    - datastore                                                         */
+    /*    - network                                                           */
+    /**************************************************************************/
+    // ---------------------------------------------------------------------- //
+    // Host requirements                                                      //
+    // ---------------------------------------------------------------------- //
     xpath(automatic_requirements, "/VM/TEMPLATE/AUTOMATIC_REQUIREMENTS", "");
 
     rc = xpath(requirements, "/VM/USER_TEMPLATE/SCHED_REQUIREMENTS", "");
@@ -78,9 +91,11 @@ void VirtualMachineXML::init_attributes()
         requirements = automatic_requirements;
     }
 
-    // ------------------- DS REQUIREMENTS -------------------------------------
-
-    xpath(automatic_ds_requirements, "/VM/TEMPLATE/AUTOMATIC_DS_REQUIREMENTS", "");
+    // ---------------------------------------------------------------------- //
+    // Datastore requirements                                                 //
+    // ---------------------------------------------------------------------- //
+    xpath(automatic_ds_requirements, "/VM/TEMPLATE/AUTOMATIC_DS_REQUIREMENTS",
+            "");
 
     rc = xpath(ds_requirements, "/VM/USER_TEMPLATE/SCHED_DS_REQUIREMENTS", "");
 
@@ -100,9 +115,11 @@ void VirtualMachineXML::init_attributes()
         ds_requirements = automatic_ds_requirements;
     }
 
-    // ------------------- NIC REQUIREMENTS -------------------------------------
-
-    xpath(automatic_nic_requirements, "/VM/TEMPLATE/AUTOMATIC_NIC_REQUIREMENTS", "");
+    // ---------------------------------------------------------------------- //
+    // Network requirements                                                   //
+    // ---------------------------------------------------------------------- //
+    xpath(automatic_nic_requirements, "/VM/TEMPLATE/AUTOMATIC_NIC_REQUIREMENTS",
+            "");
 
     if (get_nodes("/VM/TEMPLATE/NIC", nodes) > 0)
     {
@@ -119,37 +136,39 @@ void VirtualMachineXML::init_attributes()
             bool rc = nic_template->get("NETWORK_MODE", net_mode);
             one_util::toupper(net_mode);
 
-            if ( rc && net_mode == "AUTO" )
+            if ( !rc || net_mode != "AUTO" )
             {
-                std::string requirements, rank;
-                int nic_id;
+                continue;
+            }
 
-                nic_template->get("NIC_ID", nic_id);
+            std::string reqs, rank;
+            int nic_id;
 
-                nics_ids_auto.insert(nic_id);
+            nic_template->get("NIC_ID", nic_id);
 
-                VirtualMachineNicXML * the_nic = new VirtualMachineNicXML();
+            nics_ids_auto.insert(nic_id);
 
-                nics.insert(make_pair(nic_id, the_nic));
+            VirtualMachineNicXML * the_nic = new VirtualMachineNicXML();
 
-                if ( nic_template->get("SCHED_REQUIREMENTS", requirements) )
+            nics.insert(make_pair(nic_id, the_nic));
+
+            if ( nic_template->get("SCHED_REQUIREMENTS", reqs) )
+            {
+                if ( !automatic_nic_requirements.empty() )
                 {
-                    if ( !automatic_nic_requirements.empty() )
-                    {
-                        ostringstream oss;
+                    ostringstream oss;
 
-                        oss << automatic_nic_requirements << " & ( " << requirements << " )";
+                    oss << automatic_nic_requirements <<" & ( " << reqs << " )";
 
-                        requirements = oss.str();
-                    }
-
-                    the_nic->set_requirements(requirements);
+                    reqs = oss.str();
                 }
 
-                if ( nic_template->get("SCHED_RANK", rank) )
-                {
-                    the_nic->set_rank(rank);
-                }
+                the_nic->set_requirements(reqs);
+            }
+
+            if ( nic_template->get("SCHED_RANK", rank) )
+            {
+                the_nic->set_rank(rank);
             }
 
             delete nic_template;
@@ -160,10 +179,11 @@ void VirtualMachineXML::init_attributes()
 
     nodes.clear();
 
-    // ---------------- HISTORY HID, DSID, RESCHED & TEMPLATE ------------------
-
-    xpath(hid,  "/VM/HISTORY_RECORDS/HISTORY/HID", -1);
-    xpath(dsid, "/VM/HISTORY_RECORDS/HISTORY/DS_ID", -1);
+    /**************************************************************************/
+    /*  Template, user template, history information and rescheduling flag    */
+    /**************************************************************************/
+    xpath(_hid,  "/VM/HISTORY_RECORDS/HISTORY/HID", -1);
+    xpath(_dsid, "/VM/HISTORY_RECORDS/HISTORY/DS_ID", -1);
 
     xpath(resched, "/VM/RESCHED", 0);
 
@@ -228,119 +248,8 @@ void VirtualMachineXML::init_attributes()
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-ostream& operator<<(ostream& os, VirtualMachineXML& vm)
-{
-    const vector<Resource *> resources = vm.match_hosts.get_resources();
-
-    vector<Resource *>::const_reverse_iterator  i;
-
-    if (resources.empty())
-    {
-        return os;
-    }
-
-    os << "Virtual Machine: " << vm.oid << endl << endl;
-
-    os << "\tPRI\tID - HOSTS"<< endl
-       << "\t------------------------"  << endl;
-
-    for (i = resources.rbegin(); i != resources.rend() ; i++)
-    {
-        os << "\t" << (*i)->priority << "\t" << (*i)->oid << endl;
-    }
-
-    os << endl;
-
-    os << "\tPRI\tID - DATASTORES"<< endl
-       << "\t------------------------"  << endl;
-
-    const vector<Resource *> ds_resources = vm.match_datastores.get_resources();
-
-    for (i = ds_resources.rbegin(); i != ds_resources.rend() ; i++)
-    {
-        os << "\t" << (*i)->priority << "\t" << (*i)->oid << endl;
-    }
-
-    os << endl;
-
-    set<int> nics_ids = vm.get_nics_ids();
-
-    for (set<int>::iterator it = nics_ids.begin(); it != nics_ids.end(); it++)
-    {
-        os << "\tNIC_ID: "<< *it << endl
-        << "\t-----------------------------------"  << endl;
-        os << "\tPRI\tID - NETWORKS"<< endl
-        << "\t------------------------"  << endl;
-
-        const vector<Resource *> net_resources = vm.nics[*it]->get_match_networks();
-
-        for (i = net_resources.rbegin(); i != net_resources.rend() ; i++)
-        {
-            os << "\t" << (*i)->priority << "\t" << (*i)->oid << endl;
-        }
-
-        os << endl;
-    }
-
-    return os;
-};
-
-/* -------------------------------------------------------------------------- */
-/* -------------------------------------------------------------------------- */
-
-void VirtualMachineXML::add_requirements(float c, long int m, long long d)
-{
-    cpu    += c;
-    memory += m;
-    system_ds_usage += d;
-}
-
-/* -------------------------------------------------------------------------- */
-/* -------------------------------------------------------------------------- */
-
-void VirtualMachineXML::reset_requirements(float& c, int& m, long long& d)
-{
-    c = cpu;
-    m = memory;
-    d = system_ds_usage;
-
-    cpu    = 0;
-    memory = 0;
-    system_ds_usage = 0;
-}
-
-/* -------------------------------------------------------------------------- */
-/* -------------------------------------------------------------------------- */
-
-void VirtualMachineXML::get_requirements (int& cpu, int& memory,
-    long long& disk, vector<VectorAttribute *> &pci)
-{
-    pci.clear();
-
-    if (vm_template != 0)
-    {
-        vm_template->get("PCI", pci);
-    }
-
-    if (this->memory == 0 || this->cpu == 0)
-    {
-        cpu    = 0;
-        memory = 0;
-        disk   = 0;
-
-        return;
-    }
-
-    cpu    = (int) (this->cpu * 100);//now in 100%
-    memory = this->memory * 1024;    //now in Kilobytes
-    disk   = this->system_ds_usage;  // MB
-}
-
-/* -------------------------------------------------------------------------- */
-/* -------------------------------------------------------------------------- */
-
 // TODO: use VirtualMachine::isVolatile(disk)
-bool isVolatile(const VectorAttribute * disk)
+static bool isVolatile(const VectorAttribute * disk)
 {
     string type = disk->vector_value("TYPE");
 
@@ -349,10 +258,7 @@ bool isVolatile(const VectorAttribute * disk)
     return ( type == "SWAP" || type == "FS");
 }
 
-map<int,long long> VirtualMachineXML::get_storage_usage()
-{
-    return ds_usage;
-}
+/* -------------------------------------------------------------------------- */
 
 void VirtualMachineXML::init_storage_usage()
 {
@@ -443,6 +349,149 @@ void VirtualMachineXML::init_storage_usage()
         delete disks[i];
     }
 }
+
+/******************************************************************************/
+/******************************************************************************/
+/*  VM resuirements and capacity interface                                    */
+/******************************************************************************/
+/******************************************************************************/
+
+void VirtualMachineXML::get_capacity(HostShareCapacity &sr)
+{
+    sr.pci.clear();
+
+    if (vm_template != 0)
+    {
+        vm_template->get("PCI", sr.pci);
+
+        vm_template->get("NUMA_NODE", sr.nodes);
+
+        sr.topology = vm_template->get("TOPOLOGY");
+    }
+
+    if ( memory == 0 || cpu == 0 )
+    {
+        sr.cpu  = 0;
+        sr.mem  = 0;
+        sr.disk = 0;
+
+        return;
+    }
+
+    sr.cpu  = (int) (cpu * 100); //100%
+    sr.mem  = memory * 1024;     //Kilobytes
+    sr.disk = system_ds_usage;   //MB
+}
+
+/* -------------------------------------------------------------------------- */
+
+void VirtualMachineXML::add_capacity(HostShareCapacity &sr)
+{
+    cpu    += sr.cpu;
+    memory += sr.mem;
+    system_ds_usage += sr.disk;
+
+    vm_template->set(sr.nodes);
+}
+
+/* -------------------------------------------------------------------------- */
+
+void VirtualMachineXML::reset_capacity(HostShareCapacity &sr)
+{
+    std::vector<VectorAttribute *> numa_nodes;
+
+    sr.cpu  = cpu;
+    sr.mem  = memory;
+    sr.disk = system_ds_usage;
+
+    if ( vm_template != 0 )
+    {
+        vm_template->remove("NUMA_NODE", sr.nodes);
+    }
+
+    cpu    = 0;
+    memory = 0;
+    system_ds_usage = 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+ostream& operator<<(ostream& os, VirtualMachineXML& vm)
+{
+    const vector<Resource *> resources = vm.match_hosts.get_resources();
+
+    vector<Resource *>::const_reverse_iterator  i;
+
+    if (resources.empty())
+    {
+        return os;
+    }
+
+    os << "Virtual Machine: " << vm._oid << endl << endl;
+
+    os << "\tPRI\tID - HOSTS"<< endl
+       << "\t------------------------"  << endl;
+
+    for (i = resources.rbegin(); i != resources.rend() ; i++)
+    {
+        os << "\t" << (*i)->priority << "\t" << (*i)->oid << endl;
+    }
+
+    os << endl;
+
+    os << "\tPRI\tID - DATASTORES"<< endl
+       << "\t------------------------"  << endl;
+
+    const vector<Resource *> ds_resources = vm.match_datastores.get_resources();
+
+    for (i = ds_resources.rbegin(); i != ds_resources.rend() ; i++)
+    {
+        os << "\t" << (*i)->priority << "\t" << (*i)->oid << endl;
+    }
+
+    os << endl;
+
+    set<int> nics_ids = vm.get_nics_ids();
+
+    for (set<int>::iterator it = nics_ids.begin(); it != nics_ids.end(); it++)
+    {
+        os << "\tNIC_ID: "<< *it << endl
+        << "\t-----------------------------------"  << endl;
+        os << "\tPRI\tID - NETWORKS"<< endl
+        << "\t------------------------"  << endl;
+
+        const vector<Resource *> net_resources = vm.nics[*it]->get_match_networks();
+
+        for (i = net_resources.rbegin(); i != net_resources.rend() ; i++)
+        {
+            os << "\t" << (*i)->priority << "\t" << (*i)->oid << endl;
+        }
+
+        os << endl;
+    }
+
+    return os;
+};
 
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
@@ -577,7 +626,7 @@ void VirtualMachineXML::set_only_public_cloud()
 
     ostringstream oss;
 
-    oss << "VM " << oid << ": Local Datastores do not have enough capacity. "
+    oss << "VM " << _oid << ": Local Datastores do not have enough capacity. "
             << "This VM can be only deployed in a Public Cloud Host.";
 
     NebulaLog::log("SCHED",Log::INFO,oss);

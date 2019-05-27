@@ -135,46 +135,48 @@ public:
     //--------------------------------------------------------------------------
     // Get Methods for VirtualMachineXML class
     //--------------------------------------------------------------------------
-    int get_oid() const
-    {
-        return oid;
-    };
+    int oid() const { return _oid; };
 
-    int get_uid() const
-    {
-        return uid;
-    };
+    int uid() const { return _uid; };
 
-    int get_gid() const
-    {
-        return gid;
-    };
+    int gid() const { return _gid; };
 
-    int get_hid() const
-    {
-        return hid;
-    };
+    int hid() const { return _hid; };
 
-    int get_dsid() const
-    {
-        return dsid;
-    };
+    int dsid() const { return _dsid; };
 
-    time_t get_stime() const
+    time_t get_stime() const { return stime; }
+
+    bool is_resched() const { return (resched == 1); }
+
+    bool is_resume() const { return resume; }
+
+    bool is_public_cloud() const { return public_cloud; }
+
+    bool is_active() const { return state == 3; }
+
+    map<int,long long> get_storage_usage() { return ds_usage; }
+
+    /**
+     *  Returns a VirtualMachineNicXML
+     */
+    VirtualMachineNicXML * get_nic(int nic_id)
     {
-        return stime;
+        VirtualMachineNicXML * n = 0;
+
+        std::map<int, VirtualMachineNicXML *>::iterator it = nics.find(nic_id);
+
+        if ( it != nics.end() )
+        {
+            n = it->second;
+        }
+
+        return n;
     }
 
-    bool is_resched() const
-    {
-        return (resched == 1);
-    }
-
-    bool is_resume() const
-    {
-        return resume;
-    }
-
+    //--------------------------------------------------------------------------
+    // Scheduling requirements and rank
+    //--------------------------------------------------------------------------
     const string& get_rank()
     {
         return rank;
@@ -223,41 +225,30 @@ public:
         return es;
     }
 
+    //--------------------------------------------------------------------------
+    // Capacity Interface
+    //--------------------------------------------------------------------------
     /**
-     *  Return VM usage requirments
+     *  This function fills a share capacity request based on the VM information:
+     *    - cpu
+     *    - memory
+     *    - system_ds disk usage
+     *    - PCI devices
+     *    - NUMA node topology
      */
-    void get_requirements(int& cpu, int& memory, long long& disk,
-        vector<VectorAttribute *> &pci);
+    void get_capacity(HostShareCapacity &sr);
 
     /**
-     *  Return the requirements of this VM (as is) and reset them
-     *    @param cpu in unit
-     *    @param memory in kb
-     *    @param disk in mb (system ds usage)
+     *  Add capacity to (cpu, mem, system_ds disk, numa_nodes) this VM
+     *    @param the capacity to be added
      */
-    void reset_requirements(float& cpu, int& memory, long long& disk);
+    void add_capacity(HostShareCapacity &sr);
 
     /**
-     *  @return the usage requirements in image ds.
+     *  Clears the capacity allocaton of this VM and return it.
+     *    @param sr, the sorage requirements
      */
-    map<int,long long> get_storage_usage();
-
-    /**
-     * Checks if the VM can be deployed in a public cloud provider
-     * @return true if the VM can be deployed in a public cloud provider
-     */
-    bool is_public_cloud() const
-    {
-        return public_cloud;
-    };
-
-    /**
-     *   Adds usage requirements to this VM
-     *     @param cpu in unit form
-     *     @param m memory in kb
-     *     @param d in mb (system ds usage)
-     */
-    void add_requirements(float c, long int m, long long d);
+    void reset_capacity(HostShareCapacity &sr);
 
     /**
      *  Adds (logical AND) new placement requirements to the current ones
@@ -279,14 +270,6 @@ public:
         }
     }
 
-    /**
-     *  Check if the VM is ACTIVE state
-     */
-    bool is_active() const
-    {
-        return state == 3;
-    }
-
     //--------------------------------------------------------------------------
     // Matched Resources Interface
     //--------------------------------------------------------------------------
@@ -296,7 +279,7 @@ public:
      */
     void add_match_host(int oid)
     {
-        if (( resched == 1 && hid != oid ) || ( resched == 0 ))
+        if (( resched == 1 && _hid != oid ) || ( resched == 0 ))
         {
             match_hosts.add_resource(oid);
         }
@@ -356,23 +339,6 @@ public:
         }
 
         return ev;
-    }
-
-    /**
-     *  Returns a VirtualMachineNicXML
-     */
-    VirtualMachineNicXML * get_nic(int nic_id)
-    {
-        VirtualMachineNicXML * n = 0;
-
-        std::map<int, VirtualMachineNicXML *>::iterator it = nics.find(nic_id);
-
-        if ( it != nics.end() )
-        {
-            n = it->second;
-        }
-
-        return n;
     }
 
     /**
@@ -558,7 +524,6 @@ public:
     }
 
 protected:
-
     /**
      *  For constructors
      */
@@ -566,7 +531,7 @@ protected:
 
     void init_storage_usage();
 
-    /* ------------------- SCHEDULER INFORMATION --------------------------- */
+    /* -------------------.-- SCHEDULER INFORMATION ------------------------- */
 
     ResourceMatch match_hosts;
 
@@ -578,13 +543,13 @@ protected:
     set<int> affined_vms;
 
     /* ----------------------- VIRTUAL MACHINE ATTRIBUTES ------------------- */
-    int   oid;
+    int   _oid;
 
-    int   uid;
-    int   gid;
+    int   _uid;
+    int   _gid;
 
-    int   hid;
-    int   dsid;
+    int   _hid;
+    int   _dsid;
 
     int   resched;
     bool  resume;

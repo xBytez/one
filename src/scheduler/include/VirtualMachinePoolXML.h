@@ -82,7 +82,7 @@ public:
     {
         string xml;
 
-        return update(vm->get_oid(), vm->get_template(xml));
+        return update(vm->oid(), vm->get_template(xml));
     };
 
     /**

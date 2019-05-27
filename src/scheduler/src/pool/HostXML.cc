@@ -92,7 +92,7 @@ void HostShareXML::init_attributes(ObjectXML * host)
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-bool HostShareXML::test_capacity(HostShareRequest &sr, string & error)
+bool HostShareXML::test_capacity(HostShareCapacity &sr, string & error)
 {
     bool pci_fit  = pci.test(sr.pci);
     bool numa_fit = numa.test(sr);
