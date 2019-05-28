@@ -289,7 +289,7 @@ static void schecule_affined_set(const std::set<int>& vms,
             continue;
         }
 
-        int hid = vm->hid();
+        int hid = vm->get_hid();
 
         if ( vm->is_active() && hid != -1 )
         {
@@ -347,11 +347,11 @@ static void schecule_affined_set(const std::set<int>& vms,
 
             tmp->add_requirements(areqs_s);
 
-            oss << left << setw(8) << tmp->oid() << " "
+            oss << left << setw(8) << tmp->get_oid() << " "
                 << tmp->get_requirements() << "\n";
         }
 
-        oss << left << setw(8) << vm->oid() << " "
+        oss << left << setw(8) << vm->get_oid() << " "
             << vm->get_requirements() << "\n";
     }
     else
@@ -378,7 +378,7 @@ static void schecule_affined_set(const std::set<int>& vms,
 
             vm->add_requirements(reqs);
 
-            oss << left << setw(8) << vm->oid() << " "
+            oss << left << setw(8) << vm->get_oid() << " "
                 << vm->get_requirements() << "\n";
         }
     }

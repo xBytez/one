@@ -32,26 +32,54 @@
 
 void VirtualMachineXML::init_attributes()
 {
-    vector<xmlNodePtr> nodes;
+    std::vector<xmlNodePtr> nodes;
+    std::vector<VectorAttribute*> attrs;
 
     int rc;
     int action;
+    int tmp;
 
-    string automatic_requirements;
-    string automatic_ds_requirements;
-    string automatic_nic_requirements;
+    std::string automatic_requirements;
+    std::string automatic_ds_requirements;
+    std::string automatic_nic_requirements;
 
-    xpath(_oid, "/VM/ID", -1);
-    xpath(_uid, "/VM/UID", -1);
-    xpath(_gid, "/VM/GID", -1);
+    /**************************************************************************/
+    /* VM attributes and flags                                                */
+    /**************************************************************************/
+    xpath(oid, "/VM/ID", -1);
+    xpath(uid, "/VM/UID", -1);
+    xpath(gid, "/VM/GID", -1);
 
-    xpath(state, "/VM/STATE", -1);
+    xpath(tmp, "/VM/STATE", -1);
+    active = tmp == 3;
 
-    xpath<long int>(memory, "/VM/TEMPLATE/MEMORY", 0);
-    xpath<float>(cpu, "/VM/TEMPLATE/CPU", 0);
+    xpath(tmp, "/VM/RESCHED", 0);
+    resched = tmp == 1;
 
-    // ------------------------ RANK & DS_RANK ---------------------------------
+    xpath(action, "/VM/HISTORY_RECORDS/HISTORY/ACTION", -1);
+    resume = (action == History::STOP_ACTION || action == History::UNDEPLOY_ACTION
+            || action == History::UNDEPLOY_HARD_ACTION );
 
+    xpath(hid, "/VM/HISTORY_RECORDS/HISTORY/HID", -1);
+    xpath(dsid, "/VM/HISTORY_RECORDS/HISTORY/DS_ID", -1);
+
+    xpath(stime, "/VM/STIME", (time_t) 0);
+
+    public_cloud = (user_template->get("PUBLIC_CLOUD", attrs) > 0);
+
+    if (public_cloud == false)
+    {
+        attrs.clear();
+        public_cloud = (user_template->get("EC2", attrs) > 0);
+    }
+
+    only_public_cloud = false;
+
+    /**************************************************************************/
+    /*  Scheduling rank expresions for:                                       */
+    /*    - host                                                              */
+    /*    - datastore                                                         */
+    /**************************************************************************/
     rc = xpath(rank, "/VM/USER_TEMPLATE/SCHED_RANK", "");
 
     if (rc != 0)
@@ -116,7 +144,7 @@ void VirtualMachineXML::init_attributes()
     }
 
     // ---------------------------------------------------------------------- //
-    // Network requirements                                                   //
+    // Network requirements & rank                                            //
     // ---------------------------------------------------------------------- //
     xpath(automatic_nic_requirements, "/VM/TEMPLATE/AUTOMATIC_NIC_REQUIREMENTS",
             "");
@@ -182,19 +210,6 @@ void VirtualMachineXML::init_attributes()
     /**************************************************************************/
     /*  Template, user template, history information and rescheduling flag    */
     /**************************************************************************/
-    xpath(_hid,  "/VM/HISTORY_RECORDS/HISTORY/HID", -1);
-    xpath(_dsid, "/VM/HISTORY_RECORDS/HISTORY/DS_ID", -1);
-
-    xpath(resched, "/VM/RESCHED", 0);
-
-    xpath(action, "/VM/HISTORY_RECORDS/HISTORY/ACTION", -1);
-
-    xpath(stime,  "/VM/STIME", (time_t) 0);
-
-    resume = (action == History::STOP_ACTION ||
-              action == History::UNDEPLOY_ACTION ||
-              action == History::UNDEPLOY_HARD_ACTION );
-
     if (get_nodes("/VM/TEMPLATE", nodes) > 0)
     {
         vm_template = new VirtualMachineTemplate;
@@ -223,6 +238,13 @@ void VirtualMachineXML::init_attributes()
         user_template = 0;
     }
 
+    /**************************************************************************/
+    /*  VM Capacity memory, cpu and disk (system ds storage)                  */
+    /**************************************************************************/
+    xpath<long int>(memory, "/VM/TEMPLATE/MEMORY", 0);
+
+    xpath<float>(cpu, "/VM/TEMPLATE/CPU", 0);
+
     if (vm_template != 0)
     {
         init_storage_usage();
@@ -231,18 +253,6 @@ void VirtualMachineXML::init_attributes()
     {
         system_ds_usage = 0;
     }
-
-    vector<VectorAttribute*> attrs;
-
-    public_cloud = (user_template->get("PUBLIC_CLOUD", attrs) > 0);
-
-    if (public_cloud == false)
-    {
-        attrs.clear();
-        public_cloud = (user_template->get("EC2", attrs) > 0);
-    }
-
-    only_public_cloud = false;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -352,9 +362,27 @@ void VirtualMachineXML::init_storage_usage()
 
 /******************************************************************************/
 /******************************************************************************/
-/*  VM resuirements and capacity interface                                    */
+/*  VM requirements and capacity interface                                    */
 /******************************************************************************/
 /******************************************************************************/
+
+void VirtualMachineXML::add_requirements(const string& reqs)
+{
+    if ( reqs.empty() )
+    {
+        return;
+    }
+    else if ( requirements.empty() )
+    {
+        requirements = reqs;
+    }
+    else
+    {
+        requirements += " & (" + reqs + ")";
+    }
+}
+
+/* -------------------------------------------------------------------------- */
 
 void VirtualMachineXML::get_capacity(HostShareCapacity &sr)
 {
@@ -414,27 +442,108 @@ void VirtualMachineXML::reset_capacity(HostShareCapacity &sr)
     system_ds_usage = 0;
 }
 
+/* -------------------------------------------------------------------------- */
 
+bool VirtualMachineXML::test_image_datastore_capacity(
+    ImageDatastorePoolXML * img_dspool, string & error_msg) const
+{
+    map<int,long long>::const_iterator ds_it;
+    DatastoreXML* ds;
 
+    for (ds_it = ds_usage.begin(); ds_it != ds_usage.end(); ++ds_it)
+    {
+        ds = img_dspool->get(ds_it->first);
 
+        if (ds == 0 || !ds->test_capacity(ds_it->second))
+        {
+            ostringstream oss;
 
+            oss << "Image Datastore " << ds->get_oid()
+                << " does not have enough capacity";
 
+            error_msg = oss.str();
+            return false;
+        }
+    }
 
-
-
-
-
-
-
-
-
-
-
-
-
+    return true;
+}
 
 /* -------------------------------------------------------------------------- */
+
+void VirtualMachineXML::add_image_datastore_capacity(
+        ImageDatastorePoolXML * img_dspool)
+{
+    map<int,long long>::const_iterator ds_it;
+
+    DatastoreXML *ds;
+
+    for (ds_it = ds_usage.begin(); ds_it != ds_usage.end(); ++ds_it)
+    {
+        ds = img_dspool->get(ds_it->first);
+
+        if (ds == 0)
+        {
+            continue;
+        }
+
+        ds->add_capacity(ds_it->second);
+    }
+}
+
+//******************************************************************************
+// Functions to schedule network interfaces (NIC)
+//******************************************************************************
+
+VirtualMachineNicXML * VirtualMachineXML::get_nic(int nic_id)
+{
+    VirtualMachineNicXML * n = 0;
+
+    std::map<int, VirtualMachineNicXML *>::iterator it = nics.find(nic_id);
+
+    if ( it != nics.end() )
+    {
+        n = it->second;
+    }
+
+    return n;
+}
+
 /* -------------------------------------------------------------------------- */
+
+const string& VirtualMachineXML::get_nic_rank(int nic_id)
+{
+    static std::string es;
+
+    std::map<int, VirtualMachineNicXML *>::iterator it = nics.find(nic_id);
+
+    if ( it != nics.end() )
+    {
+        return it->second->get_rank();
+    }
+
+    return es;
+};
+
+/* -------------------------------------------------------------------------- */
+
+const string& VirtualMachineXML::get_nic_requirements(int nic_id)
+{
+    static std::string es;
+
+    std::map<int, VirtualMachineNicXML *>::iterator it = nics.find(nic_id);
+
+    if ( it != nics.end() )
+    {
+        return it->second->get_requirements();
+    }
+
+    return es;
+}
+
+//******************************************************************************
+// Logging
+//******************************************************************************
 
 ostream& operator<<(ostream& os, VirtualMachineXML& vm)
 {
@@ -447,7 +556,7 @@ ostream& operator<<(ostream& os, VirtualMachineXML& vm)
         return os;
     }
 
-    os << "Virtual Machine: " << vm._oid << endl << endl;
+    os << "Virtual Machine: " << vm.oid << endl << endl;
 
     os << "\tPRI\tID - HOSTS"<< endl
        << "\t------------------------"  << endl;
@@ -566,79 +675,3 @@ int VirtualMachineXML::parse_action_name(string& action_st)
     return 0;
 };
 
-/* -------------------------------------------------------------------------- */
-/* -------------------------------------------------------------------------- */
-
-bool VirtualMachineXML::test_image_datastore_capacity(
-    ImageDatastorePoolXML * img_dspool, string & error_msg) const
-{
-    map<int,long long>::const_iterator ds_it;
-    DatastoreXML* ds;
-
-    for (ds_it = ds_usage.begin(); ds_it != ds_usage.end(); ++ds_it)
-    {
-        ds = img_dspool->get(ds_it->first);
-
-        if (ds == 0 || !ds->test_capacity(ds_it->second))
-        {
-            ostringstream oss;
-
-            oss << "Image Datastore " << ds->get_oid()
-                << " does not have enough capacity";
-
-            error_msg = oss.str();
-            return false;
-        }
-    }
-
-    return true;
-}
-
-/* -------------------------------------------------------------------------- */
-/* -------------------------------------------------------------------------- */
-
-void VirtualMachineXML::add_image_datastore_capacity(
-        ImageDatastorePoolXML * img_dspool)
-{
-    map<int,long long>::const_iterator ds_it;
-
-    DatastoreXML *ds;
-
-    for (ds_it = ds_usage.begin(); ds_it != ds_usage.end(); ++ds_it)
-    {
-        ds = img_dspool->get(ds_it->first);
-
-        if (ds == 0) //Should never reach here
-        {
-            continue;
-        }
-
-        ds->add_capacity(ds_it->second);
-    }
-}
-
-/* -------------------------------------------------------------------------- */
-/* -------------------------------------------------------------------------- */
-
-void VirtualMachineXML::set_only_public_cloud()
-{
-    only_public_cloud = true;
-
-    ostringstream oss;
-
-    oss << "VM " << _oid << ": Local Datastores do not have enough capacity. "
-            << "This VM can be only deployed in a Public Cloud Host.";
-
-    NebulaLog::log("SCHED",Log::INFO,oss);
-}
-
-/* -------------------------------------------------------------------------- */
-/* -------------------------------------------------------------------------- */
-
-bool VirtualMachineXML::is_only_public_cloud() const
-{
-    return only_public_cloud;
-}
-
-/* -------------------------------------------------------------------------- */
-/* -------------------------------------------------------------------------- */

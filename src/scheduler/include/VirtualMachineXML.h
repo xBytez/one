@@ -135,94 +135,62 @@ public:
     //--------------------------------------------------------------------------
     // Get Methods for VirtualMachineXML class
     //--------------------------------------------------------------------------
-    int oid() const { return _oid; };
+    int get_oid() const { return oid; };
 
-    int uid() const { return _uid; };
+    int get_uid() const { return uid; };
 
-    int gid() const { return _gid; };
+    int get_gid() const { return gid; };
 
-    int hid() const { return _hid; };
+    int get_hid() const { return hid; };
 
-    int dsid() const { return _dsid; };
+    int get_dsid() const { return dsid; };
 
     time_t get_stime() const { return stime; }
 
-    bool is_resched() const { return (resched == 1); }
+    bool is_resched() const { return resched; }
 
     bool is_resume() const { return resume; }
 
     bool is_public_cloud() const { return public_cloud; }
 
-    bool is_active() const { return state == 3; }
+    bool is_active() const { return active; }
 
-    map<int,long long> get_storage_usage() { return ds_usage; }
+    bool is_only_public_cloud() const { return only_public_cloud; }
 
-    /**
-     *  Returns a VirtualMachineNicXML
-     */
-    VirtualMachineNicXML * get_nic(int nic_id)
-    {
-        VirtualMachineNicXML * n = 0;
-
-        std::map<int, VirtualMachineNicXML *>::iterator it = nics.find(nic_id);
-
-        if ( it != nics.end() )
-        {
-            n = it->second;
-        }
-
-        return n;
-    }
+    void set_only_public_cloud() { only_public_cloud = true; }
 
     //--------------------------------------------------------------------------
     // Scheduling requirements and rank
     //--------------------------------------------------------------------------
-    const string& get_rank()
+    const string& get_requirements() { return requirements; };
+
+    const string& get_ds_requirements() { return ds_requirements; }
+
+    const string& get_rank() { return rank; };
+
+    const string& get_ds_rank() { return ds_rank; };
+
+    /**
+     *  Adds (logical AND) new placement requirements to the current ones
+     *    @param reqs additional requirements
+     */
+    void add_requirements(const string& reqs);
+
+    //--------------------------------------------------------------------------
+    // Functions to schedule network interfaces (NIC)
+    //--------------------------------------------------------------------------
+    VirtualMachineNicXML * get_nic(int nic_id);
+
+    const string& get_nic_rank(int nic_id);
+
+    const string& get_nic_requirements(int nic_id);
+
+    /**
+     *  Return ids of NICs with NETWORK_MODE=auto (i.e. need to schedule networks)
+     */
+    set<int> get_nics_ids()
     {
-        return rank;
-    };
-
-    const string& get_ds_rank()
-    {
-        return ds_rank;
-    };
-
-    const string& get_nic_rank(int nic_id)
-    {
-        static std::string es;
-
-        std::map<int, VirtualMachineNicXML *>::iterator it = nics.find(nic_id);
-
-        if ( it != nics.end() )
-        {
-            return it->second->get_rank();
-        }
-
-        return es;
-    };
-
-    const string& get_requirements()
-    {
-        return requirements;
-    };
-
-    const string& get_ds_requirements()
-    {
-        return ds_requirements;
-    }
-
-    const string& get_nic_requirements(int nic_id)
-    {
-        static std::string es;
-
-        std::map<int, VirtualMachineNicXML *>::iterator it = nics.find(nic_id);
-
-        if ( it != nics.end() )
-        {
-            return it->second->get_requirements();
-        }
-
-        return es;
+        return nics_ids_auto;
     }
 
     //--------------------------------------------------------------------------
@@ -251,23 +219,26 @@ public:
     void reset_capacity(HostShareCapacity &sr);
 
     /**
-     *  Adds (logical AND) new placement requirements to the current ones
-     *    @param reqs additional requirements
+     *  Tests if the Image DS have enough free space to host the VM
+     *    @param img_datastores Image Datastores
+     *    @param error_msg error reason
+     *    @return true if the Image Datastores can host the VM
      */
-    void add_requirements(const string& reqs)
+    bool test_image_datastore_capacity(
+            ImageDatastorePoolXML * img_dspool, string & error_msg) const;
+
+    /**
+     *  Adds the VM disk requirements to each Image Datastore counter
+     *    @param img_datastores Image Datastores
+     */
+    void add_image_datastore_capacity(ImageDatastorePoolXML * img_dspool);
+
+    /**
+     *
+     */
+    map<int,long long> get_storage_usage()
     {
-        if ( reqs.empty() )
-        {
-            return;
-        }
-        else if ( requirements.empty() )
-        {
-            requirements = reqs;
-        }
-        else
-        {
-            requirements += " & (" + reqs + ")";
-        }
+        return ds_usage;
     }
 
     //--------------------------------------------------------------------------
@@ -279,7 +250,7 @@ public:
      */
     void add_match_host(int oid)
     {
-        if (( resched == 1 && _hid != oid ) || ( resched == 0 ))
+        if ((resched && hid != oid) || !resched )
         {
             match_hosts.add_resource(oid);
         }
@@ -400,17 +371,6 @@ public:
     }
 
     /**
-     * Marks the VM to be only deployed on public cloud hosts
-     */
-    void set_only_public_cloud();
-
-    /**
-     * Returns true is the VM can only be deployed in public cloud hosts
-     * @return true is the VM can only be deployed in public cloud hosts
-     */
-    bool is_only_public_cloud() const;
-
-    /**
      *  Add a VM to the set of affined VMs. This is used for the VM leader
      *  when scheduling a group.
      *
@@ -428,28 +388,8 @@ public:
     }
 
     //--------------------------------------------------------------------------
-    // Capacity Interface
+    // Scheduled Action Interface
     //--------------------------------------------------------------------------
-
-    /**
-     *  Tests if the Image DS have enough free space to host the VM
-     *    @param img_datastores Image Datastores
-     *    @param error_msg error reason
-     *    @return true if the Image Datastores can host the VM
-     */
-    bool test_image_datastore_capacity(
-            ImageDatastorePoolXML * img_dspool, string & error_msg) const;
-
-    /**
-     *  Adds the VM disk requirements to each Image Datastore counter
-     *    @param img_datastores Image Datastores
-     */
-    void add_image_datastore_capacity(ImageDatastorePoolXML * img_dspool);
-
-    //--------------------------------------------------------------------------
-    // Action Interface
-    //--------------------------------------------------------------------------
-
     /**
      *  Get the user template of the VM
      *    @return the template as a XML string
@@ -497,6 +437,9 @@ public:
      */
     static int parse_action_name(string& action_st);
 
+    //--------------------------------------------------------------------------
+    // Logging
+    //--------------------------------------------------------------------------
     /**
      *  Function to write a Virtual Machine in an output stream
      */
@@ -515,14 +458,6 @@ public:
      */
     bool clear_log();
 
-    /**
-     *  Return ids of NICs with NETWORK_MODE=auto (i.e. need to schedule networks)
-     */
-    set<int> get_nics_ids()
-    {
-        return nics_ids_auto;
-    }
-
 protected:
     /**
      *  For constructors
@@ -531,30 +466,29 @@ protected:
 
     void init_storage_usage();
 
-    /* -------------------.-- SCHEDULER INFORMATION ------------------------- */
+    /* ---------------------- SCHEDULER INFORMATION ------------------------- */
 
     ResourceMatch match_hosts;
 
     ResourceMatch match_datastores;
-
 
     bool only_public_cloud;
 
     set<int> affined_vms;
 
     /* ----------------------- VIRTUAL MACHINE ATTRIBUTES ------------------- */
-    int   _oid;
+    int oid;
 
-    int   _uid;
-    int   _gid;
+    int uid;
+    int gid;
 
-    int   _hid;
-    int   _dsid;
+    int hid;
+    int dsid;
 
-    int   resched;
-    bool  resume;
-
-    int   state;
+    bool resched;
+    bool resume;
+    bool active;
+    bool public_cloud;
 
     long int    memory;
     float       cpu;
@@ -562,7 +496,6 @@ protected:
 
     map<int,long long> ds_usage;
 
-    bool   public_cloud;
 
     string rank;
     string requirements;

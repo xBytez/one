@@ -118,7 +118,7 @@ void VirtualMachinePoolXML::add_object(xmlNodePtr node)
 
     VirtualMachineXML* vm = new VirtualMachineXML(node);
 
-    objects.insert(pair<int,ObjectXML*>(vm->oid(), vm));
+    objects.insert(pair<int,ObjectXML*>(vm->get_oid(), vm));
 }
 
 /* -------------------------------------------------------------------------- */
