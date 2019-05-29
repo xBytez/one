@@ -277,6 +277,11 @@ public:
     int allocate_ht_cpus(int id, unsigned int tcpus, unsigned int tc,
             std::string &c_s);
 
+    /**
+     *  Prints the NUMA node to an output stream.
+     */
+    friend ostream& operator<<(ostream& o, const HostShareNode& n);
+
 private:
     friend class HostShareNUMA;
 
@@ -507,6 +512,11 @@ public:
      *  Remove the VM assignment from the PCI device list
      */
     void del(const vector<VectorAttribute *> &devs);
+
+    /**
+     *  Prints the NUMA nodes to an output stream.
+     */
+    friend ostream& operator<<(ostream& o, const HostShareNUMA& n);
 
 private:
     /**

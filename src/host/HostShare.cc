@@ -357,8 +357,6 @@ HostSharePCI::PCIDevice::PCIDevice(VectorAttribute * _attrs)
 
 ostream& operator<<(ostream& os, const HostSharePCI& pci)
 {
-    map<string, HostSharePCI::PCIDevice *>::const_iterator it;
-
     os  << right << setw(15)<< "PCI ADDRESS"<< " "
         << right << setw(8) << "CLASS"  << " "
         << right << setw(8) << "VENDOR" << " "
@@ -366,7 +364,7 @@ ostream& operator<<(ostream& os, const HostSharePCI& pci)
         << right << setw(8) << "VMID"   << " "
         << endl << setw(55) << setfill('-') << "-" << setfill(' ') << endl;
 
-    for (it=pci.pci_devices.begin(); it!=pci.pci_devices.end(); it++)
+    for (auto it=pci.pci_devices.begin(); it!=pci.pci_devices.end(); ++it)
     {
         HostSharePCI::PCIDevice * dev = it->second;
 
@@ -385,6 +383,52 @@ ostream& operator<<(ostream& os, const HostSharePCI& pci)
 /* HostShareNode                                                              */
 /* ************************************************************************** */
 /* ************************************************************************** */
+ostream& operator<<(ostream& o, const HostShareNode& n)
+{
+    o << setw(75) << setfill('-') << "-" << setfill(' ') << std::endl;
+    o << "Node: " << n.node_id  << "\tMemory: " << n.mem_usage / (1024*1024)
+      << "/" << n.total_mem / (1024*1024) << "G";
+    o << setw(75) << setfill('-') << "-" << setfill(' ') << std::endl;
+
+    for (auto it = n.cores.begin(); it!= n.cores.end(); ++it)
+    {
+        const HostShareNode::Core &c = it->second;
+
+        o << std::setw(4) << "[" << c.free_cpus << "]" << "( ";
+
+        for (auto jt = c.cpus.begin(); jt != c.cpus.end(); ++jt)
+        {
+            o << std::setw(2) << jt->first << " ";
+        }
+
+        o << ") " ;
+    }
+
+    std::cout << std::endl;
+
+    for (auto it = n.cores.begin(); it!= n.cores.end(); ++it)
+    {
+        const HostShareNode::Core &c = it->second;
+
+        o << std::setw(4) << "[" << c.free_cpus << "]" << "( ";
+
+        for (auto jt = c.cpus.begin(); jt != c.cpus.end(); ++jt)
+        {
+            if ( jt->second == -1 )
+            {
+                o << std::setw(2) << "- ";
+            }
+            else
+            {
+                o << std::setw(2) << "X ";
+            }
+        }
+
+        o <<") ";
+    }
+
+    return o;
+}
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -751,7 +795,7 @@ void HostShareNode::free_capacity(unsigned int &fcpus, long long &memory,
     }
 }
 
-void HostShareNode::free_dedicated_capacity(unsigned int &fcpus, 
+void HostShareNode::free_dedicated_capacity(unsigned int &fcpus,
         long long &memory)
 {
     fcpus  = 0;
@@ -771,6 +815,18 @@ void HostShareNode::free_dedicated_capacity(unsigned int &fcpus,
 /* HostShareNUMA                                                              */
 /* ************************************************************************** */
 /* ************************************************************************** */
+
+ostream& operator<<(ostream& o, const HostShareNUMA& n)
+{
+    for (auto it = n.nodes.begin(); it != n.nodes.end(); ++it)
+    {
+        o << it->second;
+    }
+
+    o << setw(75) << setfill('-') << "-" << setfill(' ') << std::endl;
+
+    return o;
+}
 
 int HostShareNUMA::from_xml_node(const vector<xmlNodePtr> &ns)
 {
@@ -1035,6 +1091,11 @@ int HostShareNUMA::make_topology(HostShareCapacity &sr, int vm_id, bool do_alloc
     int v_t = 0;
     int c_t = 0;
     int s_t = 0;
+
+    if ( sr.topology == 0 || sr.nodes.empty() )
+    {
+        return 0;
+    }
 
     sr.topology->vector_value("THREADS", v_t);
     sr.topology->vector_value("CORES", c_t);

@@ -65,15 +65,12 @@ void VirtualMachineXML::init_attributes()
 
     xpath(stime, "/VM/STIME", (time_t) 0);
 
-    public_cloud = (user_template->get("PUBLIC_CLOUD", attrs) > 0);
+    /**************************************************************************/
+    /*  VM Capacity memory, cpu and disk (system ds storage)                  */
+    /**************************************************************************/
+    xpath<long int>(memory, "/VM/TEMPLATE/MEMORY", 0);
 
-    if (public_cloud == false)
-    {
-        attrs.clear();
-        public_cloud = (user_template->get("EC2", attrs) > 0);
-    }
-
-    only_public_cloud = false;
+    xpath<float>(cpu, "/VM/TEMPLATE/CPU", 0);
 
     /**************************************************************************/
     /*  Scheduling rank expresions for:                                       */
@@ -153,9 +150,7 @@ void VirtualMachineXML::init_attributes()
     {
         std::string net_mode;
 
-        vector<xmlNodePtr>::iterator it_nodes;
-
-        for (it_nodes = nodes.begin(); it_nodes != nodes.end(); ++it_nodes)
+        for (auto it_nodes = nodes.begin(); it_nodes != nodes.end(); ++it_nodes)
         {
             VirtualMachineTemplate * nic_template = new VirtualMachineTemplate;
 
@@ -238,12 +233,15 @@ void VirtualMachineXML::init_attributes()
         user_template = 0;
     }
 
-    /**************************************************************************/
-    /*  VM Capacity memory, cpu and disk (system ds storage)                  */
-    /**************************************************************************/
-    xpath<long int>(memory, "/VM/TEMPLATE/MEMORY", 0);
+    public_cloud = (user_template->get("PUBLIC_CLOUD", attrs) > 0);
 
-    xpath<float>(cpu, "/VM/TEMPLATE/CPU", 0);
+    if (public_cloud == false)
+    {
+        attrs.clear();
+        public_cloud = (user_template->get("EC2", attrs) > 0);
+    }
+
+    only_public_cloud = false;
 
     if (vm_template != 0)
     {
@@ -386,6 +384,8 @@ void VirtualMachineXML::add_requirements(const string& reqs)
 
 void VirtualMachineXML::get_capacity(HostShareCapacity &sr)
 {
+    sr.vmid = oid;
+
     sr.pci.clear();
 
     if (vm_template != 0)
@@ -447,12 +447,9 @@ void VirtualMachineXML::reset_capacity(HostShareCapacity &sr)
 bool VirtualMachineXML::test_image_datastore_capacity(
     ImageDatastorePoolXML * img_dspool, string & error_msg) const
 {
-    map<int,long long>::const_iterator ds_it;
-    DatastoreXML* ds;
-
-    for (ds_it = ds_usage.begin(); ds_it != ds_usage.end(); ++ds_it)
+    for (auto ds_it = ds_usage.begin(); ds_it != ds_usage.end(); ++ds_it)
     {
-        ds = img_dspool->get(ds_it->first);
+        DatastoreXML* ds = img_dspool->get(ds_it->first);
 
         if (ds == 0 || !ds->test_capacity(ds_it->second))
         {
@@ -474,13 +471,9 @@ bool VirtualMachineXML::test_image_datastore_capacity(
 void VirtualMachineXML::add_image_datastore_capacity(
         ImageDatastorePoolXML * img_dspool)
 {
-    map<int,long long>::const_iterator ds_it;
-
-    DatastoreXML *ds;
-
-    for (ds_it = ds_usage.begin(); ds_it != ds_usage.end(); ++ds_it)
+    for (auto ds_it = ds_usage.begin(); ds_it != ds_usage.end(); ++ds_it)
     {
-        ds = img_dspool->get(ds_it->first);
+        DatastoreXML *ds = img_dspool->get(ds_it->first);
 
         if (ds == 0)
         {

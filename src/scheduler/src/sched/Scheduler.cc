@@ -574,7 +574,7 @@ static bool match_host(AclXML * acls, UserPoolXML * upool, VirtualMachineXML* vm
     // -------------------------------------------------------------------------
     // Check host capacity
     // -------------------------------------------------------------------------
-    if (host->test_capacity(sr.cpu, sr.mem, sr.pci, error) != true)
+    if (host->test_capacity(sr, error) != true)
     {
         return false;
     }
@@ -1408,7 +1408,7 @@ void Scheduler::dispatch()
             //------------------------------------------------------------------
             // Test host capacity
             //------------------------------------------------------------------
-            if (host->test_capacity(sr.cpu, sr.mem, sr.pci) != true)
+            if (host->test_capacity(sr, error) != true)
             {
                 continue;
             }
@@ -1676,7 +1676,7 @@ void Scheduler::dispatch()
             //------------------------------------------------------------------
             // Update usage and statistics counters
             //------------------------------------------------------------------
-            host->add_capacity(vm->get_oid(), sr.cpu, sr.mem, sr.pci);
+            host->add_capacity(sr);
 
             dispatched_vms++;
 

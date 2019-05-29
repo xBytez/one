@@ -234,7 +234,7 @@ public:
     void add_image_datastore_capacity(ImageDatastorePoolXML * img_dspool);
 
     /**
-     *
+     *  @return storage usage for the VM
      */
     map<int,long long> get_storage_usage()
     {
@@ -271,7 +271,7 @@ public:
      */
     void add_match_network(int oid, int nic_id)
     {
-        std::map<int, VirtualMachineNicXML *>::iterator it = nics.find(nic_id);
+        auto it = nics.find(nic_id);
 
         if ( it != nics.end() )
         {
@@ -302,7 +302,7 @@ public:
     {
         static std::vector<Resource *> ev;
 
-        std::map<int, VirtualMachineNicXML *>::iterator it = nics.find(nic_id);
+        auto it = nics.find(nic_id);
 
         if ( it != nics.end() )
         {
@@ -333,7 +333,7 @@ public:
      */
     void sort_match_networks(int nic_id)
     {
-        std::map<int, VirtualMachineNicXML *>::iterator it = nics.find(nic_id);
+        auto it = nics.find(nic_id);
 
         if ( it != nics.end() )
         {
@@ -362,9 +362,7 @@ public:
      */
     void clear_match_networks()
     {
-        map<int, VirtualMachineNicXML *>::iterator it;
-
-        for (it = nics.begin(); it != nics.end(); it++ )
+        for (auto it = nics.begin(); it != nics.end(); it++ )
         {
             it->second->clear_match_networks();
         }
@@ -467,7 +465,6 @@ protected:
     void init_storage_usage();
 
     /* ---------------------- SCHEDULER INFORMATION ------------------------- */
-
     ResourceMatch match_hosts;
 
     ResourceMatch match_datastores;
@@ -495,7 +492,6 @@ protected:
     long long   system_ds_usage;
 
     map<int,long long> ds_usage;
-
 
     string rank;
     string requirements;
