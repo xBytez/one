@@ -387,45 +387,57 @@ ostream& operator<<(ostream& o, const HostShareNode& n)
 {
     o << setw(75) << setfill('-') << "-" << setfill(' ') << std::endl;
     o << "Node: " << n.node_id  << "\tMemory: " << n.mem_usage / (1024*1024)
-      << "/" << n.total_mem / (1024*1024) << "G";
+      << "/" << n.total_mem / (1024*1024) << "G\n";
     o << setw(75) << setfill('-') << "-" << setfill(' ') << std::endl;
 
     for (auto it = n.cores.begin(); it!= n.cores.end(); ++it)
     {
         const HostShareNode::Core &c = it->second;
 
-        o << std::setw(4) << "[" << c.free_cpus << "]" << "( ";
+        o <<"(";
 
         for (auto jt = c.cpus.begin(); jt != c.cpus.end(); ++jt)
         {
-            o << std::setw(2) << jt->first << " ";
+            if ( jt != c.cpus.begin() )
+            {
+                o << " ";
+            }
+
+            o << std::setw(2) << jt->first;
         }
 
-        o << ") " ;
+        o << ")" ;
     }
 
-    std::cout << std::endl;
+    o << std::endl;
 
     for (auto it = n.cores.begin(); it!= n.cores.end(); ++it)
     {
         const HostShareNode::Core &c = it->second;
 
-        o << std::setw(4) << "[" << c.free_cpus << "]" << "( ";
+        o <<"(";
 
         for (auto jt = c.cpus.begin(); jt != c.cpus.end(); ++jt)
         {
+            if ( jt != c.cpus.begin() )
+            {
+                o << " ";
+            }
+
             if ( jt->second == -1 )
             {
-                o << std::setw(2) << "- ";
+                o << std::setw(2) << "-";
             }
             else
             {
-                o << std::setw(2) << "X ";
+                o << std::setw(2) << "X";
             }
         }
 
-        o <<") ";
+        o <<")";
     }
+
+    o << std::endl;
 
     return o;
 }
@@ -571,7 +583,7 @@ int HostShareNode::from_xml_node(const xmlNodePtr &node)
     }
 
     std::string distance_s;
-    VectorAttribute * memory = get("MEMORY_NODE");
+    VectorAttribute * memory = get("MEMORY");
 
     if (memory != 0)
     {
@@ -820,7 +832,7 @@ ostream& operator<<(ostream& o, const HostShareNUMA& n)
 {
     for (auto it = n.nodes.begin(); it != n.nodes.end(); ++it)
     {
-        o << it->second;
+        o << *(it->second);
     }
 
     o << setw(75) << setfill('-') << "-" << setfill(' ') << std::endl;
@@ -909,7 +921,7 @@ void HostShareNUMA::set_monitorization(Template &ht)
 
     std::vector<VectorAttribute *> memory;
 
-    ht.remove("MEMORY", memory);
+    ht.remove("MEMORY_NODE", memory);
 
     for (auto it = memory.begin(); it != memory.end(); ++it)
     {

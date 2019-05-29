@@ -114,6 +114,42 @@ class DummyInformationManager < OpenNebulaDriver
                 VENDOR = \"10de\",\n
                 VENDOR_NAME = \"NVIDIA Corporation\"\n
             ]\n"
+        
+        results <<"\n
+            HUGEPAGE = [ NODE_ID = \"0\", SIZE = \"1048576\", PAGES = \"0\", FREE = \"0\" ]\n
+            HUGEPAGE = [ NODE_ID = \"0\", SIZE = \"2048\", PAGES = \"0\", FREE = \"0\" ]\n
+            CORE = [ NODE_ID = \"0\", ID = \"0\", CPUS = \"0,28\" ]
+            CORE = [ NODE_ID = \"0\", ID = \"1\", CPUS = \"1,29\" ]\n
+            CORE = [ NODE_ID = \"0\", ID = \"2\", CPUS = \"2,30\" ]\n
+            CORE = [ NODE_ID = \"0\", ID = \"3\", CPUS = \"3,31\" ]\n
+            CORE = [ NODE_ID = \"0\", ID = \"4\", CPUS = \"4,32\" ]\n
+            CORE = [ NODE_ID = \"0\", ID = \"5\", CPUS = \"5,33\" ]\n
+            CORE = [ NODE_ID = \"0\", ID = \"6\", CPUS = \"6,34\" ]\n
+            CORE = [ NODE_ID = \"0\", ID = \"8\", CPUS = \"7,35\" ]\n
+            CORE = [ NODE_ID = \"0\", ID = \"9\", CPUS = \"8,36\" ]\n
+            CORE = [ NODE_ID = \"0\", ID = \"10\", CPUS = \"9,37\" ]\n
+            CORE = [ NODE_ID = \"0\", ID = \"11\", CPUS = \"10,38\" ]\n
+            CORE = [ NODE_ID = \"0\", ID = \"12\", CPUS = \"11,39\" ]\n
+            CORE = [ NODE_ID = \"0\", ID = \"13\", CPUS = \"12,40\" ]\n
+            CORE = [ NODE_ID = \"0\", ID = \"14\", CPUS = \"13,41\" ]\n
+            MEMORY_NODE = [ NODE_ID = \"0\", TOTAL = \"8388608\", FREE = \"#{rand(8388608)}\", USED = \"#{rand(8388608)}\", DISTANCE = \"0 1\" ]\n
+            HUGEPAGE = [ NODE_ID = \"1\", SIZE = \"1048576\", PAGES = \"0\", FREE = \"0\" ]\n
+            HUGEPAGE = [ NODE_ID = \"1\", SIZE = \"2048\", PAGES = \"0\", FREE = \"0\" ]\n
+            CORE = [ NODE_ID = \"1\", ID = \"0\", CPUS = \"14,42\" ]\n
+            CORE = [ NODE_ID = \"1\", ID = \"1\", CPUS = \"15,43\" ]\n
+            CORE = [ NODE_ID = \"1\", ID = \"2\", CPUS = \"16,44\" ]\n
+            CORE = [ NODE_ID = \"1\", ID = \"3\", CPUS = \"17,45\" ]\n
+            CORE = [ NODE_ID = \"1\", ID = \"4\", CPUS = \"18,46\" ]\n
+            CORE = [ NODE_ID = \"1\", ID = \"5\", CPUS = \"19,47\" ]\n
+            CORE = [ NODE_ID = \"1\", ID = \"6\", CPUS = \"20,48\" ]\n
+            CORE = [ NODE_ID = \"1\", ID = \"8\", CPUS = \"21,49\" ]\n
+            CORE = [ NODE_ID = \"1\", ID = \"9\", CPUS = \"22,50\" ]\n
+            CORE = [ NODE_ID = \"1\", ID = \"10\", CPUS = \"23,51\" ]\n
+            CORE = [ NODE_ID = \"1\", ID = \"11\", CPUS = \"24,52\" ]\n
+            CORE = [ NODE_ID = \"1\", ID = \"12\", CPUS = \"25,53\" ]\n
+            CORE = [ NODE_ID = \"1\", ID = \"13\", CPUS = \"26,54\" ]\n
+            CORE = [ NODE_ID = \"1\", ID = \"14\", CPUS = \"27,55\" ]\n
+            MEMORY_NODE = [ NODE_ID = \"1\", TOTAL = \"8388608\", FREE = \"#{rand(8388608)}\", USED = \"#{rand(8388608)}\", DISTANCE = \"1 0\" ]\n"
 
         results = Base64::encode64(results).strip.delete("\n")
 

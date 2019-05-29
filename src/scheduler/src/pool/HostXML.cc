@@ -77,7 +77,7 @@ void HostShareXML::init_attributes(ObjectXML * host)
     }
 
     //---------------------- HostShare NUMA Nodes ------------------------------
-    host->get_nodes("/HOST_SHARE/NUMA_NODES/NODE", content);
+    host->get_nodes("/HOST/HOST_SHARE/NUMA_NODES/NODE", content);
 
     if(!content.empty())
     {
@@ -153,6 +153,8 @@ ostream& operator<<(ostream& o, const HostShareXML& s)
     }
 
     o << endl << s.pci;
+
+    o << endl << s.numa;
 
     return o;
 }
