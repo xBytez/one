@@ -22,11 +22,12 @@ module VCenterDriver
         #           Disk
         #           VirtualMachineDevice::Disk
         #           VCenterDriver::VirtualMachine::Disk
-        require_relative 'vm_device'
+        $LOAD_PATH << RUBY_LIB_LOCATION
+        require 'vm_device'
         include VirtualMachineDevice
-        require_relative 'vm_helper'
+        require 'vm_helper'
         include VirtualMachineHelper
-        require_relative 'vm_monitor'
+        require 'vm_monitor'
         include VirtualMachineMonitor
 
         ############################################################################
