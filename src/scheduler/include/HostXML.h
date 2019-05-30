@@ -56,7 +56,7 @@ public:
 
         pci.add(sr.pci, sr.vmid);
 
-        numa.add(sr, sr.vmid);
+        numa.add(sr);
 
         running_vms++;
     };

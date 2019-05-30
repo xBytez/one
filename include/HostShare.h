@@ -278,6 +278,21 @@ public:
             std::string &c_s);
 
     /**
+     *  Remove allocation for the given CPUs
+     *    @param cpu_ids list of cpu ids to free, comma separated
+     */
+    void del_cpu(const std::string &cpu_ids);
+
+    /**
+     *  Remove memory allocation
+     *    @param memory to free
+     */
+    void del_memory(long long memory)
+    {
+        mem_usage -= memory;
+    }
+
+    /**
      *  Prints the NUMA node to an output stream.
      */
     friend ostream& operator<<(ostream& o, const HostShareNode& n);
@@ -503,15 +518,15 @@ public:
      *    @param sr the share request with the node/topology
      *    @param vmid of the VM
      */
-    void add(HostShareCapacity &sr, int vmid)
+    void add(HostShareCapacity &sr)
     {
-        make_topology(sr, vmid, true);
+        make_topology(sr, sr.vmid, true);
     }
 
     /**
-     *  Remove the VM assignment from the PCI device list
+     *  Remove the VM assignment from the NUMA nodes
      */
-    void del(const vector<VectorAttribute *> &devs);
+    void del(HostShareCapacity &sr);
 
     /**
      *  Prints the NUMA nodes to an output stream.
@@ -617,6 +632,8 @@ public:
 
         pci.add(sr.pci, sr.vmid);
 
+        numa.add(sr);
+
         running_vms++;
     }
 
@@ -631,6 +648,13 @@ public:
         cpu_usage  += cpu;
         mem_usage  += mem;
         disk_usage += disk;
+    }
+
+    void update(HostShareCapacity& sr)
+    {
+        cpu_usage  += sr.cpu;
+        mem_usage  += sr.mem;
+        disk_usage += sr.disk;
     }
 
     /**
@@ -648,6 +672,19 @@ public:
         disk_usage -= disk;
 
         pci.del(pci_devs);
+
+        running_vms--;
+    }
+
+    void del(HostShareCapacity &sr)
+    {
+        cpu_usage  -= sr.cpu;
+        mem_usage  -= sr.mem;
+        disk_usage -= sr.disk;
+
+        pci.del(sr.pci);
+
+        numa.del(sr);
 
         running_vms--;
     }

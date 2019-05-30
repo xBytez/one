@@ -698,6 +698,71 @@ int HostShareNode::allocate_ht_cpus(int id, unsigned int tcpus, unsigned int tc,
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
+void HostShareNode::del_cpu(const std::string &cpu_ids)
+{
+    std::vector<int> ids;
+    std::set<unsigned int> core_ids;
+
+    one_util::split(cpu_ids, ',', ids);
+
+    //--------------------------------------------------------------------------
+    //  Set used cpus to -1 in the node cores
+    //--------------------------------------------------------------------------
+    for (auto it = ids.begin() ; it != ids.end(); ++it)
+    {
+        for (auto jt = cores.begin(); jt != cores.end(); ++jt)
+        {
+            bool updated = false;
+
+            struct Core &c = jt->second;
+
+            for (auto kt = c.cpus.begin(); kt != c.cpus.end(); ++kt)
+            {
+                if ( kt->second == *it )
+                {
+                    kt->second = -1;
+                    updated = true;
+
+                    break;
+                }
+            }
+
+            if (updated)
+            {
+                core_ids.insert(jt->first);
+            }
+        }
+    }
+
+    //--------------------------------------------------------------------------
+    //  Recompute free cpus for the cores that have been updated
+    //--------------------------------------------------------------------------
+    for (auto it = core_ids.begin(); it != core_ids.end(); ++it)
+    {
+        auto jt = cores.find(*it);
+
+        if ( jt == cores.end() )
+        {
+            continue;
+        }
+
+        struct Core &c = jt->second;
+
+        c.free_cpus = 0;
+
+        for (auto kt = c.cpus.begin(); kt != c.cpus.end(); ++kt)
+        {
+            if ( kt->second == -1 )
+            {
+                c.free_cpus++;
+            }
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
 void HostShareNode::update_cores()
 {
     erase("CORE");
@@ -1325,6 +1390,42 @@ int HostShareNUMA::make_topology(HostShareCapacity &sr, int vm_id, bool do_alloc
 
     return 0;
 };
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+void HostShareNUMA::del(HostShareCapacity &sr)
+{
+    for (auto it = sr.nodes.begin() ; it != sr.nodes.end(); ++it)
+    {
+        unsigned int node_id;
+        unsigned int mem_node_id;
+
+        std::string cpu_ids;
+        long long   memory;
+
+        int rc = 0;
+
+        rc =  (*it)->vector_value("NODE_ID", node_id);
+        rc += (*it)->vector_value("MEMORY_NODE_ID", mem_node_id);
+        rc += (*it)->vector_value("CPUS", cpu_ids);
+        rc += (*it)->vector_value("MEMORY", memory);
+
+        if (rc != 0)
+        {
+            continue;
+        }
+
+        HostShareNode &cpu_node = get_node(node_id);
+
+        HostShareNode &mem_node = get_node(mem_node_id);
+
+        cpu_node.del_cpu(cpu_ids);
+
+        mem_node.del_memory(memory);
+    }
+}
+
 
 
 /* ************************************************************************ */
