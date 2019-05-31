@@ -1957,6 +1957,8 @@ void VirtualMachine::get_capacity(HostShareCapacity& sr)
 {
     float fcpu;
 
+    sr.vmid = oid;
+
     if ((get_template_attribute("MEMORY", sr.mem) == false) ||
         (get_template_attribute("CPU", fcpu) == false))
     {
