@@ -37,6 +37,7 @@ using namespace std;
 
 class AuthRequest;
 class Snapshots;
+class HostShareCapacity;
 
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
@@ -1011,14 +1012,10 @@ public:
     };
 
     /**
-     *  Get the VM physical requirements for the host.
-     *    @param cpu
-     *    @param memory
-     *    @param disk
-     *    @param pci_dev
+     *  Get the VM physical capacity requirements for the host.
+     *    @param sr the HostShareCapacity to store the capacity request.
      */
-    void get_requirements(int& cpu, int& memory, int& disk,
-            vector<VectorAttribute *>& pci_dev);
+    void get_capacity(HostShareCapacity &sr);
 
     /**
      * Adds automatic placement requirements: Datastore and Cluster

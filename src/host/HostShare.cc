@@ -1431,17 +1431,16 @@ void HostShareNUMA::del(HostShareCapacity &sr)
 /* ************************************************************************ */
 /* HostShare :: Constructor/Destructor                                      */
 /* ************************************************************************ */
-
-HostShare::HostShare(long long _max_disk,long long _max_mem,long long _max_cpu):
+HostShare::HostShare():
         ObjectXML(),
         disk_usage(0),
         mem_usage(0),
         cpu_usage(0),
-        total_mem(_max_mem),
-        total_cpu(_max_cpu),
-        max_disk(_max_disk),
-        max_mem(_max_mem),
-        max_cpu(_max_cpu),
+        total_mem(0),
+        total_cpu(0),
+        max_disk(0),
+        max_mem(0),
+        max_cpu(0),
         free_disk(0),
         free_mem(0),
         free_cpu(0),

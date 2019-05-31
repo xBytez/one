@@ -371,13 +371,12 @@ bool RequestManagerVirtualMachine::check_host(
     HostPool * hpool = nd.get_hpool();
 
     Host * host;
-    bool   test;
+    bool   test = true;
     string capacity_error;
 
-    int cpu, mem, disk;
-    vector<VectorAttribute *> pci;
+    HostShareCapacity sr;
 
-    vm->get_requirements(cpu, mem, disk, pci);
+    vm->get_capacity(sr);
 
     host = hpool->get_ro(hid);
 
@@ -389,11 +388,12 @@ bool RequestManagerVirtualMachine::check_host(
 
     if (enforce)
     {
-        test = host->test_capacity(cpu, mem, disk, pci, capacity_error);
+        test = host->test_compute_capacity(sr.cpu, sr.mem, capacity_error);
     }
-    else
+
+    if (test)
     {
-        test = host->test_capacity(pci, capacity_error);
+        test = host->test_device_capacity(sr, capacity_error);
     }
 
     if (!test)
@@ -2112,8 +2112,8 @@ void VirtualMachineResize::request_execute(xmlrpc_c::paramList const& paramList,
             return;
         }
 
-        if ( enforce && host->test_capacity(dcpu_host, dmem_host, 0,
-                    empty_pci, att.resp_msg) == false)
+        if ( enforce && host->test_compute_capacity(dcpu_host, dmem_host,
+                att.resp_msg) == false)
         {
             ostringstream oss;
 
@@ -2130,7 +2130,7 @@ void VirtualMachineResize::request_execute(xmlrpc_c::paramList const& paramList,
             return;
         }
 
-        host->update_capacity(dcpu_host, dmem_host, 0);
+        host->resize_capacity(dcpu_host, dmem_host);
 
         hpool->update(host);
 
@@ -2156,7 +2156,7 @@ void VirtualMachineResize::request_execute(xmlrpc_c::paramList const& paramList,
 
             if (host != 0)
             {
-                host->update_capacity(-dcpu, -dmemory, 0);
+                host->resize_capacity(-dcpu, -dmemory);
                 hpool->update(host);
 
                 host->unlock();
@@ -2207,7 +2207,7 @@ void VirtualMachineResize::request_execute(xmlrpc_c::paramList const& paramList,
 
                 if (host != 0)
                 {
-                    host->update_capacity(ocpu - ncpu, omemory - nmemory, 0);
+                    host->resize_capacity(ocpu - ncpu, omemory - nmemory);
                     hpool->update(host);
 
                     host->unlock();

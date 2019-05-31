@@ -1953,32 +1953,32 @@ void VirtualMachine::cp_previous_history()
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-void VirtualMachine::get_requirements (int& cpu, int& memory, int& disk,
-        vector<VectorAttribute *>& pci_devs)
+void VirtualMachine::get_capacity(HostShareCapacity& sr)
 {
-    istringstream   iss;
-    float           fcpu;
+    float fcpu;
 
-    pci_devs.clear();
-
-    if ((get_template_attribute("MEMORY",memory) == false) ||
-        (get_template_attribute("CPU",fcpu) == false))
+    if ((get_template_attribute("MEMORY", sr.mem) == false) ||
+        (get_template_attribute("CPU", fcpu) == false))
     {
-        cpu    = 0;
-        memory = 0;
-        disk   = 0;
+        sr.cpu = 0;
+        sr.mem = 0;
+        sr.disk = 0;
 
         return;
     }
 
-    cpu    = (int) (fcpu * 100);//now in 100%
-    memory = memory * 1024;     //now in Kilobytes
-    disk   = 0;
+    sr.cpu = (int) (fcpu * 100); //%
+    sr.mem = sr.mem * 1024;  //Kb
+    sr.disk = 0;
 
-    obj_template->get("PCI", pci_devs);
+    obj_template->get("PCI", sr.pci);
+
+    obj_template->get("NUMA_NODE", sr.nodes);
+
+    sr.topology = obj_template->get("TOPOLOGY");
 
     return;
-}
+};
 
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */

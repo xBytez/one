@@ -589,10 +589,7 @@ class HostShare : public ObjectXML
 {
 public:
 
-    HostShare(
-        long long  _max_disk=0,
-        long long  _max_mem=0,
-        long long  _max_cpu=0);
+    HostShare();
 
     ~HostShare(){};
 
@@ -605,25 +602,9 @@ public:
     int from_xml_node(const xmlNodePtr node);
 
     /**
-     *  Add a new VM to this share
-     *    @param vmid of the VM
-     *    @param cpu requested by the VM, in percentage
-     *    @param mem requested by the VM, in KB
-     *    @param disk requested by the VM
-     *    @param pci_devs requested by the VM
+     *  Add a VM capacity to this share
+     *    @param sr requested capacity by the VM
      */
-    void add(int vmid, long long cpu, long long mem, long long disk,
-        vector<VectorAttribute *> pci_devs)
-    {
-        cpu_usage  += cpu;
-        mem_usage  += mem;
-        disk_usage += disk;
-
-        pci.add(pci_devs, vmid);
-
-        running_vms++;
-    }
-
     void add(HostShareCapacity &sr)
     {
         cpu_usage  += sr.cpu;
@@ -638,44 +619,9 @@ public:
     }
 
     /**
-     *  Updates the capacity of VM in this share
-     *    @param cpu increment
-     *    @param mem increment
-     *    @param disk increment
+     *  Delete VM capacity from this share
+     *    @param sr requested capacity by the VM
      */
-    void update(int cpu, int mem, int disk)
-    {
-        cpu_usage  += cpu;
-        mem_usage  += mem;
-        disk_usage += disk;
-    }
-
-    void update(HostShareCapacity& sr)
-    {
-        cpu_usage  += sr.cpu;
-        mem_usage  += sr.mem;
-        disk_usage += sr.disk;
-    }
-
-    /**
-     *  Delete a VM from this share
-     *    @param cpu requested by the VM
-     *    @param mem requested by the VM
-     *    @param disk requested by the VM
-     *    @param pci_devs requested by the VM
-     */
-    void del(long long cpu, long long mem, long long disk,
-            const vector<VectorAttribute *>& pci_devs)
-    {
-        cpu_usage  -= cpu;
-        mem_usage  -= mem;
-        disk_usage -= disk;
-
-        pci.del(pci_devs);
-
-        running_vms--;
-    }
-
     void del(HostShareCapacity &sr)
     {
         cpu_usage  -= sr.cpu;
@@ -690,6 +636,17 @@ public:
     }
 
     /**
+     *  Updates the capacity usage of a VM
+     *    @param cpu increment of CPU
+     *    @param mem increment of memory
+     */
+    void resize(int cpu, long long mem)
+    {
+        cpu_usage  += cpu;
+        mem_usage  += mem;
+    }
+
+    /**
      *  Check if this share can host a VM.
      *    @param cpu requested by the VM
      *    @param mem requested by the VM
@@ -700,29 +657,24 @@ public:
      *    @return true if the share can host the VM or it is the only one
      *    configured
      */
-    bool test(long long cpu, long long mem, long long disk,
-              vector<VectorAttribute *>& pci_devs, string& error) const
+    bool test(HostShareCapacity& sr, string& error)
     {
-        bool pci_fits = pci.test(pci_devs);
-
-        bool fits = (((max_cpu  - cpu_usage ) >= cpu) &&
-                     ((max_mem  - mem_usage ) >= mem) &&
-                     ((max_disk - disk_usage) >= disk)&&
-                     pci_fits);
-
-        if (!fits)
+        if ( !test_compute(sr.cpu, sr.mem, error) )
         {
-            if ( pci_fits )
-            {
-                error = "Not enough capacity.";
-            }
-            else
-            {
-                error = "Unavailable PCI device.";
-            }
+            return false;
         }
 
-        return fits;
+        if ( !test_pci(sr.pci, error) )
+        {
+            return false;
+        }
+
+        if ( !test_numa(sr, error) )
+        {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -733,14 +685,48 @@ public:
      *    @return true if the share can host the VM or it is the only one
      *    configured
      */
-    bool test(vector<VectorAttribute *>& pci_devs, string& error) const
+    bool test_compute(int cpu, long long mem, std::string &error) const
+    {
+        bool cpu_fit  = (max_cpu  - cpu_usage ) >= cpu;
+        bool mem_fit  = (max_mem  - mem_usage ) >= mem;
+
+        bool fits = cpu_fit && mem_fit;
+
+        if ( fits )
+        {
+            return true;
+        }
+
+        ostringstream oss;
+
+        if (!cpu_fit)
+        {
+            oss << "Not enough CPU: " << cpu << "/" << max_cpu - cpu_usage;
+        }
+        else if (!mem_fit)
+        {
+            oss << "Not enough memory: " << mem << "/" << max_mem - mem_usage;
+        }
+
+        error = oss.str();
+
+        return false;
+    }
+
+    bool test_pci(vector<VectorAttribute *>& pci_devs, string& error) const
     {
         bool fits = pci.test(pci_devs);
 
-        if (!fits)
-        {
-            error = "Unavailable PCI device.";
-        }
+        error = "Unavailable PCI device.";
+
+        return fits;
+    }
+
+    bool test_numa(HostShareCapacity &sr, string& error)
+    {
+        bool fits = numa.test(sr);
+
+        error = "Cannot allocate NUMA topology";
 
         return fits;
     }
