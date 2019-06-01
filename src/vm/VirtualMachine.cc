@@ -1966,12 +1966,16 @@ void VirtualMachine::get_capacity(HostShareCapacity& sr)
         sr.mem = 0;
         sr.disk = 0;
 
+        sr.vcpu = 0;
+
         return;
     }
 
     sr.cpu = (int) (fcpu * 100); //%
     sr.mem = sr.mem * 1024;  //Kb
     sr.disk = 0;
+
+    get_template_attribute("VCPU", sr.vcpu);
 
     obj_template->get("PCI", sr.pci);
 

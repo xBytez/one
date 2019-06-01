@@ -700,7 +700,7 @@ int HostShareNode::allocate_ht_cpus(int id, unsigned int tcpus, unsigned int tc,
 
 void HostShareNode::del_cpu(const std::string &cpu_ids)
 {
-    std::vector<int> ids;
+    std::vector<unsigned int> ids;
     std::set<unsigned int> core_ids;
 
     one_util::split(cpu_ids, ',', ids);
@@ -718,7 +718,7 @@ void HostShareNode::del_cpu(const std::string &cpu_ids)
 
             for (auto kt = c.cpus.begin(); kt != c.cpus.end(); ++kt)
             {
-                if ( kt->second == *it )
+                if ( kt->first == *it )
                 {
                     kt->second = -1;
                     updated = true;
@@ -730,6 +730,7 @@ void HostShareNode::del_cpu(const std::string &cpu_ids)
             if (updated)
             {
                 core_ids.insert(jt->first);
+                break;
             }
         }
     }
@@ -1359,6 +1360,8 @@ int HostShareNUMA::make_topology(HostShareCapacity &sr, int vm_id, bool do_alloc
 
         it->second->mem_usage += (*vn_it).memory;
 
+        it->second->update_memory();
+
         VectorAttribute * a_node = (*vn_it).attr;
 
         a_node->replace("NODE_ID", (*vn_it).node_id);
@@ -1423,6 +1426,10 @@ void HostShareNUMA::del(HostShareCapacity &sr)
         cpu_node.del_cpu(cpu_ids);
 
         mem_node.del_memory(memory);
+
+        cpu_node.update_cores();
+
+        mem_node.update_memory();
     }
 }
 
