@@ -1052,6 +1052,15 @@ public:
      */
      int resize(float cpu, long int memory, int vcpu, string& error_str);
 
+    /**
+     *  Parse TOPOLOGY and NUMA_NODE
+     *    @param tmpl template of the virtual machine
+     *    @param error if any
+     *
+     *    @return 0 on sucess
+     */
+    static int parse_topology(Template * tmpl, std::string &error);
+
     // ------------------------------------------------------------------------
     // Virtual Machine Disks
     // ------------------------------------------------------------------------

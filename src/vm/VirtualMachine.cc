@@ -103,25 +103,25 @@ int VirtualMachine::vm_state_from_str(string& st, VmState& state)
     if ( st == "INIT" ) {
         state = INIT;
     } else if ( st == "PENDING" ) {
-		state = PENDING;
+        state = PENDING;
     } else if ( st == "HOLD" ) {
-		state = HOLD;
+        state = HOLD;
     } else if ( st == "ACTIVE" ) {
-		state = ACTIVE;
+        state = ACTIVE;
     } else if ( st == "STOPPED" ) {
-		state = STOPPED;
+        state = STOPPED;
     } else if ( st == "SUSPENDED" ) {
-		state = SUSPENDED;
+        state = SUSPENDED;
     } else if ( st == "DONE" ) {
-		state = DONE;
+        state = DONE;
     } else if ( st == "POWEROFF" ) {
-		state = POWEROFF;
+        state = POWEROFF;
     } else if ( st == "UNDEPLOYED" ) {
-		state = UNDEPLOYED;
+        state = UNDEPLOYED;
     } else if ( st == "CLONING" ) {
-		state = CLONING;
+        state = CLONING;
     } else if ( st == "CLONING_FAILURE" ) {
-		state = CLONING_FAILURE;
+        state = CLONING_FAILURE;
     } else {
         return -1;
     }
@@ -136,27 +136,27 @@ string& VirtualMachine::vm_state_to_str(string& st, VmState state)
     switch (state)
     {
         case INIT:
-			st = "INIT"; break;
+            st = "INIT"; break;
         case PENDING:
-			st = "PENDING"; break;
+            st = "PENDING"; break;
         case HOLD:
-			st = "HOLD"; break;
+            st = "HOLD"; break;
         case ACTIVE:
-			st = "ACTIVE"; break;
+            st = "ACTIVE"; break;
         case STOPPED:
-			st = "STOPPED"; break;
+            st = "STOPPED"; break;
         case SUSPENDED:
-			st = "SUSPENDED"; break;
+            st = "SUSPENDED"; break;
         case DONE:
-			st = "DONE"; break;
+            st = "DONE"; break;
         case POWEROFF:
-			st = "POWEROFF"; break;
+            st = "POWEROFF"; break;
         case UNDEPLOYED:
-			st = "UNDEPLOYED"; break;
+            st = "UNDEPLOYED"; break;
         case CLONING:
-			st = "CLONING"; break;
+            st = "CLONING"; break;
         case CLONING_FAILURE:
-			st = "CLONING_FAILURE"; break;
+            st = "CLONING_FAILURE"; break;
     }
 
     return st;

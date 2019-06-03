@@ -594,6 +594,19 @@ public:
     ~HostShare(){};
 
     /**
+     *  Pin policy for the host
+     */
+    enum PinPolicy
+    {
+        PP_NONE   = 0, /**< No pin. Default. */
+        PP_CORE   = 1, /**< vCPUs are assigned to host cores exclusively */
+        PP_THREAD = 2, /**< vCPUS are assigned to host threads */
+        PP_SHARED = 3  /**< vCPUs are assigned to a set of host threads */
+    };
+
+    static PinPolicy str_to_pin_policy(std::string& pp_s);
+
+    /**
      *  Rebuilds the object from an xml node
      *    @param node The xml node pointer
      *

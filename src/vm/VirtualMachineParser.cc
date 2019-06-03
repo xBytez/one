@@ -318,12 +318,12 @@ int VirtualMachine::parse_vrouter(string& error_str, Template * tmpl)
 /* -------------------------------------------------------------------------- */
 
 static int check_pci_attributes(VectorAttribute * pci, const string& default_bus,
-		string& error_str)
+    string& error_str)
 {
     static string attrs[] = {"VENDOR", "DEVICE", "CLASS"};
     static int num_attrs  = 3;
 
-	string bus;
+    string bus;
     bool   found = false;
 
     for (int i = 0; i < num_attrs; i++)
@@ -348,11 +348,11 @@ static int check_pci_attributes(VectorAttribute * pci, const string& default_bus
         return -1;
     }
 
-	if ( HostSharePCI::set_pci_address(pci, default_bus) != 0 )
-	{
-		error_str = "Wrong BUS in PCI attribute";
-		return -1;
-	}
+    if ( HostSharePCI::set_pci_address(pci, default_bus) != 0 )
+    {
+        error_str = "Wrong BUS in PCI attribute";
+        return -1;
+    }
 
     return 0;
 }
@@ -373,10 +373,10 @@ int VirtualMachine::parse_pci(string& error_str, Template * tmpl)
         obj_template->set(*it);
     }
 
-	Nebula& nd = Nebula::instance();
-	string  default_bus;
+    Nebula& nd = Nebula::instance();
+    string  default_bus;
 
-	nd.get_configuration_attribute("PCI_PASSTHROUGH_BUS", default_bus);
+    nd.get_configuration_attribute("PCI_PASSTHROUGH_BUS", default_bus);
 
     for (it = array_pci.begin(); it !=array_pci.end(); ++it)
     {
@@ -727,6 +727,185 @@ int VirtualMachine::parse_cpu_model(Template * tmpl)
     for ( ++it; it != cm_attr.end(); ++it)
     {
         delete *it;
+    }
+
+    return 0;
+}
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+int VirtualMachine::parse_topology(Template * tmpl, std::string &error)
+{
+/**
+ *   TOPOLOGY
+ *      - NUMA_NODES: number of numa nodes
+ *      - PIN_POLICY: CORE, THREAD, SHARED, NONE
+ *      - THREADS
+ *      - CORES
+ *      - SOCKETS
+ */
+    std::vector<VectorAttribute *> numa_nodes;
+    std::vector<VectorAttribute *> vtopol_a;
+
+    VectorAttribute * vtopol = 0;
+
+    tmpl->remove("TOPOLOGY", vtopol_a);
+
+    if ( !vtopol_a.empty() )
+    {
+        auto it = vtopol_a.begin();
+        vtopol  = *it;
+
+        for ( ++it; it != vtopol_a.end(); ++it)
+        {
+            delete *it;
+        }
+    }
+
+    tmpl->set(vtopol);
+
+    tmpl->remove("NUMA_NODE", numa_nodes);
+
+    if ( vtopol == 0 && numa_nodes.empty() )
+    {
+        return 0;
+    }
+
+    std::string pp_s = vtopol->vector_value("PIN_POLICY");
+
+    HostShare::PinPolicy pp = HostShare::str_to_pin_policy(pp_s);
+
+    /* ---------------------------------------------------------------------- */
+    /* Set CPU & vCPU for pinned VMS                                          */
+    /* ---------------------------------------------------------------------- */
+    unsigned int vcpu = 0;
+
+    if (!tmpl->get("VCPU", vcpu))
+    {
+        vcpu = 1;
+        tmpl->replace("VCPU", 1);
+    }
+
+    if ( pp != HostShare::PP_NONE )
+    {
+        tmpl->replace("CPU", vcpu);
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /* Check Sockets, Cores and Threads                                       */
+    /* ---------------------------------------------------------------------- */
+    unsigned int s, c, t;
+
+    s = c = t = 0;
+
+    vtopol->vector_value("SOCKETS", s);
+    vtopol->vector_value("CORES", c);
+    vtopol->vector_value("THREADS", t);
+
+    if ( s != 0 && c != 0 && t != 0 && (s * c * t) != vcpu )
+    {
+        error = "Total threads per core and socket needs to match VCPU";
+        return -1;
+    }
+
+    if ( t == 0 && c != 0 && s != 0 )
+    {
+        if ( vcpu%(c * s) != 0 )
+        {
+            error = "VCPUs is not multiple of the total number of cores";
+            return -1;
+        }
+
+        t = vcpu/(c * s);
+
+        if ((t & (t - 1)) != 0 )
+        {
+            error = "Computed number of threads is not power of 2";
+            return -1;
+        }
+
+        vtopol->replace("THREADS", t);
+    }
+
+    // ---------------------------------------------------------------------- //
+    // ---------------------------------------------------------------------- //
+    long long memory;
+
+    if (!tmpl->get("MEMORY", memory))
+    {
+        error = "VM has not MEMORY set";
+        return -1;
+    }
+
+    if (numa_nodes.empty())
+    {
+        /* ------------------------------------------------------------------- */
+        /* Automatic Homogenous Topology                                       */
+        /* ------------------------------------------------------------------- */
+        unsigned int numa_nodes = 1;
+
+        vtopol->vector_value("NUMA_NODES", numa_nodes);
+
+        if ( vcpu % numa_nodes != 0 )
+        {
+            error = "VCPU is not multiple of the number of NUMA nodes";
+            return -1;
+        }
+
+        if ( memory % numa_nodes != 0 )
+        {
+            error = "MEMORY is not multiple of the number of NUMA nodes";
+            return -1;
+        }
+
+        long long mem_node = memory / numa_nodes;
+
+        unsigned int cpu_node = vcpu / numa_nodes;
+
+        for (unsigned int i = 0 ; i < numa_nodes ; ++i)
+        {
+            VectorAttribute * node = new VectorAttribute("NUMA_NODE");
+
+            node->replace("TOTAL_CPUS", cpu_node);
+            node->replace("MEMORY", mem_node * 1024);
+
+            tmpl->set(node);
+        }
+    }
+    else
+    {
+        /* ------------------------------------------------------------------ */
+        /* Manual/Asymmetric Topology, NUMA_NODE array                        */
+        /* ------------------------------------------------------------------ */
+        long long node_mem = 0;
+        unsigned int node_cpu = 0;
+
+        for (auto it = numa_nodes.begin() ; it != numa_nodes.end() ; ++it)
+        {
+            long long nmem = 0;
+            unsigned int ncpu = 0;
+
+            (*it)->vector_value("TOTAL_CPUS", ncpu);
+            (*it)->vector_value("MEMORY", nmem);
+
+            (*it)->replace("MEMORY", nmem * 1024);
+
+            node_cpu += ncpu;
+            node_mem += nmem;
+        }
+
+        if (node_cpu != vcpu)
+        {
+            error = "Total CPUS of nodes is different from VM VCPU";
+            return -1;
+        }
+
+        if (node_mem != memory)
+        {
+            error = "Total MEMORY of NUMA nodes is different from VM MEMORY";
+            return -1;
+        }
     }
 
     return 0;

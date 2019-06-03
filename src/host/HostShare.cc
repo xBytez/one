@@ -1242,9 +1242,11 @@ int HostShareNUMA::make_topology(HostShareCapacity &sr, int vm_id, bool do_alloc
 
         for (auto vn_it = vm_nodes.begin(); vn_it != vm_nodes.end(); ++vn_it)
         {
+            unsigned int tcpus = (*vn_it).total_cpus;
+
             for (unsigned int i = t_max; i >= 1 ; i = i / 2 )
             {
-                if ( (*vn_it).total_cpus%i != 0 )
+                if ( tcpus != 0 && tcpus%i != 0 )
                 {
                     continue;
                 }
@@ -1722,4 +1724,28 @@ void HostShare::update_capacity(Host *host)
 
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
+
+HostShare::PinPolicy HostShare::str_to_pin_policy(std::string& pp_s)
+{
+    one_util::toupper(pp_s);
+
+    if ( pp_s == "NONE" )
+    {
+        return PP_NONE;
+    }
+    else if ( pp_s == "CORE" )
+    {
+        return PP_CORE;
+    }
+    else if ( pp_s == "THREAD" )
+    {
+        return PP_THREAD;
+    }
+    else if ( pp_s == "SHARED" )
+    {
+        return PP_SHARED;
+    }
+
+    return PP_NONE;
+}
 
