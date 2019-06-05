@@ -933,3 +933,27 @@ int VirtualMachine::parse_topology(Template * tmpl, std::string &error)
 
     return 0;
 }
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+bool VirtualMachine::is_pinned()
+{
+    VectorAttribute * topology = obj_template->get("TOPOLOGY");
+
+    if ( topology == 0 )
+    {
+        return false;
+    }
+
+    std::string pp_s = topology->vector_value("PIN_POLICY");
+
+    HostShare::PinPolicy pp = HostShare::str_to_pin_policy(pp_s);
+
+    if ( pp == HostShare::PP_NONE )
+    {
+        return false;
+    }
+
+    return true;
+}

@@ -1061,6 +1061,11 @@ public:
      */
     static int parse_topology(Template * tmpl, std::string &error);
 
+    /**
+     *  @return true if the VM is being deployed with a pinned policy
+     */
+    bool is_pinned();
+
     // ------------------------------------------------------------------------
     // Virtual Machine Disks
     // ------------------------------------------------------------------------
