@@ -519,22 +519,21 @@ void VirtualMachine::parse_well_known_attributes()
      * FEATURES
      * RAW
      * CLONING_TEMPLATE_ID
+     * TOPOLOGY
+     * NUMA_NODE
      */
+    std::vector<std::string> names = {"INPUT", "FEATURES", "RAW", 
+        "CLONING_TEMPLATE_ID", "TOPOLOGY", "NUMA_NODE"};
 
-    vector<Attribute *>             v_attr;
-    vector<Attribute *>::iterator   it;
-
-    string names[] = {"INPUT", "FEATURES", "RAW", "CLONING_TEMPLATE_ID"};
-
-    for (int i=0; i<4; i++)
+    for (auto it = names.begin(); it != names.end() ; ++it)
     {
-        v_attr.clear();
+        vector<Attribute *> v_attr;
 
-        user_obj_template->remove(names[i], v_attr);
+        user_obj_template->remove(*it, v_attr);
 
-        for (it=v_attr.begin(); it != v_attr.end(); it++)
+        for (auto jt=v_attr.begin(); jt != v_attr.end(); jt++)
         {
-            obj_template->set(*it);
+            obj_template->set(*jt);
         }
     }
 }
@@ -763,14 +762,19 @@ int VirtualMachine::parse_topology(Template * tmpl, std::string &error)
         }
     }
 
-    tmpl->set(vtopol);
-
-    tmpl->remove("NUMA_NODE", numa_nodes);
+    tmpl->get("NUMA_NODE", numa_nodes);
 
     if ( vtopol == 0 && numa_nodes.empty() )
     {
         return 0;
     }
+
+    if ( vtopol == 0 )
+    {
+        vtopol = new VectorAttribute("TOPOLOGY");
+    }
+
+    tmpl->set(vtopol);
 
     std::string pp_s = vtopol->vector_value("PIN_POLICY");
 
@@ -881,6 +885,8 @@ int VirtualMachine::parse_topology(Template * tmpl, std::string &error)
         long long node_mem = 0;
         unsigned int node_cpu = 0;
 
+        std::vector<VectorAttribute *> new_nodes;
+
         for (auto it = numa_nodes.begin() ; it != numa_nodes.end() ; ++it)
         {
             long long nmem = 0;
@@ -889,10 +895,25 @@ int VirtualMachine::parse_topology(Template * tmpl, std::string &error)
             (*it)->vector_value("TOTAL_CPUS", ncpu);
             (*it)->vector_value("MEMORY", nmem);
 
-            (*it)->replace("MEMORY", nmem * 1024);
+            VectorAttribute * node = new VectorAttribute("NUMA_NODE");
+
+            node->replace("TOTAL_CPUS", ncpu);
+            node->replace("MEMORY", nmem * 1024);
+
+            new_nodes.push_back(node);
 
             node_cpu += ncpu;
             node_mem += nmem;
+        }
+
+        tmpl->erase("NUMA_NODE");
+
+        if (node_cpu != vcpu || node_mem != memory)
+        {
+            for (auto it = new_nodes.begin(); it != new_nodes.end(); ++it)
+            {
+                delete *it;
+            }
         }
 
         if (node_cpu != vcpu)
@@ -906,8 +927,9 @@ int VirtualMachine::parse_topology(Template * tmpl, std::string &error)
             error = "Total MEMORY of NUMA nodes is different from VM MEMORY";
             return -1;
         }
+
+        tmpl->set(new_nodes);
     }
 
     return 0;
 }
-
