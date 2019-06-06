@@ -1100,6 +1100,8 @@ bool HostShareNUMA::schedule_nodes(NUMANodeRequest &nr, unsigned int threads,
 
         if ( n_fcpu * threads >= nr.total_cpus )
         {
+            //TODO: When VM uses a PCI device in the node increase fcpu_after
+            //to use that node first
             unsigned int fcpu_after =  n_fcpu * threads - nr.total_cpus;
 
             cpu_fits.push_back(std::make_tuple(fcpu_after, it->first));
