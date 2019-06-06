@@ -244,7 +244,7 @@ static void vtopol(ofstream& file, const VectorAttribute * topology,
     unsigned int cid   = 0;
 
     oss << "\t<numatune>\n";
-    file << "\t\t<numa>";
+    file << "\t\t<numa>\n";
 
     for (auto it = nodes.begin() ; it != nodes.end() ; ++it, ++cid)
     {
@@ -280,7 +280,7 @@ static void vtopol(ofstream& file, const VectorAttribute * topology,
         }
     }
 
-    file << "\t\t</numa>";
+    file << "\t\t</numa>\n";
 
     if (!mnodes.str().empty())
     {
