@@ -156,6 +156,144 @@ static void insert_sec(ofstream& file, const string& base, const string& s,
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
+static void pin_cpu(ofstream& file, const VectorAttribute * topology,
+        std::vector<const VectorAttribute *> &nodes)
+{
+    HostShare::PinPolicy pp = HostShare::PP_NONE;
+    unsigned int vcpu_id = 0;
+
+    std::ostringstream oss;
+
+    if ( topology != 0 )
+    {
+        std::string pp_s;
+
+        pp_s = topology->vector_value("PIN_POLICY");
+        pp   = HostShare::str_to_pin_policy(pp_s);
+    }
+
+    if ( pp == HostShare::PP_NONE )
+    {
+        return;
+    }
+
+    for (auto it = nodes.begin(); it != nodes.end() ; ++it)
+    {
+        unsigned int nv;
+
+        std::vector<unsigned int> cpus_a;
+        std::string cpus = (*it)->vector_value("CPUS");
+
+        (*it)->vector_value("TOTAL_CPUS", nv);
+
+        one_util::split(cpus, ',', cpus_a);
+
+        for ( unsigned int i = 0; i < nv; ++i, ++vcpu_id )
+        {
+            file << "\t\t<vcpupin vcpu='" << vcpu_id << "' cpuset='";
+
+            if ( pp == HostShare::PP_SHARED )
+            {
+                file << cpus << "'/>\n";
+            }
+            else
+            {
+                file << cpus_a[i] << "'/>\n";
+            }
+        }
+
+        if ( it != nodes.begin() )
+        {
+            oss << ",";
+        }
+
+        oss << cpus;
+    }
+
+    file << "\t\t<emulatorpin cpuset='" << oss.str() << "'/>\n";
+}
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+static void vtopol(ofstream& file, const VectorAttribute * topology,
+        std::vector<const VectorAttribute *> &nodes,  std::string &numatune)
+{
+    if ( topology != 0 )
+    {
+        int s, c, t;
+
+        s = c = t = 1;
+
+        topology->vector_value("SOCKETS", s);
+        topology->vector_value("CORES", c);
+        topology->vector_value("THREADS", t);
+
+        file << "\t\t<topology sockets='" << s << "' cores='" << c
+            << "' threads='"<< t <<"'/>\n";
+    }
+
+    if ( nodes.empty() )
+    {
+        return;
+    }
+
+    std::ostringstream oss, mnodes;
+
+    unsigned int cpuid = 0;
+    unsigned int cid   = 0;
+
+    oss << "\t<numatune>\n";
+    file << "\t\t<numa>";
+
+    for (auto it = nodes.begin() ; it != nodes.end() ; ++it, ++cid)
+    {
+        unsigned int ncpu = 0;
+
+        std::string mem    = (*it)->vector_value("MEMORY");
+        std::string mem_id = (*it)->vector_value("MEMORY_NODE_ID");
+
+        (*it)->vector_value("TOTAL_CPUS", ncpu);
+
+        file << "\t\t\t<cell id='" << cid << "' memory='" << mem << "'";
+
+        if ( ncpu > 0 )
+        {
+            file << " cpus='" << cpuid << "-" << cpuid + ncpu - 1 << "'";
+        }
+
+        file << "/>\n";
+
+        cpuid += ncpu;
+
+        if (!mem_id.empty())
+        {
+            oss << "\t\t<memnode cellid='" << cid << "' mode='strict' nodeset='"
+                << mem_id <<"'/>\n";
+
+            if (!mnodes.str().empty())
+            {
+                mnodes << ",";
+            }
+
+            mnodes << mem_id;
+        }
+    }
+
+    file << "\t\t</numa>";
+
+    if (!mnodes.str().empty())
+    {
+        oss << "\t\t<memory mode='strict' nodeset='" << mnodes.str() << "'/>\n";
+        oss << "\t</numatune>\n";
+
+        numatune = oss.str();
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
 int LibVirtDriver::deployment_description_kvm(
         const VirtualMachine *  vm,
         const string&           file_name) const
@@ -328,6 +466,10 @@ int LibVirtDriver::deployment_description_kvm(
     string default_raw = "";
     string data        = "";
 
+    const VectorAttribute * topology;
+    vector<const VectorAttribute *> nodes;
+    std::string numa_tune = "";
+
     string  vm_xml;
 
     // ------------------------------------------------------------------------
@@ -376,13 +518,18 @@ int LibVirtDriver::deployment_description_kvm(
     }
 
     //Every process gets 1024 shares by default (cgroups), scale this with CPU
-    if(vm->get_template_attribute("CPU", cpu))
-    {
-        file << "\t<cputune>" << endl
-             << "\t\t<shares>"<< ceil( cpu * CGROUP_BASE_CPU_SHARES )
-             << "</shares>"   << endl
-             << "\t</cputune>"<< endl;
-    }
+    cpu = 1;
+    vm->get_template_attribute("CPU", cpu);
+
+    topology = vm->get_template_attribute("TOPOLOGY");
+    vm->get_template_attribute("NUMA_NODE", nodes);
+
+    file << "\t<cputune>\n";
+    file << "\t\t<shares>"<< ceil(cpu * CGROUP_BASE_CPU_SHARES) << "</shares>\n";
+
+    pin_cpu(file, topology, nodes);
+
+    file << "\t</cputune>\n";
 
     // Memory must be expressed in Kb
     if (vm->get_template_attribute("MEMORY",memory))
@@ -497,6 +644,7 @@ int LibVirtDriver::deployment_description_kvm(
     // ------------------------------------------------------------------------
     cpu_model_v = vm->get_template_attribute("CPU_MODEL");
 
+
     if( cpu_model_v != 0 )
     {
         cpu_model = cpu_model_v->vector_value("MODEL");
@@ -513,17 +661,33 @@ int LibVirtDriver::deployment_description_kvm(
         //TODO #756 cache, feature
     }
 
-    if ( !cpu_model.empty() )
+    if ( !cpu_model.empty() || topology != 0 )
     {
-        file << "\t<cpu mode=" << one_util::escape_xml_attr(cpu_mode) << ">\n";
+        file << "\t<cpu" ;
 
-        if ( cpu_mode == "custom" )
+        if (!cpu_model.empty())
         {
-            file << "\t\t<model fallback='forbid'>" << one_util::escape_xml(cpu_model)
-                 << "</model>\n";
+            file << " mode=" << one_util::escape_xml_attr(cpu_mode) << ">\n";
+
+            if ( cpu_mode == "custom" )
+            {
+                file << "\t\t<model fallback='forbid'>" 
+                    << one_util::escape_xml(cpu_model) << "</model>\n";
+            }
+        }
+        else
+        {
+            file << ">\n";
         }
 
+        vtopol(file, topology, nodes, numa_tune);
+
         file << "\t</cpu>\n";
+    }
+
+    if (!numa_tune.empty())
+    {
+        file << numa_tune;
     }
 
     // ------------------------------------------------------------------------

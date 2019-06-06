@@ -819,6 +819,11 @@ int VirtualMachine::insert(SqlDB * db, string& error_str)
 
     this->name = name;
 
+    // -------------------------------------------------------------------------
+    // Move known attributes that doesn't need additional procesing to template
+    // -------------------------------------------------------------------------
+    parse_well_known_attributes();
+
     // ------------------------------------------------------------------------
     // Parse the Public Cloud specs for this VM
     // ------------------------------------------------------------------------
@@ -871,8 +876,6 @@ int VirtualMachine::insert(SqlDB * db, string& error_str)
         user_obj_template->erase("VCPU");
         obj_template->add("VCPU", ivalue);
     }
-
-
 
     // ------------------------------------------------------------------------
     // Check the cost attributes
@@ -1066,10 +1069,6 @@ int VirtualMachine::insert(SqlDB * db, string& error_str)
     {
         goto error_rollback;
     }
-
-    // ------------------------------------------------------------------------
-
-    parse_well_known_attributes();
 
     // ------------------------------------------------------------------------
     // Insert the VM
@@ -1602,6 +1601,19 @@ int VirtualMachine::automatic_requirements(set<int>& cluster_ids,
         }
 
         oss << "))";
+    }
+
+    if ( is_pinned() )
+    {
+        std::string tmp_reqs = oss.str();
+        oss.str("");
+
+        oss << "(PIN_POLICY = PINNED)";
+
+        if (!tmp_reqs.empty())
+        {
+            oss << " & (" << tmp_reqs << ")";
+        }
     }
 
     obj_template->add("AUTOMATIC_REQUIREMENTS", oss.str());
