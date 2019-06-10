@@ -730,7 +730,6 @@ class OneHostHelper < OpenNebulaHelper::OneHelper
 
         numa_nodes.map! do |core|
             cores     = core['CORE']
-            core['MEMORY'] = []
 
             free, used, cores_str = get_numa_cores(cores)
 
