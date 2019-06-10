@@ -730,8 +730,7 @@ class OneHostHelper < OpenNebulaHelper::OneHelper
 
         numa_nodes.map! do |core|
             cores     = core['CORE']
-            hugepages = core['HUGEPAGE']
-            memory    = core['MEMORY']
+            core['MEMORY'] = []
 
             free, used, cores_str = get_numa_cores(cores)
 
@@ -804,6 +803,14 @@ class OneHostHelper < OpenNebulaHelper::OneHelper
     end
 
     def print_numa_memory(numa_nodes)
+        nodes = numa_nodes.clone
+
+        nodes.reject! do |node|
+            node['MEMORY'].nil? || node['MEMORY'].empty?
+        end
+
+        return if nodes.empty?
+
         puts
         CLIHelper.print_header('NUMA MEMORY', false)
         puts
@@ -832,10 +839,18 @@ class OneHostHelper < OpenNebulaHelper::OneHelper
             default :NODE_ID, :TOTAL, :USED_REAL, :USED_ALLOCATED, :FREE
         end
 
-        table.show(numa_nodes)
+        table.show(nodes)
     end
 
     def print_numa_hugepages(numa_nodes)
+        nodes = numa_nodes.clone
+
+        nodes.reject! do |node|
+            node['HUGEPAGE'].nil? || node['HUGEPAGE'].empty?
+        end
+
+        returun if nodes.empty?
+
         puts
         CLIHelper.print_header('NUMA HUGEPAGES', false)
         puts
@@ -862,7 +877,7 @@ class OneHostHelper < OpenNebulaHelper::OneHelper
 
         hugepages = []
 
-        numa_nodes.each do |node|
+        nodes.each do |node|
             node['HUGEPAGE'].each do |hugepage|
                 h             = {}
                 h['NODE_ID']  = node['NODE_ID']
