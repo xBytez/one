@@ -140,6 +140,8 @@ void HostSharePCI::add(vector<VectorAttribute *> &devs, int vmid)
                 (device_rc == 0 || dev->device_id == device_id) &&
                 dev->vmid  == -1 )
             {
+                int node = -1;
+
                 dev->vmid = vmid;
                 dev->attrs->replace("VMID", vmid);
 
@@ -149,6 +151,11 @@ void HostSharePCI::add(vector<VectorAttribute *> &devs, int vmid)
                 (*it)->replace("FUNCTION",dev->attrs->vector_value("FUNCTION"));
 
                 (*it)->replace("ADDRESS",dev->attrs->vector_value("ADDRESS"));
+
+                if (dev->attrs->vector_value("NUMA_NODE", node)==0 && node !=-1)
+                {
+                    (*it)->replace("NUMA_NODE", node);
+                }
 
                 break;
             }
@@ -1134,7 +1141,7 @@ bool HostShareNUMA::schedule_nodes(NUMANodeRequest &nr, unsigned int threads,
 
     for (unsigned int hop = 0 ; hop < nodes.size() ; ++hop)
     {
-        for (auto it = cpu_fits.begin(); it != cpu_fits.end() ; ++it)
+        for (auto it = cpu_fits.rbegin(); it != cpu_fits.rend() ; ++it)
         {
             unsigned int snode = std::get<1>(*it);
 

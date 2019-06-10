@@ -82,7 +82,8 @@ class DummyInformationManager < OpenNebulaDriver
                 SLOT = \"00\",\n
                 TYPE = \"10de:0863:0300\",\n
                 VENDOR = \"10de\",\n
-                VENDOR_NAME = \"NVIDIA Corporation\"\n
+                VENDOR_NAME = \"NVIDIA Corporation\",\n
+                NUMA_NODE=\"1\"
             ]\n
             PCI = [
                 ADDRESS = \"0000:00:06:0\",\n
@@ -97,7 +98,8 @@ class DummyInformationManager < OpenNebulaDriver
                 SLOT = \"06\",\n
                 TYPE = \"10de:0aa7:0c03\",\n
                 VENDOR = \"10de\",\n
-                VENDOR_NAME = \"NVIDIA Corporation\"\n
+                VENDOR_NAME = \"NVIDIA Corporation\",\n
+                NUMA_NODE=\"1\"
             ]\n
             PCI = [
                 ADDRESS = \"0000:00:06:1\",\n
@@ -112,44 +114,11 @@ class DummyInformationManager < OpenNebulaDriver
                 SLOT = \"06\",\n
                 TYPE = \"10de:0aa9:0c03\",\n
                 VENDOR = \"10de\",\n
-                VENDOR_NAME = \"NVIDIA Corporation\"\n
+                VENDOR_NAME = \"NVIDIA Corporation\"\n,
+                NUMA_NODE=\"0\"
             ]\n"
-        
-        results <<"\n
-            HUGEPAGE = [ NODE_ID = \"0\", SIZE = \"1048576\", PAGES = \"0\", FREE = \"0\" ]\n
-            HUGEPAGE = [ NODE_ID = \"0\", SIZE = \"2048\", PAGES = \"0\", FREE = \"0\" ]\n
-            CORE = [ NODE_ID = \"0\", ID = \"0\", CPUS = \"0,28\" ]
-            CORE = [ NODE_ID = \"0\", ID = \"1\", CPUS = \"1,29\" ]\n
-            CORE = [ NODE_ID = \"0\", ID = \"2\", CPUS = \"2,30\" ]\n
-            CORE = [ NODE_ID = \"0\", ID = \"3\", CPUS = \"3,31\" ]\n
-            CORE = [ NODE_ID = \"0\", ID = \"4\", CPUS = \"4,32\" ]\n
-            CORE = [ NODE_ID = \"0\", ID = \"5\", CPUS = \"5,33\" ]\n
-            CORE = [ NODE_ID = \"0\", ID = \"6\", CPUS = \"6,34\" ]\n
-            CORE = [ NODE_ID = \"0\", ID = \"8\", CPUS = \"7,35\" ]\n
-            CORE = [ NODE_ID = \"0\", ID = \"9\", CPUS = \"8,36\" ]\n
-            CORE = [ NODE_ID = \"0\", ID = \"10\", CPUS = \"9,37\" ]\n
-            CORE = [ NODE_ID = \"0\", ID = \"11\", CPUS = \"10,38\" ]\n
-            CORE = [ NODE_ID = \"0\", ID = \"12\", CPUS = \"11,39\" ]\n
-            CORE = [ NODE_ID = \"0\", ID = \"13\", CPUS = \"12,40\" ]\n
-            CORE = [ NODE_ID = \"0\", ID = \"14\", CPUS = \"13,41\" ]\n
-            MEMORY_NODE = [ NODE_ID = \"0\", TOTAL = \"8388608\", FREE = \"#{rand(8388608)}\", USED = \"#{rand(8388608)}\", DISTANCE = \"0 1\" ]\n
-            HUGEPAGE = [ NODE_ID = \"1\", SIZE = \"1048576\", PAGES = \"0\", FREE = \"0\" ]\n
-            HUGEPAGE = [ NODE_ID = \"1\", SIZE = \"2048\", PAGES = \"0\", FREE = \"0\" ]\n
-            CORE = [ NODE_ID = \"1\", ID = \"0\", CPUS = \"14,42\" ]\n
-            CORE = [ NODE_ID = \"1\", ID = \"1\", CPUS = \"15,43\" ]\n
-            CORE = [ NODE_ID = \"1\", ID = \"2\", CPUS = \"16,44\" ]\n
-            CORE = [ NODE_ID = \"1\", ID = \"3\", CPUS = \"17,45\" ]\n
-            CORE = [ NODE_ID = \"1\", ID = \"4\", CPUS = \"18,46\" ]\n
-            CORE = [ NODE_ID = \"1\", ID = \"5\", CPUS = \"19,47\" ]\n
-            CORE = [ NODE_ID = \"1\", ID = \"6\", CPUS = \"20,48\" ]\n
-            CORE = [ NODE_ID = \"1\", ID = \"8\", CPUS = \"21,49\" ]\n
-            CORE = [ NODE_ID = \"1\", ID = \"9\", CPUS = \"22,50\" ]\n
-            CORE = [ NODE_ID = \"1\", ID = \"10\", CPUS = \"23,51\" ]\n
-            CORE = [ NODE_ID = \"1\", ID = \"11\", CPUS = \"24,52\" ]\n
-            CORE = [ NODE_ID = \"1\", ID = \"12\", CPUS = \"25,53\" ]\n
-            CORE = [ NODE_ID = \"1\", ID = \"13\", CPUS = \"26,54\" ]\n
-            CORE = [ NODE_ID = \"1\", ID = \"14\", CPUS = \"27,55\" ]\n
-            MEMORY_NODE = [ NODE_ID = \"1\", TOTAL = \"8388608\", FREE = \"#{rand(8388608)}\", USED = \"#{rand(8388608)}\", DISTANCE = \"1 0\" ]\n"
+
+        make_topology(results, 2, 8, 4, 16777216)
 
         results = Base64::encode64(results).strip.delete("\n")
 
@@ -158,6 +127,40 @@ class DummyInformationManager < OpenNebulaDriver
 
     def stop_monitor(number, host)
         send_message("STOPMONITOR", RESULT[:success], number, nil)
+    end
+
+    def make_topology(result, nodes, cores, threads, mem)
+        nodes.times do |i|
+            cores.times do |j|
+                core_id  = j + ( i * cores)
+
+                core_str = "CORE = [ NODE_ID=\"#{i}\", ID=\"#{core_id}\", "\
+                    "CPUS=\""
+
+                threads.times do |k|
+                    cpu_id = core_id + k * ( cores * nodes )
+
+                    core_str << "," if k != 0
+                    core_str << "#{cpu_id}"
+                end
+
+                core_str << "\"]\n"
+
+                result << core_str
+            end
+
+            memn = mem.to_i/nodes
+
+            result << "MEMORY_NODE = [ NODE_ID = \"#{i}\", TOTAL = \"#{memn}\"" \
+                ", FREE = \"#{rand(memn)}\", USED = \"#{rand(memn)}\", " \
+                "DISTANCE = \"#{i} "
+
+            nodes.times do |l|
+                result << "#{l} " if l != i
+            end
+
+            result << "\" ]\n"
+        end
     end
 end
 
