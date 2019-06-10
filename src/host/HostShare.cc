@@ -1076,9 +1076,9 @@ static bool sort_node_mem(VectorAttribute *i, VectorAttribute *j)
 // -----------------------------------------------------------------------------
 
 bool HostShareNUMA::schedule_nodes(NUMANodeRequest &nr, unsigned int threads,
-        bool dedicated, bool do_alloc)
+        bool dedicated, std::set<unsigned int> &pci, bool do_alloc)
 {
-    std::vector<std::tuple<int,int> > cpu_fits;
+    std::vector<std::tuple<float,int> > cpu_fits;
     std::set<unsigned int> mem_fits;
 
     for (auto it = nodes.begin(); it != nodes.end(); ++it)
@@ -1100,9 +1100,12 @@ bool HostShareNUMA::schedule_nodes(NUMANodeRequest &nr, unsigned int threads,
 
         if ( n_fcpu * threads >= nr.total_cpus )
         {
-            //TODO: When VM uses a PCI device in the node increase fcpu_after
-            //to use that node first
-            unsigned int fcpu_after =  n_fcpu * threads - nr.total_cpus;
+            float fcpu_after =  n_fcpu - (nr.total_cpus / threads);
+
+            if ( pci.count(it->second->node_id) != 0 )
+            {
+                fcpu_after += 1;
+            }
 
             cpu_fits.push_back(std::make_tuple(fcpu_after, it->first));
         }
@@ -1124,8 +1127,8 @@ bool HostShareNUMA::schedule_nodes(NUMANodeRequest &nr, unsigned int threads,
     }
 
     //--------------------------------------------------------------------------
-    // Allocate nodes using a best-fit heuristic for the CPU nodes. Closer
-    // memory allocations are prioritized.
+    // Allocate nodes using a best-fit heuristic weighted with PCI proximity for
+    // the CPU nodes. Closer memory allocations are prioritized.
     //--------------------------------------------------------------------------
     std::sort(cpu_fits.begin(), cpu_fits.end());
 
@@ -1296,6 +1299,17 @@ int HostShareNUMA::make_topology(HostShareCapacity &sr, int vm_id, bool do_alloc
     // core in the host as well.
     //--------------------------------------------------------------------------
     unsigned int na = 0;
+    std::set<unsigned int> pci_nodes;
+
+    for (auto it = sr.pci.begin(); it != sr.pci.end(); ++it)
+    {
+        int pnode = -1;
+
+        if ((*it)->vector_value("NUMA_NODE", pnode) == 0 && pnode != -1)
+        {
+            pci_nodes.insert(pnode);
+        }
+    }
 
     for (auto tc_it = t_valid.rbegin(); tc_it != t_valid.rend(); ++tc_it, na = 0)
     {
@@ -1307,7 +1321,7 @@ int HostShareNUMA::make_topology(HostShareCapacity &sr, int vm_id, bool do_alloc
 
         for (auto vn_it = vm_nodes.begin(); vn_it != vm_nodes.end(); ++vn_it)
         {
-            if (schedule_nodes(*vn_it, *tc_it, dedicated, do_alloc) == false)
+            if (!schedule_nodes(*vn_it, *tc_it, dedicated, pci_nodes, do_alloc))
             {
                 break; //Node cannot be allocated with *tc_it threads/core
             }

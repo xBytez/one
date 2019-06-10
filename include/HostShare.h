@@ -576,7 +576,7 @@ private:
     };
 
     bool schedule_nodes(NUMANodeRequest &nr, unsigned int thr, bool dedicated,
-            bool do_alloc);
+        std::set<unsigned int> &pci, bool do_alloc);
 };
 
 /* -------------------------------------------------------------------------- */

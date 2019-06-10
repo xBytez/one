@@ -726,6 +726,8 @@ class OneHostHelper < OpenNebulaHelper::OneHelper
     end
 
     def get_numa_data(numa_nodes)
+        numa_nodes = [numa_nodes] if numa_nodes.class == Hash
+
         numa_nodes.map! do |core|
             cores     = core['CORE']
             hugepages = core['HUGEPAGE']
