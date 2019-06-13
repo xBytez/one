@@ -929,6 +929,8 @@ int VirtualMachine::parse_topology(Template * tmpl, std::string &error)
         }
 
         tmpl->set(new_nodes);
+
+        vtopol->replace("NUMA_NODES", numa_nodes.size());
     }
 
     return 0;
@@ -950,10 +952,5 @@ bool VirtualMachine::is_pinned()
 
     HostShare::PinPolicy pp = HostShare::str_to_pin_policy(pp_s);
 
-    if ( pp == HostShare::PP_NONE )
-    {
-        return false;
-    }
-
-    return true;
+    return pp != HostShare::PP_NONE;
 }
