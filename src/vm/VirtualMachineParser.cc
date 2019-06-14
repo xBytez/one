@@ -895,6 +895,13 @@ int VirtualMachine::parse_topology(Template * tmpl, std::string &error)
             (*it)->vector_value("TOTAL_CPUS", ncpu);
             (*it)->vector_value("MEMORY", nmem);
 
+            if ( ncpu == 0  || nmem == 0)
+            {
+                node_cpu = 0;
+                node_mem = 0;
+                break;
+            }
+
             VectorAttribute * node = new VectorAttribute("NUMA_NODE");
 
             node->replace("TOTAL_CPUS", ncpu);
@@ -908,12 +915,25 @@ int VirtualMachine::parse_topology(Template * tmpl, std::string &error)
 
         tmpl->erase("NUMA_NODE");
 
-        if (node_cpu != vcpu || node_mem != memory)
+        if (node_cpu != vcpu || node_mem != memory ||
+                node_cpu == 0 || node_mem == 0)
         {
             for (auto it = new_nodes.begin(); it != new_nodes.end(); ++it)
             {
                 delete *it;
             }
+        }
+
+        if (node_cpu == 0)
+        {
+            error = "NUMA_NODES cannot have 0 CPUs";
+            return -1;
+        }
+
+        if (node_mem == 0)
+        {
+            error = "NUMA_NODES cannot have 0 MEMORY";
+            return -1;
         }
 
         if (node_cpu != vcpu)

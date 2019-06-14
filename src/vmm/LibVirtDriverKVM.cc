@@ -179,12 +179,17 @@ static void pin_cpu(ofstream& file, const VectorAttribute * topology,
 
     for (auto it = nodes.begin(); it != nodes.end() ; ++it)
     {
-        unsigned int nv;
+        unsigned int nv = 0;
 
         std::vector<unsigned int> cpus_a;
         std::string cpus = (*it)->vector_value("CPUS");
 
         (*it)->vector_value("TOTAL_CPUS", nv);
+
+        if ( nv == 0 || cpus.empty())
+        {
+            continue;
+        }
 
         one_util::split(cpus, ',', cpus_a);
 
