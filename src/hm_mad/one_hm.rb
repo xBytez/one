@@ -16,21 +16,25 @@
 # limitations under the License.                                             #
 #--------------------------------------------------------------------------- #
 
-ONE_LOCATION=ENV["ONE_LOCATION"]
+ONE_LOCATION = ENV['ONE_LOCATION']
 
 if !ONE_LOCATION
-    RUBY_LIB_LOCATION="/usr/lib/one/ruby"
-    ETC_LOCATION="/etc/one/"
+    RUBY_LIB_LOCATION = '/usr/lib/one/ruby'
+    ETC_LOCATION = '/etc/one/'
 else
-    RUBY_LIB_LOCATION=ONE_LOCATION+"/lib/ruby"
-    ETC_LOCATION=ONE_LOCATION+"/etc/"
+    RUBY_LIB_LOCATION = ONE_LOCATION + '/lib/ruby'
+    ETC_LOCATION = ONE_LOCATION + '/etc/'
 end
 
-$: << RUBY_LIB_LOCATION
+$LOAD_PATH << RUBY_LIB_LOCATION
 
 require 'OpenNebulaDriver'
+require 'rubygems'
+require 'ffi-rzmq'
 
+# HookManagerDriver class
 class HookManagerDriver < OpenNebulaDriver
+
     def initialize(options)
         @options={
             :concurrency => 15,
@@ -40,13 +44,23 @@ class HookManagerDriver < OpenNebulaDriver
 
         super('', @options)
 
-        register_action(:EXECUTE, method("action_execute"))
+        # Initialize publisher socket
+        context = ZMQ::Context.new(1)
+        @publisher = context.socket(ZMQ::PUB)
+
+        #TODO make the port configurable and add HWM option
+        @publisher.bind('tcp://*:5556')
+
+        register_action(:EXECUTE, method('action_execute'))
     end
 
     def action_execute(type, *arguments)
-        File.open("/tmp/driver_output", 'a') do |file|
-            file.write("Type: #{type}\nArgs: #{arguments}\n=============================\n")
-        end
+        key = type
+        vals = arguments.flatten.join(' ')
+
+        # using envelopes for splitting key/val (http://zguide.zeromq.org/page:all#Pub-Sub-Message-Envelopes)
+        @publisher.send_string key, ZMQ::SNDMORE
+        @publisher.send_string vals
     end
 end
 
