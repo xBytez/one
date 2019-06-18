@@ -84,6 +84,9 @@ public:
         const string&   command,
         const string&   arguments ) const;
 
+    void execute(
+        const string&   message ) const;
+
 private:
 
     friend class            HookManager;

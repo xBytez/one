@@ -43,22 +43,9 @@ class HookManagerDriver < OpenNebulaDriver
         register_action(:EXECUTE, method("action_execute"))
     end
 
-    def action_execute(number, hook_name, host, script, *arguments)
-        cmd=nil
-        cmd_string="#{script} #{arguments.join(' ')}"
-
-        if host.upcase=="LOCAL"
-            cmd=LocalCommand.run(cmd_string, log_method(number))
-        else
-            cmd=SSHCommand.run("'#{cmd_string}'", host, log_method(number))
-        end
-
-        if cmd.code==0
-            message = "#{hook_name}: #{cmd.stdout}"
-            send_message("EXECUTE", RESULT[:success], number, message)
-        else
-            message = "#{hook_name}: #{cmd.get_error_message}"
-            send_message("EXECUTE", RESULT[:failure], number, message)
+    def action_execute(type, *arguments)
+        File.open("/tmp/driver_output", 'a') do |file|
+            file.write("Type: #{type}\nArgs: #{arguments}\n=============================\n")
         end
     end
 end

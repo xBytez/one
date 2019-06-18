@@ -137,16 +137,7 @@ public:
     virtual int update(
         PoolObjectSQL * objsql)
     {
-        int rc;
-
-        rc = objsql->update(db);
-
-        if ( rc == 0 )
-        {
-            do_hooks(objsql, Hook_::UPDATE);
-        }
-
-        return rc;
+        return objsql->update(db);;
     };
 
     /**
@@ -164,10 +155,6 @@ public:
         {
             error_msg = "SQL DB error";
             return -1;
-        }
-        else
-        {
-            do_hooks(objsql, Hook_::REMOVE);
         }
 
         return 0;

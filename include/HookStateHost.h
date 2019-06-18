@@ -28,35 +28,23 @@ public:
 
     enum HookHostStates
     {
-        CREATE  = 0,
-        ERROR   = 1,
-        DISABLE = 2,
-        ENABLE  = 3,
-        OFFLINE = 4,
-        NONE    = 5
+        ERROR   = 0,
+        NONE    = 1
     };
 
     static string state_to_str(HookHostStates st)
     {
         switch(st)
         {
-            case CREATE:  return "CREATE";  break;
             case ERROR:   return "ERROR";   break;
-            case DISABLE: return "DISABLE"; break;
-            case ENABLE:  return "ENABLE";  break;
-            case OFFLINE: return "OFFLINE"; break;
             default:      return "";
         };
     };
 
     static HookHostStates str_to_state(string st)
     {
-        if ( st == "CREATE" )       return CREATE;
-        else if ( st == "ERROR" )   return ERROR;
-        else if ( st == "DISABLE" ) return DISABLE;
-        else if ( st == "ENABLE" )  return ENABLE;
-        else if ( st == "OFFLINE" ) return OFFLINE;
-        else                        return NONE;
+        if ( st == "ERROR" )   return ERROR;
+        else                   return NONE;
     };
 
     void do_hook(void *arg)

@@ -370,6 +370,9 @@ void Request::execute(
     RaftManager * raftm = nd.get_raftm();
     UserPool* upool     = nd.get_upool();
 
+    HookManager * hm              = nd.get_hm();
+    const HookManagerDriver * hmd = hm->get();
+
     bool authenticated = upool->authenticate(att.session, att.password,
         att.uid, att.gid, att.uname, att.gname, att.group_ids, att.umask);
 
@@ -432,6 +435,9 @@ void Request::execute(
     {
         request_execute(_paramList, att);
     }
+
+    //register hook event
+    hmd->execute(format_message());
 
     if ( log_method_call )
     {

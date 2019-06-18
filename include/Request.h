@@ -480,6 +480,18 @@ private:
 
     // Default number of character to show in the log. Option %l<number>
     const static int DEFAULT_LOG_LIMIT = 20;
+
+    /**
+     * Generate a string with te request's information requiered for Hook driver.
+     */
+    string format_message()
+    {
+        ostringstream oss;
+
+        oss << "API " << method_name; //TODO add other info like auth info, arguments, ....
+
+        return oss.str();
+    };
 };
 
 /* -------------------------------------------------------------------------- */
