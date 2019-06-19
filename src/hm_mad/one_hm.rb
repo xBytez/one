@@ -36,7 +36,7 @@ require 'ffi-rzmq'
 class HookManagerDriver < OpenNebulaDriver
 
     def initialize(options)
-        @options={
+        @options = {
             :concurrency => 15,
             :threaded => true,
             :retries => 0
@@ -48,15 +48,16 @@ class HookManagerDriver < OpenNebulaDriver
         context = ZMQ::Context.new(1)
         @publisher = context.socket(ZMQ::PUB)
 
-        #TODO make the port configurable and add HWM option
+        # TODO, make the port configurable and add HWM option
         @publisher.bind('tcp://*:5556')
 
         register_action(:EXECUTE, method('action_execute'))
     end
 
     def action_execute(type, *arguments)
-        key = type
-        vals = arguments.flatten.join(' ')
+        arguments.flatten!
+        key = "#{type} #{arguments.shift}"
+        vals = arguments.join(' ')
 
         # using envelopes for splitting key/val (http://zguide.zeromq.org/page:all#Pub-Sub-Message-Envelopes)
         @publisher.send_string key, ZMQ::SNDMORE
