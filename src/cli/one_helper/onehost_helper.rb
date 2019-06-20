@@ -848,7 +848,7 @@ class OneHostHelper < OpenNebulaHelper::OneHelper
             node['HUGEPAGE'].nil? || node['HUGEPAGE'].empty?
         end
 
-        returun if nodes.empty?
+        return if nodes.empty?
 
         puts
         CLIHelper.print_header('NUMA HUGEPAGES', false)
