@@ -57,6 +57,8 @@ public:
 
     uint64_t replication_idx;
 
+    bool success; /**< True if the call was successfull false otherwise */
+
     RequestAttributes()
     {
         resp_obj        = PoolObjectSQL::NONE;
@@ -484,14 +486,68 @@ private:
     /**
      * Generate a string with te request's information requiered for Hook driver.
      */
-    string format_message()
+    string format_message(bool success, xmlrpc_c::paramList const& _paramList, int resource_id)
     {
         ostringstream oss;
 
-        oss << "API " << method_name; //TODO add other info like auth info, arguments, ....
+        //TODO add other info like auth info, arguments, ....
+        oss << "API " << method_name << " " << success <<  " " << param_list_to_string(_paramList);
+
+        if ((resource_id > -1) && success)
+        {
+            oss << " " << resource_id;
+        }
 
         return oss.str();
     };
+
+    const static string param_list_to_string(xmlrpc_c::paramList const& _paramList)
+    {
+        ostringstream oss;
+
+        oss << get_value_as_string(0, _paramList);
+
+        for (unsigned int i = 1; i < _paramList.size(); i++)
+        {
+            oss << " " << get_value_as_string(i, _paramList);
+        }
+
+        return oss.str();
+    }
+
+    const static string get_value_as_string(int index, xmlrpc_c::paramList const& _paramList)
+    {
+        ostringstream oss;
+        xmlrpc_c::value::type_t type(_paramList[index].type());
+
+        if( type == xmlrpc_c::value::TYPE_INT)
+        {
+            oss << _paramList.getInt(index);
+            return oss.str();
+        }
+        else if( type == xmlrpc_c::value::TYPE_I8 )
+        {
+            oss << _paramList.getI8(index);
+            return oss.str();
+        }
+        else if( type == xmlrpc_c::value::TYPE_BOOLEAN )
+        {
+            oss << _paramList.getBoolean(index);
+            return oss.str();
+        }
+        else if( type == xmlrpc_c::value::TYPE_STRING )
+        {
+            oss << _paramList.getString(index);
+            return oss.str();
+        }
+        else if( type == xmlrpc_c::value::TYPE_DOUBLE )
+        {
+            oss << _paramList.getDouble(index);
+            return oss.str();
+        }
+
+        return "";
+    }
 };
 
 /* -------------------------------------------------------------------------- */

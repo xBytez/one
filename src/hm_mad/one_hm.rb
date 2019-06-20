@@ -56,14 +56,15 @@ class HookManagerDriver < OpenNebulaDriver
 
     def action_execute(type, *arguments)
         arguments.flatten!
-        key = "#{type} #{arguments.shift}"
+        key = "#{type} #{arguments.shift(2).join(' ')}"
         vals = arguments.join(' ')
 
         # using envelopes for splitting key/val (http://zguide.zeromq.org/page:all#Pub-Sub-Message-Envelopes)
         @publisher.send_string key, ZMQ::SNDMORE
         @publisher.send_string vals
     end
+
 end
 
-hm=HookManagerDriver.new(:concurrency => 15)
+hm = HookManagerDriver.new(:concurrency => 15)
 hm.start_driver

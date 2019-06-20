@@ -53,7 +53,7 @@ void HookManagerDriver::execute(
 {
     ostringstream oss;
 
-    oss << "EXECUTE " << message << " a b c d" << endl;
+    oss << "EXECUTE " << message << endl;
 
     write(oss);
 }

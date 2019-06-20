@@ -437,7 +437,7 @@ void Request::execute(
     }
 
     //register hook event
-    hmd->execute(format_message());
+    hmd->execute(format_message(att.success, _paramList, att.resp_id));
 
     if ( log_method_call )
     {
@@ -744,6 +744,7 @@ void Request::failure_response(ErrorCode ec, const string& str_val,
     xmlrpc_c::value_array arrayresult(arrayData);
 
     *(att.retval) = arrayresult;
+    att.success = false;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -861,6 +862,7 @@ void Request::success_response(int id, RequestAttributes& att)
     xmlrpc_c::value_array arrayresult(arrayData);
 
     *(att.retval) = arrayresult;
+    att.success = true;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -876,6 +878,7 @@ void Request::success_response(const string& val, RequestAttributes& att)
     xmlrpc_c::value_array arrayresult(arrayData);
 
     *(att.retval) = arrayresult;
+    att.success = true;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -893,6 +896,7 @@ void Request::success_response(bool val, RequestAttributes& att)
     xmlrpc_c::value_array arrayresult(arrayData);
 
     *(att.retval) = arrayresult;
+    att.success = true;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -910,6 +914,7 @@ void Request::success_response(uint64_t val, RequestAttributes& att)
     xmlrpc_c::value_array arrayresult(arrayData);
 
     *(att.retval) = arrayresult;
+    att.success = true;
 }
 
 /* -------------------------------------------------------------------------- */

@@ -260,6 +260,7 @@ void RequestManagerAllocate::request_execute(xmlrpc_c::paramList const& params,
         cluster->unlock();
     }
 
+    att.resp_id = id;
     success_response(id, att);
 }
 
@@ -643,6 +644,7 @@ void ImageAllocate::request_execute(xmlrpc_c::paramList const& params,
         ds->unlock();
     }
 
+    att.resp_id = id;
     success_response(id, att);
 }
 
