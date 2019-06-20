@@ -1107,7 +1107,7 @@ bool HostShareNUMA::schedule_nodes(NUMANodeRequest &nr, unsigned int threads,
 
         if ( n_fcpu * threads >= nr.total_cpus )
         {
-            float fcpu_after =  n_fcpu - (nr.total_cpus / threads);
+            float fcpu_after = 1 - ((float) nr.total_cpus / (threads * n_fcpu));
 
             if ( pci.count(it->second->node_id) != 0 )
             {
