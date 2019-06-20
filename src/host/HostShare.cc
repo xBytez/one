@@ -1191,10 +1191,10 @@ int HostShareNUMA::make_topology(HostShareCapacity &sr, int vm_id, bool do_alloc
     sr.topology->vector_value("CORES", c_t);
     sr.topology->vector_value("SOCKETS", s_t);
 
-    //TODO: improve enum handler or dedicated method in VirtualMachine
-    std::string policy = sr.topology->vector_value("POLICY");
+    std::string policy      = sr.topology->vector_value("PIN_POLICY");
+    HostShare::PinPolicy pp = HostShare::str_to_pin_policy(policy);
 
-    bool dedicated = one_util::toupper(policy) == "DEDICATED";
+    bool dedicated = pp == HostShare::PP_CORE;
 
     // -------------------------------------------------------------------------
     // Build NUMA NODE topology request vector
