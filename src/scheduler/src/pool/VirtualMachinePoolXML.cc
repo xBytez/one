@@ -128,7 +128,7 @@ int VirtualMachinePoolXML::load_info(xmlrpc_c::value &result)
 {
     try
     {
-        client->call("one.vmpool.info", "iiii", &result, -2, -1, -1, -1);
+        client->call("one.vmpool.infoextended", "iiii", &result, -2, -1, -1, -1);
 
         return 0;
     }

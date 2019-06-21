@@ -2338,14 +2338,12 @@ string& VirtualMachine::to_token(string& text) const
 string& VirtualMachine::to_xml_short(string& xml)
 {
     string disks_xml, monitoring_xml, user_template_xml, history_xml, nics_xml;
+    string cpu_tmpl, mem_tmpl;
+
     ostringstream   oss;
-    string cpu_tmpl, mem_tmpl, auto_reqs, auto_ds_reqs, auto_nic_reqs;
 
     obj_template->get("CPU", cpu_tmpl);
     obj_template->get("MEMORY", mem_tmpl);
-    obj_template->get("AUTOMATIC_REQUIREMENTS", auto_reqs);
-    obj_template->get("AUTOMATIC_DS_REQUIREMENTS", auto_ds_reqs);
-    obj_template->get("AUTOMATIC_NIC_REQUIREMENTS", auto_nic_reqs);
 
     oss << "<VM>"
         << "<ID>"        << oid       << "</ID>"
@@ -2375,27 +2373,6 @@ string& VirtualMachine::to_xml_short(string& xml)
         graph->to_xml(oss);
     }
 
-    if (!auto_reqs.empty())
-    {
-        oss << "<AUTOMATIC_REQUIREMENTS>";
-        oss << one_util::escape_xml(auto_reqs);
-        oss << "</AUTOMATIC_REQUIREMENTS>";
-    }
-
-    if (!auto_ds_reqs.empty())
-    {
-        oss << "<AUTOMATIC_DS_REQUIREMENTS>";
-        oss << one_util::escape_xml(auto_ds_reqs);
-        oss << "</AUTOMATIC_DS_REQUIREMENTS>";
-    }
-
-    if (!auto_nic_reqs.empty())
-    {
-        oss << "<AUTOMATIC_NIC_REQUIREMENTS>";
-        oss << one_util::escape_xml(auto_nic_reqs);
-        oss << "</AUTOMATIC_NIC_REQUIREMENTS>";
-    }
-
     oss << "</TEMPLATE>"
         << monitoring.to_xml_short(monitoring_xml)
         << user_obj_template->to_xml_short(user_template_xml);
@@ -2409,17 +2386,6 @@ string& VirtualMachine::to_xml_short(string& xml)
     else
     {
         oss << "<HISTORY_RECORDS/>";
-    }
-
-    std::vector<VectorAttribute *> vm_groups;
-
-    if (obj_template->get("VMGROUP", vm_groups) > 0)
-    {
-        for (std::vector<VectorAttribute *>::iterator it = vm_groups.begin();
-				it != vm_groups.end() ; it++)
-		{
-			(*it)->to_xml(oss);
-		}
     }
 
     oss << "</VM>";
