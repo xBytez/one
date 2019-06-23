@@ -863,8 +863,18 @@ void HostShareNode::set_core(unsigned int id, std::string& cpus, int free,
 void HostShareNode::set_hugepage(unsigned long size, unsigned int nr,
         unsigned int fr, unsigned long usage, bool update)
 {
-    if ( pages.find(size) != pages.end() )
+    auto pt = pages.find(size);
+
+    if ( pt != pages.end() )
     {
+        if ( nr != pt->second.nr || fr != pt->second.free )
+        {
+            pt->second.nr   = nr;
+            pt->second.free = fr;
+
+            update_hugepages();
+        }
+
         return;
     }
 

@@ -222,7 +222,8 @@ static void pin_cpu(ofstream& file, const VectorAttribute * topology,
 /* -------------------------------------------------------------------------- */
 
 static void vtopol(ofstream& file, const VectorAttribute * topology,
-        std::vector<const VectorAttribute *> &nodes,  std::string &numatune)
+        std::vector<const VectorAttribute *> &nodes,  std::string &numatune,
+        std::string &membacking)
 {
     std::string ma;
     int hpsz_kb = 0;
@@ -318,20 +319,24 @@ static void vtopol(ofstream& file, const VectorAttribute * topology,
 
     if ( hpsz_kb != 0 )
     {
-        file << "\t\t<memoryBacking>\n";
-        file << "\t\t\t<hugepages>\n";
+        std::ostringstream mboss;
 
-        file << "\t\t\t\t<page size='" << one_util::escape_xml_attr(hpsz_kb) << "'";
+        mboss << "\t<memoryBacking>\n";
+        mboss << "\t\t<hugepages>\n";
+
+        mboss << "\t\t\t<page size=" << one_util::escape_xml_attr(hpsz_kb);
 
         if (!mnodes.str().empty())
         {
-            file << " nodeset='" << mnodes.str()  << "'";
+            mboss << " nodeset='" << mnodes.str() << "'";
         }
 
-        file << "'/>\n";
+        mboss << "/>\n";
 
-        file << "\t\t\t</hugepages>\n";
-        file << "\t\t</memoryBacking>\n";
+        mboss << "\t\t</hugepages>\n";
+        mboss << "\t</memoryBacking>\n";
+
+        membacking = mboss.str();
     }
 }
 
@@ -512,7 +517,9 @@ int LibVirtDriver::deployment_description_kvm(
 
     const VectorAttribute * topology;
     vector<const VectorAttribute *> nodes;
+
     std::string numa_tune = "";
+    std::string mbacking  = "";
 
     string  vm_xml;
 
@@ -724,7 +731,7 @@ int LibVirtDriver::deployment_description_kvm(
             file << ">\n";
         }
 
-        vtopol(file, topology, nodes, numa_tune);
+        vtopol(file, topology, nodes, numa_tune, mbacking);
 
         file << "\t</cpu>\n";
     }
@@ -732,6 +739,11 @@ int LibVirtDriver::deployment_description_kvm(
     if (!numa_tune.empty())
     {
         file << numa_tune;
+    }
+
+    if (!mbacking.empty())
+    {
+        file << mbacking;
     }
 
     // ------------------------------------------------------------------------

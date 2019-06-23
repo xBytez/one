@@ -831,6 +831,15 @@ int VirtualMachine::parse_topology(Template * tmpl, std::string &error)
 
         vtopol->replace("THREADS", t);
     }
+    /* ---------------------------------------------------------------------- */
+    /* Hugepages (set value in kb)                                            */
+    /* ---------------------------------------------------------------------- */
+    unsigned long int hpsz_mb = 0;
+
+    if ( vtopol->vector_value("HUGEPAGE_SIZE", hpsz_mb) == 0 )
+    {
+        vtopol->replace("HUGEPAGE_SIZE", hpsz_mb * 1024);
+    }
 
     // ---------------------------------------------------------------------- //
     // ---------------------------------------------------------------------- //

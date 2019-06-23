@@ -1585,6 +1585,15 @@ int VirtualMachine::automatic_requirements(set<int>& cluster_ids,
         oss << "!(PUBLIC_CLOUD = YES)";
     }
 
+    if ( is_pinned() )
+    {
+        oss << " & (PIN_POLICY = PINNED)";
+    }
+    else
+    {
+        oss << " & !(PIN_POLICY = PINNED)";
+    }
+
     int num_public = get_public_clouds(clouds);
 
     if (num_public != 0)
@@ -1601,19 +1610,6 @@ int VirtualMachine::automatic_requirements(set<int>& cluster_ids,
         }
 
         oss << "))";
-    }
-
-    if ( is_pinned() )
-    {
-        std::string tmp_reqs = oss.str();
-        oss.str("");
-
-        oss << "(PIN_POLICY = PINNED)";
-
-        if (!tmp_reqs.empty())
-        {
-            oss << " & (" << tmp_reqs << ")";
-        }
     }
 
     obj_template->add("AUTOMATIC_REQUIREMENTS", oss.str());
