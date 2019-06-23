@@ -1511,7 +1511,10 @@ void HostShareNUMA::del(HostShareCapacity &sr)
 {
     unsigned long hpsz_kb = 0;
 
-    sr.topology->vector_value("HUGEPAGE_SIZE", hpsz_kb);
+    if ( sr.topology != 0 )
+    {
+        sr.topology->vector_value("HUGEPAGE_SIZE", hpsz_kb);
+    }
 
     for (auto it = sr.nodes.begin() ; it != sr.nodes.end(); ++it)
     {
