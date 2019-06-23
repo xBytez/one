@@ -864,14 +864,18 @@ class OneHostHelper < OpenNebulaHelper::OneHelper
             end
 
             column :SIZE, 'Pages size', :size => 8, :left => true do |d|
-                OpenNebulaHelper.unit_to_str(d['HUGEPAGE']['SIZE'].to_i, {})
+                OpenNebulaHelper.unit_to_str(d['HUGEPAGE']['SIZE'].to_i/1024, {})
             end
 
             column :FREE, 'Free pages', :size => 8, :left => true do |d|
                 d['HUGEPAGE']['FREE']
             end
 
-            default :NODE_ID, :SIZE, :TOTAL, :FREE
+            column :USED, 'allocated pages', :size => 8, :left => true do |d|
+                d['HUGEPAGE']['USAGE']
+            end
+
+            default :NODE_ID, :SIZE, :TOTAL, :FREE, :USED
         end
 
         hugepages = []

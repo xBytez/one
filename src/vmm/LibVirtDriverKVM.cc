@@ -224,6 +224,9 @@ static void pin_cpu(ofstream& file, const VectorAttribute * topology,
 static void vtopol(ofstream& file, const VectorAttribute * topology,
         std::vector<const VectorAttribute *> &nodes,  std::string &numatune)
 {
+    std::string ma;
+    int hpsz_kb = 0;
+
     if ( topology != 0 )
     {
         int s, c, t;
@@ -233,6 +236,19 @@ static void vtopol(ofstream& file, const VectorAttribute * topology,
         topology->vector_value("SOCKETS", s);
         topology->vector_value("CORES", c);
         topology->vector_value("THREADS", t);
+        topology->vector_value("HUGEPAGE_SIZE", hpsz_kb);
+
+        ma = topology->vector_value("MEMORY_ACCESS");
+
+        if (!ma.empty() &&  hpsz_kb != 0)
+        {
+            one_util::tolower(ma);
+
+            if (ma != "private" && ma != "shared")
+            {
+                ma = "";
+            }
+        }
 
         file << "\t\t<topology sockets='" << s << "' cores='" << c
             << "' threads='"<< t <<"'/>\n";
@@ -267,6 +283,11 @@ static void vtopol(ofstream& file, const VectorAttribute * topology,
             file << " cpus='" << cpuid << "-" << cpuid + ncpu - 1 << "'";
         }
 
+        if (!ma.empty())
+        {
+            file << " memAccess='" << ma << "'";
+        }
+
         file << "/>\n";
 
         cpuid += ncpu;
@@ -293,6 +314,24 @@ static void vtopol(ofstream& file, const VectorAttribute * topology,
         oss << "\t</numatune>\n";
 
         numatune = oss.str();
+    }
+
+    if ( hpsz_kb != 0 )
+    {
+        file << "\t\t<memoryBacking>\n";
+        file << "\t\t\t<hugepages>\n";
+
+        file << "\t\t\t\t<page size='" << one_util::escape_xml_attr(hpsz_kb) << "'";
+
+        if (!mnodes.str().empty())
+        {
+            file << " nodeset='" << mnodes.str()  << "'";
+        }
+
+        file << "'/>\n";
+
+        file << "\t\t\t</hugepages>\n";
+        file << "\t\t</memoryBacking>\n";
     }
 }
 
@@ -676,7 +715,7 @@ int LibVirtDriver::deployment_description_kvm(
 
             if ( cpu_mode == "custom" )
             {
-                file << "\t\t<model fallback='forbid'>" 
+                file << "\t\t<model fallback='forbid'>"
                     << one_util::escape_xml(cpu_model) << "</model>\n";
             }
         }

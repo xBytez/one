@@ -118,7 +118,7 @@ class DummyInformationManager < OpenNebulaDriver
                 NUMA_NODE=\"0\"
             ]\n"
 
-        make_topology(results, 2, 8, 4, 16777216)
+        make_topology(results, 2, 8, [2048, 1048576], 4, 16777216)
 
         results = Base64::encode64(results).strip.delete("\n")
 
@@ -129,7 +129,7 @@ class DummyInformationManager < OpenNebulaDriver
         send_message("STOPMONITOR", RESULT[:success], number, nil)
     end
 
-    def make_topology(result, nodes, cores, threads, mem)
+    def make_topology(result, nodes, cores, pages, threads, mem)
         nodes.times do |i|
             cores.times do |j|
                 core_id  = j + ( i * cores)
@@ -147,6 +147,11 @@ class DummyInformationManager < OpenNebulaDriver
                 core_str << "\"]\n"
 
                 result << core_str
+            end
+
+            pages.each do |p|
+                result << "HUGEPAGE = [ SIZE = \"#{p}\", FREE = \"1024\", "\
+                    "PAGES = \"1024\", NODE_ID = \"#{i}\" ] "
             end
 
             memn = mem.to_i/nodes

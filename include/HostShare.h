@@ -343,9 +343,13 @@ private:
         unsigned int  nr;
         unsigned int  free;
 
+        unsigned long  usage;
+        unsigned long  allocated;
+
         /**
          *  @return a VectorAttribute representing this core in the form:
-         *    HUGEPAGE = [ SIZE = "1048576", PAGES = "0", FREE = "0"]
+         *    HUGEPAGE = [ SIZE = "1048576", PAGES = "200", FREE = "100",
+         *          USAGE = "100"]
          */
         VectorAttribute * to_attribute();
     };
@@ -409,6 +413,11 @@ private:
     void update_cores();
 
     /**
+     *  Regenerate the template representation of the HUGEPAGES for this node.
+     */
+    void update_hugepages();
+
+    /**
      *  Creates a new HugePage element and associates it to this node. If a
      *  hugepage of the same size already exists this function does nothing
      *    @param size in kb of the page
@@ -417,7 +426,7 @@ private:
      *    @param update if true also adds the page to the object Template
      */
     void set_hugepage(unsigned long size, unsigned int nr, unsigned int fr,
-            bool update);
+            unsigned long usage, bool update);
 
     void update_hugepage(unsigned long size);
 
@@ -576,7 +585,7 @@ private:
     };
 
     bool schedule_nodes(NUMANodeRequest &nr, unsigned int thr, bool dedicated,
-        std::set<unsigned int> &pci, bool do_alloc);
+        unsigned long hpsz_kb, std::set<unsigned int> &pci, bool do_alloc);
 };
 
 /* -------------------------------------------------------------------------- */
