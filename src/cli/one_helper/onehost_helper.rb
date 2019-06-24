@@ -864,7 +864,7 @@ class OneHostHelper < OpenNebulaHelper::OneHelper
             end
 
             column :SIZE, 'Pages size', :size => 8, :left => true do |d|
-                OpenNebulaHelper.unit_to_str(d['HUGEPAGE']['SIZE'].to_i/1024, {})
+                OpenNebulaHelper.unit_to_str(d['HUGEPAGE']['SIZE'].to_i/1024, {}, "M")
             end
 
             column :FREE, 'Free pages', :size => 8, :left => true do |d|
