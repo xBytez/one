@@ -1482,24 +1482,10 @@ int HostShareNUMA::make_topology(HostShareCapacity &sr, int vm_id, bool do_alloc
     //--------------------------------------------------------------------------
     // Update VM topology
     //--------------------------------------------------------------------------
-    if ( c_t != 0 )
-    {
-        s_t = sr.vcpu / ( v_t * c_t );
-    }
-    else if ( s_t != 0 )
-    {
-        c_t = sr.vcpu / ( v_t * s_t);
-
-    }
-    else
-    {
-        s_t = 1;
-        c_t = sr.vcpu / v_t;
-    }
+    c_t = sr.vcpu / ( v_t * s_t);
 
     sr.topology->replace("THREADS", v_t);
     sr.topology->replace("CORES", c_t);
-    sr.topology->replace("SOCKETS", s_t);
 
     return 0;
 };

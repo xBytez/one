@@ -1226,10 +1226,6 @@ in the frontend machine.
         puts
 
         table = CLIHelper::ShowTable.new(nil, self) do
-            column :NUMA_NODES, 'Numa nodes', :size => 10, :left => false do |d|
-                d['NUMA_NODES']
-            end
-
             column :CORES, 'Cores', :size => 6, :left => false do |d|
                 d['CORES']
             end
@@ -1242,7 +1238,7 @@ in the frontend machine.
                 d['THREADS']
             end
 
-            default :NUMA_NODES, :CORES, :SOCKETS, :THREADS
+            default :CORES, :SOCKETS, :THREADS
         end
 
         table.show(topology)

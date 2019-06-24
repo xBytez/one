@@ -781,9 +781,18 @@ int VirtualMachine::parse_topology(Template * tmpl, std::string &error)
     HostShare::PinPolicy pp = HostShare::str_to_pin_policy(pp_s);
 
     /* ---------------------------------------------------------------------- */
-    /* Set CPU & vCPU for pinned VMS                                          */
+    /* Set MEMORY, HUGEPAGE_SIZE, vCPU & update CPU for pinned VMS            */
     /* ---------------------------------------------------------------------- */
-    unsigned int vcpu = 0;
+    long long memory;
+
+    unsigned int      vcpu    = 0;
+    unsigned long int hpsz_mb = 0;
+
+    if (!tmpl->get("MEMORY", memory))
+    {
+        error = "VM has not MEMORY set";
+        return -1;
+    }
 
     if (!tmpl->get("VCPU", vcpu))
     {
@@ -796,8 +805,19 @@ int VirtualMachine::parse_topology(Template * tmpl, std::string &error)
         tmpl->replace("CPU", vcpu);
     }
 
+    if ( vtopol->vector_value("HUGEPAGE_SIZE", hpsz_mb) == 0 )
+    {
+        vtopol->replace("HUGEPAGE_SIZE", hpsz_mb * 1024);
+    }
+
     /* ---------------------------------------------------------------------- */
-    /* Check Sockets, Cores and Threads                                       */
+    /* Check topology for non pinned & pinned VMs                             */
+    /*  - non-pinned VM needs to set SOCKETS, CORES and THREADS               */
+    /*  - pinned VM                                                           */
+    /*    1. Set sockets to number of NUMA_NODE or 1 if not given             */
+    /*    2. core and thread given. Check consistency                         */
+    /*    3. core given. Compute threads & check power of 2                   */
+    /*    4. other combinations are set by the scheduler                      */
     /* ---------------------------------------------------------------------- */
     unsigned int s, c, t;
 
@@ -807,17 +827,52 @@ int VirtualMachine::parse_topology(Template * tmpl, std::string &error)
     vtopol->vector_value("CORES", c);
     vtopol->vector_value("THREADS", t);
 
-    if ( s != 0 && c != 0 && t != 0 && (s * c * t) != vcpu )
+    if ( pp == HostShare::PP_NONE )
+    {
+        if ( c == 0 || t == 0 || s == 0 )
+        {
+            error = "Non-pinned VMs with a virtual topology needs to set "
+                " SOCKETS, CORES and THREADS numbers.";
+            return -1;
+        }
+        else if ((s * c * t) != vcpu)
+        {
+            error = "Total threads per core and socket needs to match VCPU";
+            return -1;
+        }
+
+        vtopol->replace("PIN_POLICY", "NONE");
+
+        tmpl->erase("NUMA_NODE");
+
+        return 0;
+    }
+
+    if ( s == 0 )
+    {
+        if ( numa_nodes.empty() )
+        {
+            s = 1;
+        }
+        else
+        {
+            s = numa_nodes.size();
+        }
+
+        vtopol->replace("SOCKETS", s);
+    }
+
+    if ( c != 0 && t != 0 && (s * c * t) != vcpu)
     {
         error = "Total threads per core and socket needs to match VCPU";
         return -1;
     }
 
-    if ( t == 0 && c != 0 && s != 0 )
+    if ( t == 0 && c != 0 )
     {
         if ( vcpu%(c * s) != 0 )
         {
-            error = "VCPUs is not multiple of the total number of cores";
+            error = "VCPU is not multiple of the total number of cores";
             return -1;
         }
 
@@ -831,52 +886,29 @@ int VirtualMachine::parse_topology(Template * tmpl, std::string &error)
 
         vtopol->replace("THREADS", t);
     }
+
     /* ---------------------------------------------------------------------- */
-    /* Hugepages (set value in kb)                                            */
+    /* Build NUMA_NODE stanzas for the given topology                         */
     /* ---------------------------------------------------------------------- */
-    unsigned long int hpsz_mb = 0;
-
-    if ( vtopol->vector_value("HUGEPAGE_SIZE", hpsz_mb) == 0 )
+    if (numa_nodes.empty()) // Automatic Homogenous Topology
     {
-        vtopol->replace("HUGEPAGE_SIZE", hpsz_mb * 1024);
-    }
-
-    // ---------------------------------------------------------------------- //
-    // ---------------------------------------------------------------------- //
-    long long memory;
-
-    if (!tmpl->get("MEMORY", memory))
-    {
-        error = "VM has not MEMORY set";
-        return -1;
-    }
-
-    if (numa_nodes.empty())
-    {
-        /* ------------------------------------------------------------------- */
-        /* Automatic Homogenous Topology                                       */
-        /* ------------------------------------------------------------------- */
-        unsigned int numa_nodes = 1;
-
-        vtopol->vector_value("NUMA_NODES", numa_nodes);
-
-        if ( vcpu % numa_nodes != 0 )
+        if ( vcpu % s != 0 )
         {
             error = "VCPU is not multiple of the number of NUMA nodes";
             return -1;
         }
 
-        if ( memory % numa_nodes != 0 )
+        if ( memory % s != 0 )
         {
             error = "MEMORY is not multiple of the number of NUMA nodes";
             return -1;
         }
 
-        long long mem_node = memory / numa_nodes;
+        long long mem_node = memory / s;
 
-        unsigned int cpu_node = vcpu / numa_nodes;
+        unsigned int cpu_node = vcpu / s;
 
-        for (unsigned int i = 0 ; i < numa_nodes ; ++i)
+        for (unsigned int i = 0 ; i < s ; ++i)
         {
             VectorAttribute * node = new VectorAttribute("NUMA_NODE");
 
@@ -886,12 +918,9 @@ int VirtualMachine::parse_topology(Template * tmpl, std::string &error)
             tmpl->set(node);
         }
     }
-    else
+    else // Manual/Asymmetric Topology, NUMA_NODE array
     {
-        /* ------------------------------------------------------------------ */
-        /* Manual/Asymmetric Topology, NUMA_NODE array                        */
-        /* ------------------------------------------------------------------ */
-        long long node_mem = 0;
+        long long    node_mem = 0;
         unsigned int node_cpu = 0;
 
         std::vector<VectorAttribute *> new_nodes;
@@ -958,8 +987,6 @@ int VirtualMachine::parse_topology(Template * tmpl, std::string &error)
         }
 
         tmpl->set(new_nodes);
-
-        vtopol->replace("NUMA_NODES", numa_nodes.size());
     }
 
     return 0;
