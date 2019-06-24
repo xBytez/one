@@ -933,10 +933,8 @@ int VirtualMachine::parse_topology(Template * tmpl, std::string &error)
             (*it)->vector_value("TOTAL_CPUS", ncpu);
             (*it)->vector_value("MEMORY", nmem);
 
-            if ( ncpu == 0  || nmem == 0)
+            if ( ncpu == 0 || nmem == 0)
             {
-                node_cpu = 0;
-                node_mem = 0;
                 break;
             }
 
