@@ -320,49 +320,15 @@ public:
     };
 
     /**
-     *  Updates the capacity used in a host when a VM is resized
-     *    @param cpu increment of cpu requested by the VM
-     *    @param mem increment of memory requested by the VM
-     *    @return 0 on success
-     */
-    void resize_capacity(int cpu, long long mem)
-    {
-        host_share.resize(cpu, mem);
-    };
-
-    /**
-     *  Tests whether a VM compute capacity can be allocated in the host or not
-     *    @param cpu capacity requested by the VM
-     *    @param mem capacity requested by the VM
-     *    @param error returns the error reason, if any
-     *
-     *    @return true if the share can host the VM
-     */
-    bool test_compute_capacity(int cpu, long long mem, std::string &error)
-    {
-        return host_share.test_compute(cpu, mem, error);
-    };
-
-    /**
-     *  Tests whether a VM device capacity (pci+numa) can be allocated in the host
+     *  Tests whether a VM device capacity can be allocated in the host
      *    @param sr capacity requested by the VM
      *    @param error returns the error reason, if any
      *
      *    @return true if the share can host the VM
      */
-    bool test_device_capacity(HostShareCapacity &sr, string& error)
+    bool test_capacity(HostShareCapacity &sr, string& error)
     {
-        if ( !host_share.test_pci(sr.pci, error) )
-        {
-            return false;
-        }
-
-        if ( !host_share.test_numa(sr, error) )
-        {
-            return false;
-        }
-
-        return true;
+        return host_share.test(sr, error);
     }
 
     /**

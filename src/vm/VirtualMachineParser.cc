@@ -974,7 +974,7 @@ int VirtualMachine::parse_topology(Template * tmpl, std::string &error)
 
         if (node_cpu != vcpu)
         {
-            error = "Total CPUS of nodes is different from VM VCPU";
+            error = "Total CPUS of NUMA nodes is different from VM VCPU";
             return -1;
         }
 

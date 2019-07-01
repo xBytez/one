@@ -1952,6 +1952,9 @@ void VirtualMachine::get_capacity(HostShareCapacity& sr)
 {
     float fcpu;
 
+    sr.pci.clear();
+    sr.nodes.clear();
+
     sr.vmid = oid;
 
     if ((get_template_attribute("MEMORY", sr.mem) == false) ||
@@ -1984,65 +1987,64 @@ void VirtualMachine::get_capacity(HostShareCapacity& sr)
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-int VirtualMachine::check_resize (
-        float cpu, long int memory, int vcpu, string& error_str)
+int VirtualMachine::resize(float cpu, long int memory, unsigned int vcpu,
+        string& error)
 {
-    if (cpu < 0)
-    {
-        error_str = "CPU must be a positive float or integer value.";
-        return -1;
-    }
+    unsigned int s, c, t;
 
-    if (memory < 0)
-    {
-        error_str = "MEMORY must be a positive integer value.";
-        return -1;
-    }
-
-    if (vcpu < 0)
-    {
-        error_str = "VCPU must be a positive integer value.";
-        return -1;
-    }
-
-    return 0;
-}
-
-/* -------------------------------------------------------------------------- */
-/* -------------------------------------------------------------------------- */
-
-int VirtualMachine::resize(float cpu, long int memory, int vcpu, string& error_str)
-{
-    ostringstream oss;
-
-    int rc = check_resize(cpu, memory, vcpu, error_str);
-
-    if (rc != 0)
-    {
-        return rc;
-    }
+    s = c = t = 0;
 
     if (cpu > 0)
     {
-        oss << cpu;
-        replace_template_attribute("CPU", oss.str());
-        oss.str("");
+        replace_template_attribute("CPU", cpu);
     }
 
     if (memory > 0)
     {
-        oss << memory;
-        replace_template_attribute("MEMORY", oss.str());
-        oss.str("");
+        replace_template_attribute("MEMORY", memory);
     }
 
     if (vcpu > 0)
     {
-        oss << vcpu;
-        replace_template_attribute("VCPU", oss.str());
+        replace_template_attribute("VCPU", vcpu);
+    }
+    else
+    {
+        get_template_attribute("VCPU", vcpu);
     }
 
-    return 0;
+    /* ---------------------------------------------------------------------- */
+    /* Update the NUMA topology with new size:                                */
+    /*   1. Increase number of cores for new VCPU (keep threads and sockets)  */
+    /*   2. Clear current nodes and build new ones with new MEMORY/VCPU       */
+    /* ---------------------------------------------------------------------- */
+    VectorAttribute * vtopol = get_template_attribute("TOPOLOGY");
+
+    if ( vtopol == 0 )
+    {
+        return 0;
+    }
+
+    vtopol->vector_value("SOCKETS", s);
+    vtopol->vector_value("CORES", c);
+    vtopol->vector_value("THREADS", t);
+
+    if ( s != 0 && c != 0 && t != 0 && (s * c * t) != vcpu)
+    {
+        if ( vcpu%(t * s) != 0 )
+        {
+            error = "new VCPU is not multiple of the total number of threads";
+            return -1;
+        }
+
+        c = vcpu/(t * s);
+
+        vtopol->replace("CORES", c);
+    }
+
+    remove_template_attribute("NUMA_NODE");
+
+    return parse_topology(obj_template, error);
 }
 
 /* -------------------------------------------------------------------------- */

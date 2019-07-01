@@ -658,17 +658,6 @@ public:
     }
 
     /**
-     *  Updates the capacity usage of a VM
-     *    @param cpu increment of CPU
-     *    @param mem increment of memory
-     */
-    void resize(int cpu, long long mem)
-    {
-        cpu_usage  += cpu;
-        mem_usage  += mem;
-    }
-
-    /**
      *  Check if this share can host a VM.
      *    @param cpu requested by the VM
      *    @param mem requested by the VM
@@ -697,60 +686,6 @@ public:
         }
 
         return true;
-    }
-
-    /**
-     *  Check if this share can host a VM, testing only the PCI devices.
-     *    @param pci_devs requested by the VM
-     *    @param error Returns the error reason, if any
-     *
-     *    @return true if the share can host the VM or it is the only one
-     *    configured
-     */
-    bool test_compute(int cpu, long long mem, std::string &error) const
-    {
-        bool cpu_fit  = (max_cpu  - cpu_usage ) >= cpu;
-        bool mem_fit  = (max_mem  - mem_usage ) >= mem;
-
-        bool fits = cpu_fit && mem_fit;
-
-        if ( fits )
-        {
-            return true;
-        }
-
-        ostringstream oss;
-
-        if (!cpu_fit)
-        {
-            oss << "Not enough CPU: " << cpu << "/" << max_cpu - cpu_usage;
-        }
-        else if (!mem_fit)
-        {
-            oss << "Not enough memory: " << mem << "/" << max_mem - mem_usage;
-        }
-
-        error = oss.str();
-
-        return false;
-    }
-
-    bool test_pci(vector<VectorAttribute *>& pci_devs, string& error) const
-    {
-        bool fits = pci.test(pci_devs);
-
-        error = "Unavailable PCI device.";
-
-        return fits;
-    }
-
-    bool test_numa(HostShareCapacity &sr, string& error)
-    {
-        bool fits = numa.test(sr);
-
-        error = "Cannot allocate NUMA topology";
-
-        return fits;
     }
 
     /**
@@ -855,6 +790,60 @@ private:
     HostShareDatastore ds;
     HostSharePCI       pci;
     HostShareNUMA      numa;
+
+    /**
+     *  Check if this share can host a VM, testing only the PCI devices.
+     *    @param pci_devs requested by the VM
+     *    @param error Returns the error reason, if any
+     *
+     *    @return true if the share can host the VM or it is the only one
+     *    configured
+     */
+    bool test_compute(int cpu, long long mem, std::string &error) const
+    {
+        bool cpu_fit  = (max_cpu  - cpu_usage ) >= cpu;
+        bool mem_fit  = (max_mem  - mem_usage ) >= mem;
+
+        bool fits = cpu_fit && mem_fit;
+
+        if ( fits )
+        {
+            return true;
+        }
+
+        ostringstream oss;
+
+        if (!cpu_fit)
+        {
+            oss << "Not enough CPU: " << cpu << "/" << max_cpu - cpu_usage;
+        }
+        else if (!mem_fit)
+        {
+            oss << "Not enough memory: " << mem << "/" << max_mem - mem_usage;
+        }
+
+        error = oss.str();
+
+        return false;
+    }
+
+    bool test_pci(vector<VectorAttribute *>& pci_devs, string& error) const
+    {
+        bool fits = pci.test(pci_devs);
+
+        error = "Unavailable PCI device.";
+
+        return fits;
+    }
+
+    bool test_numa(HostShareCapacity &sr, string& error)
+    {
+        bool fits = numa.test(sr);
+
+        error = "Cannot allocate NUMA topology";
+
+        return fits;
+    }
 };
 
 #endif /*HOST_SHARE_H_*/
