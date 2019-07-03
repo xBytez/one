@@ -46,30 +46,54 @@ class HookManagerDriver < OpenNebulaDriver
         super('', @options)
 
         # Initialize publisher socket
-        context_pub = ZMQ::Context.new(1)
-        @publisher = context_pub.socket(ZMQ::PUB)
+        context = ZMQ::Context.new(1)
+        @publisher = context.socket(ZMQ::PUB)
         @publisher.setsockopt(ZMQ::SNDHWM, @options[:hwm]) unless @options[:hwm].nil?
 
-        context_rep = ZMQ::Context.new(1)
-        @replier = context_rep.socket(ZMQ::REP)
+        @replier = context.socket(ZMQ::REP)
 
         # TODO, make the port configurable and add HWM option
-        @publisher.bind("tcp://*:#{@options[:publisher_port]}")
-        @replier.bind("tcp://*:#{@options[:logger_port]}")
+        @publisher.bind("tcp://127.0.0.1:#{@options[:publisher_port]}")
+        @replier.bind("tcp://127.0.0.1:#{@options[:logger_port]}")
 
         register_action(:EXECUTE, method('action_execute'))
 
-        # TODO, new thread
+        Thread.new do
+            execution_result_thread
+        end
     end
 
     def action_execute(type, *arguments)
-        arguments.flatten!
         key = "#{type} #{arguments.shift(2).join(' ')}"
         vals = arguments.join(' ')
 
         # Using envelopes for splitting key/val (http://zguide.zeromq.org/page:all#Pub-Sub-Message-Envelopes)
         @publisher.send_string key, ZMQ::SNDMORE
         @publisher.send_string vals
+    end
+
+    def execution_result_thread
+        Kernel.loop do
+            execution = ''
+            result    = ''
+
+            rc = @replier.recv_string(execution)
+
+            if rc < 0
+                exit -1
+            else
+                @replier.send_string("ACK")
+            end
+
+            execution = execution.split(' ')
+            if execution.shift.to_i == 1
+                result = 'SUCCESS'
+            else
+                result = 'FAILURE'
+            end
+
+            puts "EXECUTE #{result} #{execution.flatten}"
+        end
     end
 
 end
@@ -85,12 +109,11 @@ opts = GetoptLong.new(
 
 threads        = 15
 publisher_port = 5556
-logger_port    = 5555
+logger_port    = 5557
 hwm            = nil # http://zguide.zeromq.org/page:all#High-Water-Marks
 
 begin
     opts.each do |opt, arg|
-        require 'pry'
         case opt
         when '--threads'
             threads = arg.to_i

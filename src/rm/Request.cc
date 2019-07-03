@@ -437,7 +437,7 @@ void Request::execute(
     }
 
     //register hook event
-    hmd->execute(format_message(att.success, _paramList, att.resp_id));
+    hmd->execute(format_message(att.success, ParamList(&_paramList), att.resp_id));
 
     if ( log_method_call )
     {

@@ -138,6 +138,66 @@ public:
     }
 };
 
+class ParamList
+{
+public:
+
+    ParamList(const xmlrpc_c::paramList * paramList):_paramList(paramList){};
+
+    string& to_string(string& str) const
+    {
+        ostringstream oss;
+
+        oss << get_value_as_string(0);
+
+        for (unsigned int i = 1; i < _paramList->size(); i++)
+        {
+            oss << " " << get_value_as_string(i);
+        }
+
+        str = oss.str();
+
+        return str;
+    };
+
+    string get_value_as_string(int index) const
+    {
+        ostringstream oss;
+        xmlrpc_c::value::type_t type((*_paramList)[index].type());
+
+        if( type == xmlrpc_c::value::TYPE_INT)
+        {
+            oss << _paramList->getInt(index);
+            return oss.str();
+        }
+        else if( type == xmlrpc_c::value::TYPE_I8 )
+        {
+            oss << _paramList->getI8(index);
+            return oss.str();
+        }
+        else if( type == xmlrpc_c::value::TYPE_BOOLEAN )
+        {
+            oss << _paramList->getBoolean(index);
+            return oss.str();
+        }
+        else if( type == xmlrpc_c::value::TYPE_STRING )
+        {
+            oss << _paramList->getString(index);
+            return oss.str();
+        }
+        else if( type == xmlrpc_c::value::TYPE_DOUBLE )
+        {
+            oss << _paramList->getDouble(index);
+            return oss.str();
+        }
+
+        return oss.str();
+    };
+
+private:
+    const xmlrpc_c::paramList * _paramList;
+};
+
 /**
  *  The Request Class represents the basic abstraction for the OpenNebula
  *  XML-RPC API. This interface must be implemented by any XML-RPC API call
@@ -483,15 +543,13 @@ private:
     // Default number of character to show in the log. Option %l<number>
     const static int DEFAULT_LOG_LIMIT = 20;
 
-    /**
-     * Generate a string with te request's information requiered for Hook driver.
-     */
-    string format_message(bool success, xmlrpc_c::paramList const& _paramList, int resource_id)
+    string format_message(bool success, ParamList const& _paramList, int resource_id)
     {
         ostringstream oss;
+        string params_str;
 
         //TODO add other info like auth info, arguments, ....
-        oss << "API " << method_name << " " << success <<  " " << param_list_to_string(_paramList);
+        oss << "API " << method_name << " " << success <<  " " << _paramList.to_string(params_str);
 
         if ((resource_id > -1) && success)
         {
@@ -500,54 +558,6 @@ private:
 
         return oss.str();
     };
-
-    const static string param_list_to_string(xmlrpc_c::paramList const& _paramList)
-    {
-        ostringstream oss;
-
-        oss << get_value_as_string(0, _paramList);
-
-        for (unsigned int i = 1; i < _paramList.size(); i++)
-        {
-            oss << " " << get_value_as_string(i, _paramList);
-        }
-
-        return oss.str();
-    }
-
-    const static string get_value_as_string(int index, xmlrpc_c::paramList const& _paramList)
-    {
-        ostringstream oss;
-        xmlrpc_c::value::type_t type(_paramList[index].type());
-
-        if( type == xmlrpc_c::value::TYPE_INT)
-        {
-            oss << _paramList.getInt(index);
-            return oss.str();
-        }
-        else if( type == xmlrpc_c::value::TYPE_I8 )
-        {
-            oss << _paramList.getI8(index);
-            return oss.str();
-        }
-        else if( type == xmlrpc_c::value::TYPE_BOOLEAN )
-        {
-            oss << _paramList.getBoolean(index);
-            return oss.str();
-        }
-        else if( type == xmlrpc_c::value::TYPE_STRING )
-        {
-            oss << _paramList.getString(index);
-            return oss.str();
-        }
-        else if( type == xmlrpc_c::value::TYPE_DOUBLE )
-        {
-            oss << _paramList.getDouble(index);
-            return oss.str();
-        }
-
-        return "";
-    }
 };
 
 /* -------------------------------------------------------------------------- */
