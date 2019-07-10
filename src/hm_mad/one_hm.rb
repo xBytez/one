@@ -64,7 +64,7 @@ class HookManagerDriver < OpenNebulaDriver
     end
 
     def action_execute(type, *arguments)
-        key = "#{type} #{arguments.shift(2).join(' ')}"
+        key = "#{type} #{arguments.flatten.shift(2).join(' ')}"
         vals = arguments.join(' ')
 
         # Using envelopes for splitting key/val (http://zguide.zeromq.org/page:all#Pub-Sub-Message-Envelopes)
@@ -80,9 +80,9 @@ class HookManagerDriver < OpenNebulaDriver
             rc = @replier.recv_string(execution)
 
             if rc < 0
-                exit -1
+                exit(-1)
             else
-                @replier.send_string("ACK")
+                @replier.send_string('ACK')
             end
 
             execution = execution.split(' ')
