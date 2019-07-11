@@ -90,19 +90,14 @@ void HookManagerDriver::execute(
 
 void HookManagerDriver::protocol(const string& message) const
 {
-    istringstream   is(message);
+    string error_str;
+    istringstream is(message);
+
     //stores the action name
-    string          action;
-    //stores the action result
-    string          result;
-    //stores the action id of the asociated VM
-    int             id;
+    string action;
+    string result;
 
-    ostringstream    os;
-    string           hinfo;
-    VirtualMachine * vm;
-
-    // Parse the driver message
+    ostringstream os;
 
     os << "Message received: " << message;
     NebulaLog::log("HKM", Log::DEBUG, os);
@@ -114,7 +109,8 @@ void HookManagerDriver::protocol(const string& message) const
     }
     else
     {
-        return;
+        error_str = "Error reading driver action.";
+        goto error_common;
     }
 
     if ( is.good() )
@@ -123,37 +119,8 @@ void HookManagerDriver::protocol(const string& message) const
     }
     else
     {
-        return;
-    }
-
-    if ( is.good() )
-    {
-        is >> id >> ws;
-
-        if ( is.fail() )
-        {
-            if ( action == "LOG" )
-            {
-                string info;
-
-                is.clear();
-                getline(is,info);
-                NebulaLog::log("HKM", log_type(result[0]), info.c_str());
-            }
-
-            return;
-        }
-    }
-    else
-    {
-        return;
-    }
-
-    vm = vmpool->get(id);
-
-    if ( vm == 0 )
-    {
-        return;
+        error_str = "Error reading action result.";
+        goto error_common;
     }
 
     // -------------------------------------------------------------------------
@@ -163,46 +130,56 @@ void HookManagerDriver::protocol(const string& message) const
     if ( action == "EXECUTE" )
     {
         ostringstream oss;
-
-        string hook_name;
         string info;
+
+        //stores the hook name
+        string          hook_name;
+        //stores the hook id
+        int             hook_id;
+
+        // Parse the hook info
+        if ( is.good() )
+        {
+            is >> hook_name >> ws;
+        }
+        else
+        {
+            error_str = "Error reading hook name.";
+            goto error_common;
+        }
 
         if ( is.good() )
         {
-            getline(is,hook_name);
+            is >> hook_id >> ws;
+        }
+        else
+        {
+            error_str = "Error reading hook id.";
+            goto error_common;
         }
 
         getline (is,info);
 
         if (result == "SUCCESS")
         {
-            oss << "Success executing Hook: " << hook_name << ". " << info;
-            vm->log("HKM",Log::INFO,oss);
+            oss << "Success executing Hook: " << hook_name << " (" << hook_id << "). Params: " << info;
+            NebulaLog::log("HKM",Log::INFO,oss);
+            //TODO Log the execution as success in the hook log table
         }
         else
         {
-            oss << "Error executing Hook: " << hook_name << ". " << info;
-
-            if ( !info.empty() && info[0] != '-' )
-            {
-                vm->set_template_error_message(oss.str());
-                vmpool->update(vm);
-            }
-
-            vm->log("HKM",Log::ERROR,oss);
+            oss << "Error executing Hook: " << hook_name << " (" << hook_id << "). Params: " << info;
+            NebulaLog::log("HKM",Log::ERROR,oss);
+            //TODO Log the execution as failure in the hook log table
         }
     }
-    else if (action == "LOG")
-    {
-        string info;
-
-        getline(is,info);
-        vm->log("HKM",log_type(result[0]),info.c_str());
-    }
-
-    vm->unlock();
 
     return;
+
+error_common:
+    NebulaLog::log("HKM", Log::ERROR, error_str);
+    return;
+
 }
 
 /* -------------------------------------------------------------------------- */

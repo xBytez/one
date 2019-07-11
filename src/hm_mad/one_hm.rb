@@ -75,7 +75,6 @@ class HookManagerDriver < OpenNebulaDriver
     def execution_result_thread
         Kernel.loop do
             execution = ''
-            result    = ''
 
             rc = @replier.recv_string(execution)
 
@@ -87,12 +86,10 @@ class HookManagerDriver < OpenNebulaDriver
 
             execution = execution.split(' ')
             if execution.shift.to_i == 1
-                result = 'SUCCESS'
+                send_message('EXECUTE', RESULT[:success], execution.flatten.join(' '))
             else
-                result = 'FAILURE'
+                send_message('EXECUTE', RESULT[:failure], execution.flatten.join(' '))
             end
-
-            puts "EXECUTE #{result} #{execution.flatten}"
         end
     end
 
