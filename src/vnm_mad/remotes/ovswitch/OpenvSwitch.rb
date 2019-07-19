@@ -55,6 +55,8 @@ class OpenvSwitchVLAN < VNMMAD::VNMDriver
                 add_bridge_port(@nic[:phydev])
             end
 
+            add_bridge_port(nic[:target]) if dpdk?
+
             if @nic[:tap].nil?
                 # In net/pre action, we just need to ensure the bridge is
                 # created so the libvirt/QEMU can add VM interfaces into that.
@@ -413,13 +415,14 @@ private
 
         if dpdk?
             vmdir = @vm.system_dir(@nic[:conf][:datastore_location])
+
             spath = "#{vmdir}/#{@nic[:nic_id]}"
 
-            ovs_cmd << "-- set Interface #{port} type=dpdkvhostuserclient"\
-                "options:vhost-server-path=#{spath}"
+            ovs_cmd << " -- set Interface #{port} type=dpdkvhostuserclient"\
+                       " options:vhost-server-path=#{spath}"
         end
 
-        OpenNebula.exec_and_log("ovs_cmd")
+        OpenNebula.exec_and_log(ovs_cmd)
 
         @bridges[@nic[:bridge]] << port
     end
