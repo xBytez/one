@@ -132,6 +132,9 @@ class OpenvSwitchVLAN < VNMMAD::VNMDriver
             # Remove flows
             del_flows
 
+            # delete port from bridge in case of dpdk
+            del_bridge_port(@nic[:target]) if dpdk?
+
             next if @nic[:phydev].nil?
             next if @bridges[@nic[:bridge]].nil?
 
@@ -433,6 +436,13 @@ private
         OpenNebula.exec_and_log(ovs_cmd)
 
         @bridges[@nic[:bridge]] << port
+    end
+
+    # Delete port from OvS bridge
+    def del_bridge_port(port)
+        OpenNebula.exec_and_log("#{command(:ovs_vsctl)} del-port #{@nic[:bridge]} #{port}")
+
+        @bridges[@nic[:bridge]].delete(port)
     end
 
     # Calls ovs-vsctl set bridge to set options stored in ovs_bridge_conf
