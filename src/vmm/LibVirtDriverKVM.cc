@@ -326,14 +326,7 @@ static void vtopol(ofstream& file, const VectorAttribute * topology,
         mboss << "\t<memoryBacking>\n";
         mboss << "\t\t<hugepages>\n";
 
-        mboss << "\t\t\t<page size=" << one_util::escape_xml_attr(hpsz_kb);
-
-        if (!mnodes.str().empty())
-        {
-            mboss << " nodeset='" << mnodes.str() << "'";
-        }
-
-        mboss << "/>\n";
+        mboss << "\t\t\t<page size=" << one_util::escape_xml_attr(hpsz_kb) << "/>\n";
 
         mboss << "\t\t</hugepages>\n";
         mboss << "\t</memoryBacking>\n";
