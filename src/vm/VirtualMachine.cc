@@ -2962,6 +2962,7 @@ int VirtualMachine::updateconf(VirtualMachineTemplate& tmpl, string &err)
             {
                 case LCM_INIT:
                 case PROLOG:
+                case RUNNING:
                 case EPILOG:
                 case SHUTDOWN:
                 case CLEANUP_RESUBMIT:
@@ -2990,6 +2991,7 @@ int VirtualMachine::updateconf(VirtualMachineTemplate& tmpl, string &err)
                     err = "configuration cannot be updated in state " + state_str();
                     return -1;
             };
+            break;
 
         case INIT:
         case DONE:

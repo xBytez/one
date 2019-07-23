@@ -178,6 +178,9 @@ void VirtualMachineManager::user_action(const ActionRequest& ar)
         case VMMAction::DISK_RESIZE:
             disk_resize_action(vid);
         break;
+        case VMMAction::UPDATE_CONF:
+            update_conf_action(vid);
+        break;
     }
 }
 
@@ -2287,6 +2290,90 @@ error_common:
     vm->unlock();
     return;
 }
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+void VirtualMachineManager::update_conf_action(int vid)
+{
+    ostringstream os;
+
+    string  vm_tmpl;
+    string* drv_msg;
+
+    string  password;
+    string  prolog_cmd;
+    string  resize_cmd;
+    string  disk_path;
+
+    VirtualMachine *vm = vmpool->get(vid);
+    const VirtualMachineManagerDriver * vmd;
+
+    int uid, owner_id;
+
+    if (vm == nullptr)
+    {
+        return;
+    }
+
+    if (!vm->hasHistory())
+    {
+        os << "update_conf_action, VM has no history";
+        goto error;
+    }
+
+    vmd = get(vm->get_vmm_mad());
+
+    if ( vmd == nullptr )
+    {
+        os << "update_conf_action, error getting driver " << vm->get_vmm_mad();
+        goto error;
+    }
+
+    uid = vm->get_created_by_uid();
+    owner_id = vm->get_uid();
+
+    password = Nebula::instance().get_upool()->get_token_password(uid, owner_id);
+    if ( do_context_command(vm, password, prolog_cmd, disk_path) == -1 )
+    {
+        os << "Cannot set context disk to update it for VM " << vm->get_oid();
+        goto error;
+    }
+
+    // Invoke driver method
+    drv_msg = format_message(
+        vm->get_hostname(),
+        "",
+        vm->get_deploy_id(),
+        "",
+        "",
+        "",
+        prolog_cmd,
+        "",
+        disk_path,
+        vm->to_xml(vm_tmpl),
+        vm->get_ds_id(),
+        -1);
+
+    vmd->update_conf(vid, *drv_msg);
+
+    vm->unlock();
+
+    delete drv_msg;
+
+    return;
+
+error:
+    Nebula              &ne = Nebula::instance();
+    LifeCycleManager *  lcm = ne.get_lcm();
+
+    lcm->trigger(LCMAction::UPDATE_CONF_FAILURE, vid);
+
+    vm->log("VMM", Log::ERROR, os);
+    vm->unlock();
+    return;
+}
+
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 

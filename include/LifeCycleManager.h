@@ -102,7 +102,9 @@ public:
         DISK_LOCK_SUCCESS,  /**< Sent by IM, image moves from locked to ready */
         DISK_LOCK_FAILURE,  /**< Sent by IM, image moves from locked to error */
         DISK_RESIZE_SUCCESS,/**< Sent by TM/VMM when a disk resize succeeds   */
-        DISK_RESIZE_FAILURE /**< Sent by TM/VMM when a disk resize fails      */
+        DISK_RESIZE_FAILURE,/**< Sent by TM/VMM when a disk resize fails      */
+        UPDATE_CONF_SUCCESS,/**< Sent by TM/VMM when a update conf succeeds   */
+        UPDATE_CONF_FAILURE /**< Sent by TM/VMM when a update conf fails      */
     };
 
     LCMAction(Actions a, int v, int u, int g, int r):
@@ -368,6 +370,9 @@ private:
 
     void disk_resize_success(int vid);
     void disk_resize_failure(int vid);
+
+    void update_conf_success(int vid);
+    void update_conf_failure(int vid);
 
     // -------------------------------------------------------------------------
     // External Actions, triggered by user requests

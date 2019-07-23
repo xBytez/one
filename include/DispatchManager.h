@@ -492,6 +492,18 @@ public:
      */
     int disk_resize(int vid, int did, long long new_size,
             const RequestAttributes& ra, string& error_str);
+
+    /**
+     * Update virtual machine context
+     *
+     * @param vid VirtualMachine identification
+     * @param ra information about the API call request
+     * @param error_str Error reason, if any
+     *
+     * @return 0 on success, -1 otherwise
+     */
+    int live_updateconf(int vid, const RequestAttributes& ra, string& error_str);
+
 private:
     /**
      *  Thread id for the Dispatch Manager

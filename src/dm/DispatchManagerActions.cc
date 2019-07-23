@@ -2338,3 +2338,61 @@ int DispatchManager::disk_resize(int vid, int did, long long new_size,
 
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
+
+int DispatchManager::live_updateconf(int vid, const RequestAttributes& ra, string& error_str)
+{
+    ostringstream oss;
+
+    VirtualMachine * vm = vmpool->get(vid);
+
+    VirtualMachine::VmState  state  = vm->get_state();
+    VirtualMachine::LcmState lstate = vm->get_lcm_state();
+
+    // Allowed only for state ACTIVE and RUNNING
+    if (state != VirtualMachine::ACTIVE || lstate != VirtualMachine::RUNNING)
+    {
+        oss << "Could not perform live updateconf for " << vid << ", wrong state "
+            << vm->state_str() << ".";
+        error_str = oss.str();
+
+        NebulaLog::log("DiM", Log::ERROR, error_str);
+
+        vm->unlock();
+
+        return -1;
+    }
+
+    // Set info to history
+    vm->set_vm_info();
+
+    // Set VM state
+    vm->set_state(VirtualMachine::HOTPLUG);
+    vm->set_resched(false);
+
+    auto the_time = time(0);
+
+    // Close current history record
+    vm->set_running_etime(the_time);
+    vm->set_etime(the_time);
+    vm->set_action(History::UPDATECONF_ACTION, ra.uid, ra.gid, ra.req_id);
+    vmpool->update_history(vm);
+
+    // Open a new history record
+    vm->cp_history();
+    vm->set_stime(the_time);
+    vm->set_running_stime(the_time);
+    vmpool->insert_history(vm);
+
+    // Trigger UPDATE CONF action
+    vmm->trigger(VMMAction::UPDATE_CONF, vid);
+
+    vmpool->update(vm);
+    vmpool->update_search(vm);
+
+    vm->unlock();
+
+    return 0;
+}
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */

@@ -3056,6 +3056,7 @@ void VirtualMachineUpdateConf::request_execute(
 
     VirtualMachine * vm;
     VirtualMachineTemplate tmpl;
+    VirtualMachinePool * vmpool = static_cast<VirtualMachinePool *>(pool);
 
     // -------------------------------------------------------------------------
     // Parse template
@@ -3079,7 +3080,7 @@ void VirtualMachineUpdateConf::request_execute(
     /* ---------------------------------------------------------------------- */
     /* Update VirtualMachine Configuration                                    */
     /* ---------------------------------------------------------------------- */
-    vm = static_cast<VirtualMachinePool *>(pool)->get(id);
+    vm = vmpool->get(id);
 
     if (vm == nullptr)
     {
@@ -3123,6 +3124,7 @@ void VirtualMachineUpdateConf::request_execute(
 
     unsigned int port;
     VirtualMachine::VmState state = vm->get_state();
+    VirtualMachine::LcmState lcm_state = vm->get_lcm_state();
 
     if (graphics != nullptr && graphics->vector_value("PORT", port) == -1 &&
         (state == VirtualMachine::ACTIVE || state == VirtualMachine::POWEROFF ||
@@ -3144,10 +3146,25 @@ void VirtualMachineUpdateConf::request_execute(
         graphics->replace("PORT", port);
     }
 
-    static_cast<VirtualMachinePool *>(pool)->update(vm);
-    static_cast<VirtualMachinePool *>(pool)->update_search(vm);
+    vmpool->update(vm);
+    vmpool->update_search(vm);
 
     vm->unlock();
+
+    // Apply the change for running VM
+    if (state == VirtualMachine::VmState::ACTIVE &&
+        lcm_state == VirtualMachine::LcmState::RUNNING)
+    {
+        NebulaLog::log("VMU", Log::DEBUG, "Update conf starting live update");
+        auto dm = Nebula::instance().get_dm();
+        if (dm->live_updateconf(id, att, att.resp_msg) != 0)
+        {
+            NebulaLog::log("VMU", Log::DEBUG, "Update conf reporting failure");
+            failure_response(INTERNAL, att);
+
+            return;
+        }
+    }
 
     success_response(id, att);
 }

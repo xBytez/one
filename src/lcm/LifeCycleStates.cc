@@ -2372,6 +2372,7 @@ void LifeCycleManager::disk_resize_success(int vid)
 }
 
 /* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 
 void LifeCycleManager::disk_resize_failure(int vid)
 {
@@ -2475,4 +2476,56 @@ void LifeCycleManager::disk_resize_failure(int vid)
 }
 
 /* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 
+void LifeCycleManager::update_conf_success(int vid)
+{
+    VirtualMachine * vm = vmpool->get(vid);
+
+    if ( vm == nullptr )
+    {
+        return;
+    }
+
+    if ( vm->get_lcm_state() == VirtualMachine::HOTPLUG )
+    {
+        vm->set_state(VirtualMachine::RUNNING);
+
+        vmpool->update(vm);
+        vmpool->update_search(vm);
+    }
+    else
+    {
+        vm->log("LCM",Log::ERROR,"update_conf_success, VM in a wrong state");
+    }
+
+    vm->unlock();
+}
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+void LifeCycleManager::update_conf_failure(int vid)
+{
+    VirtualMachine * vm = vmpool->get(vid);
+
+    if ( vm == nullptr )
+    {
+        return;
+    }
+
+    if ( vm->get_lcm_state() == VirtualMachine::HOTPLUG )
+    {
+        vm->set_state(VirtualMachine::RUNNING);
+
+        vmpool->update(vm);
+    }
+    else
+    {
+        vm->log("LCM",Log::ERROR,"update_conf_failure, VM in a wrong state");
+    }
+
+    vm->unlock();
+}
+
+/* -------------------------------------------------------------------------- */

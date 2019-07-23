@@ -643,6 +643,22 @@ void VirtualMachineManagerDriver::protocol(const string& message) const
             lcm->trigger(LCMAction::DISK_RESIZE_FAILURE, id);
         }
     }
+    else if ( action == "UPDATECONF" )
+    {
+        if ( result == "SUCCESS" )
+        {
+            vm->log("VMM", Log::INFO, "VM update conf succesfull.");
+
+            lcm->trigger(LCMAction::UPDATE_CONF_SUCCESS, id);
+        }
+        else
+        {
+            log_error(vm, os, is, "Error updating conf for VM");
+            vmpool->update(vm);
+
+            lcm->trigger(LCMAction::UPDATE_CONF_FAILURE, id);
+        }
+    }
     else if ( action == "CLEANUP" )
     {
         if ( result == "SUCCESS" )

@@ -425,6 +425,18 @@ private:
     }
 
     /**
+     *  Sends an updateconf request to the MAD: "UPDATECONF ID XML_DRV_MSG"
+     *    @param oid the virtual machine id.
+     *    @param drv_msg xml data for the mad operation
+     */
+    void update_conf(
+        const int     oid,
+        const string& drv_msg) const
+    {
+        write_drv("UPDATECONF", oid, drv_msg);
+    }
+
+    /**
      *  Sends a request to update the VM security groups:
      *  "UPDATESG ID XML_DRV_MSG"
      *    @param oid the virtual machine id.
