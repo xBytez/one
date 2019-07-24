@@ -591,13 +591,13 @@ void HostShareNode::reserve_cpus(const std::string& cpu_ids)
                 if ( jt->second == -1 ) //reserve
                 {
                     jt->second = -2;
-                    core_ids.insert(jt->first);
+                    core_ids.insert(it->first);
                 }
             }
             else if ( jt->second == -2 ) //free
             {
                 jt->second = -1;
-                core_ids.insert(jt->first);
+                core_ids.insert(it->first);
             }
         }
     }
@@ -1112,7 +1112,7 @@ void HostShareNUMA::set_monitorization(Template &ht)
 
         HostShareNode& node = get_node(node_id);
 
-        node.set_hugepage(size, free, pages, 0, true);
+        node.set_hugepage(size, pages, free, 0, true);
     }
 
     std::vector<VectorAttribute *> memory;
