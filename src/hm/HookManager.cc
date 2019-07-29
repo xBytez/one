@@ -22,29 +22,6 @@ const char * HookManager::hook_driver_name = "hook_exe";
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-extern "C" void * hm_action_loop(void *arg)
-{
-    HookManager *  hm;
-
-    if ( arg == 0 )
-    {
-        return 0;
-    }
-
-    NebulaLog::log("HKM",Log::INFO,"Hook Manager started.");
-
-    hm = static_cast<HookManager *>(arg);
-
-    hm->am.loop();
-
-    NebulaLog::log("HKM",Log::INFO,"Hook Manager stopped.");
-
-    return 0;
-}
-
-/* -------------------------------------------------------------------------- */
-/* -------------------------------------------------------------------------- */
-
 int HookManager::load_mads(int uid)
 {
     HookManagerDriver *     hm_mad;
@@ -69,7 +46,7 @@ int HookManager::load_mads(int uid)
 
     hook_conf.replace("NAME",hook_driver_name);
 
-    hm_mad = new HookManagerDriver(0,hook_conf.value(),false,vmpool);
+    hm_mad = new HookManagerDriver(0,hook_conf.value(),false);
 
     rc = add(hm_mad);
 
@@ -87,28 +64,48 @@ int HookManager::load_mads(int uid)
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-int HookManager::start()
+string * HookManager::format_message(const string& method_name, bool success,
+                                     ParamList paramList, int resource_id, const string& response)
 {
-    int               rc;
-    pthread_attr_t    pattr;
+    ostringstream oss;
 
-    rc = MadManager::start();
+    oss << "<HOOK_MESSAGE>"
+        << "<HOOK_TYPE>API</HOOK_TYPE>"
+        << "<CALL>" << method_name << "</CALL>"
+        << "<CALL_INFO>"
+        << "<RESULT>" << success << "</RESULT>"
+        << "<PARAMETERS>";
 
-    if ( rc != 0 )
-    {
-        return -1;
-    }
+        for (int i = 0; i < paramList.size(); i++)
+        {
+            oss << "<PARAMETER" << i + 1 << ">"
+                << paramList.get_value_as_string(i)
+                << "</PARAMETER" << i + 1 << ">";
+        }
 
-    NebulaLog::log("HKM",Log::INFO,"Starting Hook Manager...");
+    oss << "</PARAMETERS>"
+        << response
+        << "</CALL_INFO>"
+        << "</HOOK_MESSAGE>";
 
-    pthread_attr_init (&pattr);
-    pthread_attr_setdetachstate (&pattr, PTHREAD_CREATE_JOINABLE);
-
-    rc = pthread_create(&hm_thread,&pattr,hm_action_loop,(void *) this);
-
-    return rc;
+    return one_util::base64_encode(oss.str());
 }
 
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
+void HookManager::send_message(const string& method_name, bool success,
+                                   ParamList paramList, int resource_id, const string& response)
+{
+    string * message;
+    const HookManagerDriver* hmd;
+
+    hmd = get();
+
+    message = format_message(method_name, success, paramList, resource_id, response);
+
+    hmd->execute(*message);
+}
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */

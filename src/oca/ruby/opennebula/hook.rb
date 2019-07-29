@@ -41,7 +41,7 @@ module OpenNebula
         # Example:
         #   hook = Hook.new(Hook.build_xml(3),rpc_client)
         #
-        def self.build_xml(pe_id=nil)
+        def self.build_xml(pe_id = nil)
             if pe_id
                 obj_xml = "<HOOK><ID>#{pe_id}</ID></HOOK>"
             else
@@ -107,7 +107,7 @@ module OpenNebula
         #
         # @return [nil, OpenNebula::Error] nil in case of success, Error
         #   otherwise
-        def update(new_template, append=false)
+        def update(new_template, append = false)
             super(HOOK_METHODS[:update], new_template, append ? 1 : 0)
         end
 

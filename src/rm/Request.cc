@@ -371,7 +371,6 @@ void Request::execute(
     UserPool* upool     = nd.get_upool();
 
     HookManager * hm              = nd.get_hm();
-    const HookManagerDriver * hmd = hm->get();
 
     bool authenticated = upool->authenticate(att.session, att.password,
         att.uid, att.gid, att.uname, att.gname, att.group_ids, att.umask);
@@ -437,7 +436,7 @@ void Request::execute(
     }
 
     //register hook event
-    hmd->execute(format_message(att.success, ParamList(&_paramList), att.resp_id));
+    hm->send_message(method_name, att.success, ParamList(&_paramList), att.resp_id, att.retval_xml);
 
     if ( log_method_call )
     {
@@ -734,17 +733,31 @@ void Request::failure_response(ErrorCode ec, const string& str_val,
                                RequestAttributes& att)
 {
     vector<xmlrpc_c::value> arrayData;
+    ostringstream oss;
+
+    oss << "<RESPONSE>";
 
     arrayData.push_back(xmlrpc_c::value_boolean(false));
+    oss << "<OUT1>false</OUT1>";
+
     arrayData.push_back(xmlrpc_c::value_string(str_val));
+    oss << "<OUT2>" << one_util::escape_xml(str_val) << "</OUT2>";
+
     arrayData.push_back(xmlrpc_c::value_int(ec));
+    oss << "<OUT3>" << ec << "</OUT3>";
+
     arrayData.push_back(xmlrpc_c::value_int(att.resp_id));
+    oss << "<OUT4>" << att.resp_id << "</OUT4>";
+
     arrayData.push_back(xmlrpc_c::value_i8(att.replication_idx));
+
+    oss << "</RESPONSE>";
 
     xmlrpc_c::value_array arrayresult(arrayData);
 
-    *(att.retval) = arrayresult;
-    att.success = false;
+    *(att.retval)  = arrayresult;
+    att.success    = false;
+    att.retval_xml = oss.str();
 }
 
 /* -------------------------------------------------------------------------- */
@@ -853,16 +866,24 @@ void Request::failure_response(ErrorCode ec, RequestAttributes& att)
 void Request::success_response(int id, RequestAttributes& att)
 {
     vector<xmlrpc_c::value> arrayData;
+    ostringstream oss;
+
+    oss << "<RESPONSE>";
 
     arrayData.push_back(xmlrpc_c::value_boolean(true));
+    oss << "<OUT1>true</OUT1>";
     arrayData.push_back(xmlrpc_c::value_int(id));
+    oss << "<OUT2>" << id << "</OUT2>";
     arrayData.push_back(xmlrpc_c::value_int(SUCCESS));
+    oss << "<OUT3>" << SUCCESS << "</OUT3>";
 
+    oss << "</RESPONSE>";
 
     xmlrpc_c::value_array arrayresult(arrayData);
 
-    *(att.retval) = arrayresult;
-    att.success = true;
+    *(att.retval)  = arrayresult;
+    att.success    = true;
+    att.retval_xml = oss.str();
 }
 
 /* -------------------------------------------------------------------------- */
@@ -870,15 +891,24 @@ void Request::success_response(int id, RequestAttributes& att)
 void Request::success_response(const string& val, RequestAttributes& att)
 {
     vector<xmlrpc_c::value> arrayData;
+    ostringstream oss;
+
+    oss << "<RESPONSE>";
 
     arrayData.push_back(xmlrpc_c::value_boolean(true));
+    oss << "<OUT1>true</OUT1>";
     arrayData.push_back(static_cast<xmlrpc_c::value_string>(val));
+    oss << "<OUT2>" << one_util::escape_xml(val.substr(0, 50)) << "</OUT2>";
     arrayData.push_back(xmlrpc_c::value_int(SUCCESS));
+    oss << "<OUT3>" << SUCCESS << "</OUT3>";
+
+    oss << "</RESPONSE>";
 
     xmlrpc_c::value_array arrayresult(arrayData);
 
-    *(att.retval) = arrayresult;
-    att.success = true;
+    *(att.retval)  = arrayresult;
+    att.success    = true;
+    att.retval_xml = oss.str();
 }
 
 /* -------------------------------------------------------------------------- */
@@ -887,16 +917,24 @@ void Request::success_response(const string& val, RequestAttributes& att)
 void Request::success_response(bool val, RequestAttributes& att)
 {
     vector<xmlrpc_c::value> arrayData;
+    ostringstream oss;
+
+    oss << "<RESPONSE>";
 
     arrayData.push_back(xmlrpc_c::value_boolean(true));
+    oss << "<OUT1>true</OUT1>";
     arrayData.push_back(xmlrpc_c::value_boolean(val));
+    oss << "<OUT2>" << val << "</OUT2>";
     arrayData.push_back(xmlrpc_c::value_int(SUCCESS));
+    oss << "<OUT3>" << SUCCESS << "</OUT3>";
 
+    oss << "</RESPONSE>";
 
     xmlrpc_c::value_array arrayresult(arrayData);
 
-    *(att.retval) = arrayresult;
-    att.success = true;
+    *(att.retval)  = arrayresult;
+    att.success    = true;
+    att.retval_xml = oss.str();
 }
 
 /* -------------------------------------------------------------------------- */
@@ -905,16 +943,24 @@ void Request::success_response(bool val, RequestAttributes& att)
 void Request::success_response(uint64_t val, RequestAttributes& att)
 {
     vector<xmlrpc_c::value> arrayData;
+    ostringstream oss;
+
+    oss << "<RESPONSE>";
 
     arrayData.push_back(xmlrpc_c::value_boolean(true));
+    oss << "<OUT1>true</OUT1>";
     arrayData.push_back(xmlrpc_c::value_i8(val));
+    oss << "<OUT2>" << val << "</OUT2>";
     arrayData.push_back(xmlrpc_c::value_int(SUCCESS));
+    oss << "<OUT3>" << SUCCESS << "</OUT3>";
 
+    oss << "</RESPONSE>";
 
     xmlrpc_c::value_array arrayresult(arrayData);
 
-    *(att.retval) = arrayresult;
-    att.success = true;
+    *(att.retval)  = arrayresult;
+    att.success    = true;
+    att.retval_xml = oss.str();
 }
 
 /* -------------------------------------------------------------------------- */

@@ -50,6 +50,7 @@ public:
     int umask;                /**< User umask for new objects */
 
     xmlrpc_c::value * retval; /**< Return value from libxmlrpc-c */
+    string retval_xml;        /**< Return value in XML format */
 
     PoolObjectSQL::ObjectType resp_obj; /**< object type */
     int                       resp_id;  /**< Id of the object */
@@ -84,7 +85,8 @@ public:
 
         umask    = ra.umask;
 
-        retval   = ra.retval;
+        retval     = ra.retval;
+        retval_xml = ra.retval_xml;
 
         resp_obj = ra.resp_obj;
         resp_id  = ra.resp_id;
@@ -112,7 +114,8 @@ public:
 
         umask    = ra.umask;
 
-        retval   = ra.retval;
+        retval     = ra.retval;
+        retval_xml = ra.retval_xml;
 
         resp_obj = PoolObjectSQL::NONE;
         resp_id  = -1;
@@ -192,6 +195,11 @@ public:
         }
 
         return oss.str();
+    };
+
+    int size() const
+    {
+        return _paramList->size();
     };
 
 private:
@@ -542,22 +550,6 @@ private:
 
     // Default number of character to show in the log. Option %l<number>
     const static int DEFAULT_LOG_LIMIT = 20;
-
-    string format_message(bool success, ParamList const& _paramList, int resource_id)
-    {
-        ostringstream oss;
-        string params_str;
-
-        //TODO add other info like auth info, arguments, ....
-        oss << "API " << method_name << " " << success <<  " " << _paramList.to_string(params_str);
-
-        if ((resource_id > -1) && success)
-        {
-            oss << " " << resource_id;
-        }
-
-        return oss.str();
-    };
 };
 
 /* -------------------------------------------------------------------------- */

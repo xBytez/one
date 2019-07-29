@@ -734,13 +734,6 @@ void Nebula::start(bool bootstrap_only)
             throw;
         }
 
-        rc = hm->start();
-
-        if ( rc != 0 )
-        {
-           throw runtime_error("Could not start the Hook Manager");
-        }
-
         if (hm->load_mads(0) != 0)
         {
             goto error_mad;
@@ -1186,7 +1179,6 @@ void Nebula::start(bool bootstrap_only)
         dm->finalize();
 
         im->finalize();
-        hm->finalize();
 
         imagem->finalize();
         marketm->finalize();
@@ -1201,7 +1193,6 @@ void Nebula::start(bool bootstrap_only)
         pthread_join(dm->get_thread_id(),0);
 
         pthread_join(im->get_thread_id(),0);
-        pthread_join(hm->get_thread_id(),0);
         pthread_join(imagem->get_thread_id(),0);
         pthread_join(marketm->get_thread_id(),0);
         pthread_join(ipamm->get_thread_id(),0);

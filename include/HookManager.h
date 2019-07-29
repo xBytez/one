@@ -21,52 +21,26 @@
 #include "ActionManager.h"
 #include "HookManagerDriver.h"
 #include "VirtualMachinePool.h"
+#include "Request.h"
 
 using namespace std;
 
-extern "C" void * hm_action_loop(void *arg);
-
-class HookManager : public MadManager, public ActionListener
+class HookManager : public MadManager
 {
 public:
 
     HookManager(vector<const VectorAttribute*>& _mads, VirtualMachinePool * _vmpool)
-        :MadManager(_mads),vmpool(_vmpool)
-    {
-        am.addListener(this);
-    };
+        :MadManager(_mads){};
 
     ~HookManager(){};
 
     /**
-     *  This functions starts the associated listener thread, and creates a
-     *  new thread for the Hook Manager. This thread will wait in
-     *  an action loop till it receives ACTION_FINALIZE.
-     *    @return 0 on success.
-     */
-    int start();
-
-    /**
-     *  Gets the HookManager thread identification.
-     *    @return pthread_t for the manager thread (that in the action loop).
-     */
-    pthread_t get_thread_id() const
-    {
-        return hm_thread;
-    };
-
-    /**
-     *
+     *  Loads Hook Manager Mads defined in configuration file
+     *   @param uid of the user executing the driver. When uid is 0 the nebula
+     *   identity will be used. Otherwise the Mad will be loaded through the
+     *   sudo application.
      */
     int load_mads(int uid=0);
-
-    /**
-     *
-     */
-    void finalize()
-    {
-        am.finalize();
-    };
 
     /**
      *  Returns a pointer to a Information Manager MAD. The driver is
@@ -83,42 +57,17 @@ public:
                (MadManager::get(0,name,hook_driver_name));
     };
 
+    string * format_message(const string& method_name, bool success,
+                            ParamList paramList, int resource_id, const string& response);
+
+    void send_message(const string& method_name, bool success,
+                          ParamList paramList, int resource_id, const string& response);
+
 private:
     /**
      *  Generic name for the Hook driver
      */
      static const char *  hook_driver_name;
-
-    /**
-     *  Pointer to the VirtualMachine Pool
-     */
-     VirtualMachinePool * vmpool;
-
-    /**
-     *  Thread id for the HookManager
-     */
-    pthread_t             hm_thread;
-
-    /**
-     *  Action engine for the Manager
-     */
-    ActionManager         am;
-
-    /**
-     *  Function to execute the Manager action loop method within a new pthread
-     *  (requires C linkage)
-     */
-    friend void * hm_action_loop(void *arg);
-
-    // -------------------------------------------------------------------------
-    // Action Listener interface
-    // -------------------------------------------------------------------------
-    void finalize_action(const ActionRequest& ar)
-    {
-        NebulaLog::log("HKM",Log::INFO,"Stopping Hook Manager...");
-
-        MadManager::stop();
-    };
 };
 
 #endif /*HOOK_MANAGER_H*/

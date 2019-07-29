@@ -39,9 +39,8 @@ public:
     HookManagerDriver(
         int                       userid,
         const map<string,string>& attrs,
-        bool                      sudo,
-        VirtualMachinePool *      _vmpool)
-            : Mad(userid,attrs,sudo), vmpool(_vmpool){};
+        bool                      sudo)
+            : Mad(userid,attrs,sudo) {};
 
     virtual ~HookManagerDriver(){};
 
@@ -90,8 +89,6 @@ public:
 private:
 
     friend class            HookManager;
-
-    VirtualMachinePool *    vmpool;
 };
 
 /* -------------------------------------------------------------------------- */
