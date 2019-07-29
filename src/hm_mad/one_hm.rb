@@ -32,6 +32,8 @@ require 'OpenNebulaDriver'
 require 'getoptlong'
 require 'rubygems'
 require 'ffi-rzmq'
+require 'base64'
+require 'nokogiri'
 
 # HookManagerDriver class
 class HookManagerDriver < OpenNebulaDriver
@@ -63,13 +65,17 @@ class HookManagerDriver < OpenNebulaDriver
         end
     end
 
-    def action_execute(type, *arguments)
-        key = "#{type} #{arguments.flatten.shift(2).join(' ')}"
-        vals = arguments.join(' ')
+    def action_execute(*arguments)
+        arg_xml = Nokogiri::XML(Base64.decode64(arguments.flatten[0]))
+
+        type = arg_xml.xpath('//HOOK_TYPE').text.to_sym
+
+        key = gen_key(type, arg_xml)
+        vals = gen_message(type, arg_xml)
 
         # Using envelopes for splitting key/val (http://zguide.zeromq.org/page:all#Pub-Sub-Message-Envelopes)
         @publisher.send_string key, ZMQ::SNDMORE
-        @publisher.send_string vals
+        @publisher.send_string Base64.encode64(vals)
     end
 
     def execution_result_thread
@@ -91,6 +97,29 @@ class HookManagerDriver < OpenNebulaDriver
                 send_message('EXECUTE', RESULT[:failure], execution.flatten.join(' '))
             end
         end
+    end
+
+    def gen_key(type, xml)
+        return gen_api_key(xml) if type.to_sym == :API
+
+        ''
+    end
+
+    def gen_api_key(xml)
+        call = xml.xpath('//CALL')[0].text
+        success = xml.xpath('//CALL_INFO/RESULT')[0].text
+
+        "API #{call} #{success}"
+    end
+
+    def gen_message(type, xml)
+        return gen_api_message(xml) if type.to_sym == :API
+
+        ''
+    end
+
+    def gen_api_message(xml)
+        xml.xpath('//CALL_INFO')[0].serialize(save_with: 0)
     end
 
 end
