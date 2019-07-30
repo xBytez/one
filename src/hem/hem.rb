@@ -1,3 +1,5 @@
+#!/usr/bin/env ruby
+
 # -------------------------------------------------------------------------- #
 # Copyright 2002-2019, OpenNebula Project, OpenNebula Systems                #
 #                                                                            #
@@ -18,9 +20,8 @@ require 'rubygems'
 require 'ffi-rzmq'
 require 'nokogiri'
 require 'yaml'
-require 'log'
 require 'logger'
-require 'opennebula'
+require 'base64'
 
 ONE_LOCATION = ENV['ONE_LOCATION']
 
@@ -38,6 +39,11 @@ else
     RUBY_LIB_LOCATION = ONE_LOCATION + '/lib/ruby'
 end
 
+$: << RUBY_LIB_LOCATION
+
+require 'opennebula'
+include OpenNebula
+
 CONFIGURATION_FILE = ETC_LOCATION + '/hem.conf'
 HEM_LOG            = LOG_LOCATION + '/hem.log'
 
@@ -46,9 +52,16 @@ HEM_LOG            = LOG_LOCATION + '/hem.log'
 ##############################################################################
 
 # List of different hook types
-HOOK_TYPES = [:API, :STATE]
+$HOOK_TYPES = [:api, :state]
 
-# List of API calls which trigger hooks reload
+# API calls which trigger hook reloading
+UPDATE_CALLS = [
+    'one.hook.update',
+    'one.hook.allocate',
+    'one.hook.delete'
+]
+
+# List of filters for API calls which trigger hooks reload
 STATIC_FILTERS = [
     'API one.hook.update 1',
     'API one.hook.allocate 1',
@@ -65,17 +78,19 @@ DATE_FORMAT = '%a %b %d %H:%M:%S %Y'
 # Configuration
 ##############################################################################
 
+# Load config from configuration file
 begin
-    conf = YAML.load_file(CONFIGURATION_FILE)
+    $conf = YAML.load_file(CONFIGURATION_FILE)
 rescue Exception => e
     STDERR.puts "Error parsing config file #{CONFIGURATION_FILE}: #{e.message}"
     exit 1
 end
 
-conf[:hook_base_path] ||= '/var/lib/one/remotes/hook'
-conf[:subscriber_endpoint] ||= 'tcp://localhost:5556'
-conf[:replier_endpoint] ||= 'tcp://localhost:5557'
-conf[:debug_level] ||= 2
+# Set default values if empty
+$conf[:hook_base_path] ||= '/var/lib/one/remotes/hook'
+$conf[:subscriber_endpoint] ||= 'tcp://localhost:5556'
+$conf[:replier_endpoint] ||= 'tcp://localhost:5557'
+$conf[:debug_level] ||= 2
 
 ##############################################################################
 # Log
@@ -88,9 +103,9 @@ DEBUG_LEVEL = [
     Logger::DEBUG  # 3
 ]
 
-logger = Logger.new(HEM_LOG)
-logger.level = DEBUG_LEVEL[conf[:debug_level].to_i]
-logger.formatter = proc do |severity, datetime, _progname, msg|
+$logger = Logger.new(HEM_LOG)
+$logger.level = DEBUG_LEVEL[$conf[:debug_level].to_i]
+$logger.formatter = proc do |severity, datetime, _progname, msg|
     format(MSG_FORMAT,
            datetime.strftime(DATE_FORMAT),
            severity[0..0],
@@ -101,98 +116,115 @@ end
 # Helpers
 ##############################################################################
 
+# Generates a valid oca client
+def gen_client
+    client = nil
+
+    if !$conf[:auth].nil?
+        client = Client.new($conf[:auth], $conf[:one_xmlrpc])
+    else
+        client = Client.new(nil, $conf[:one_xmlrpc])
+    end
+
+    client
+end
+
 # Generates a key for a given hook
+#
+# @param hook [Hook] Hook object
+#
+# @return key corresponded to the given hookd
 def get_key(hook)
     type = hook['TYPE'].to_sym
 
-    return hook['TEMPLATE/CALL'] if type == :API
+    return hook['TEMPLATE/CALL'] if type == $HOOK_TYPES[0]
 end
 
-# Load Hooks from oned (one.hookpool.info)
-def load_hooks()
-    client = nil
+# Load Hooks from oned (one.hookpool.info) into a dictionary with the
+# following format:
+#
+# hooks[hook_type][hook_key] = Hook object
+#
+# Also generates and store the corresponding filters
+#
+# @return dicctionary containing hooks dictionary and filters
+def load_hooks_info
+    client = gen_client
 
-    if !conf[:auth].nil?
-        client = Client.new(conf[:auth], conf[:one_xmlrpc])
-    else
-        client = Client.new(nil, conf[:one_xmlrpc])
-    end
-
-    logger.info('Loading Hooks...')
+    $logger.info('Loading Hooks...')
 
     # TODO, manage errors
     hook_pool = HookPool.new(client)
     hook_pool.info
 
     hooks = {}
-    HOOK_TYPES.each do |type|
+    filters = {}
+    $HOOK_TYPES.each do |type|
         hooks[type] = {}
     end
 
     hook_pool.each do |hook|
-        type = hook['TYPE']
+        type = hook['TYPE'].to_sym
 
-        if HOOK_TYPES.include? type.to_sym
-            logger.error("Error loading hooks. Invalid hook type: #{type}")
+        if !$HOOK_TYPES.include? type
+            $logger.error("Error loading hooks. Invalid hook type: #{type}")
             next
         end
 
-        hooks[type.to_sym][get_key(hook)] = {
-            :id => hook['ID'],
-            :name => hook['NAME'],
-            :command => hook['TEMPLATE/COMMAND'],
-            :remote => hook['TEMPLATE/REMOTE'],
-            :args => hook['TEMPLATE/ARGS']
-        }
+        key = get_key(hook)
+
+        hooks[type][key] = hook
+
+        filters[hook['ID'].to_i] = gen_filter(type, key, hook)
     end
 
-    logger.info('Hooks successfully loaded')
+    $logger.info('Hooks successfully loaded')
 
-    hooks
+    {:hooks => hooks, :filters => filters}
 end
 
-# Generate a filter for an API type hook
+# Generate a subscriber filter for an API type hook
 def gen_filter_api(key, _hook)
     # TODO, subscribed for success, fail, always
-    "#{type} #{key} 1"
+    "API #{key} 1"
 end
 
-# Generate a filter for a STATE type hook
+# Generate a sbuscriber filter for a STATE type hook
 def gen_filter_state(_key, _hook)
     # TODO
     ''
 end
 
-# Generate a filter for a Hook given the typw and the key
+# Generate a sbuscriber filter for a Hook given the type and the key
 def gen_filter(type, key, hook)
-    return gen_filter_api(key, hook)   if type == :API
-    return gen_filter_state(key, hook) if type == :STATE
+    return gen_filter_api(key, hook)   if type == $HOOK_TYPES[0]
+    return gen_filter_state(key, hook) if type == $HOOK_TYPES[1]
 end
 
 # Subscribe the given socket to the given filter
 # The socket must be of type SUBSCRIBER
 def subscribe(socket, filter)
+    # TODO, check params
     socket.setsockopt(ZMQ::SUBSCRIBE, filter)
 end
 
 # Unsubscribe the given socket from the given filter
 # The socket must be of type SUBSCRIBER
 def unsubscribe(socket, filter)
+    # TODO, check params
     socket.setsockopt(ZMQ::UNSUBSCRIBE, filter)
 end
 
-# Subscribe the socket to all the Hooks from hook pool and to the STATIC_FILTERS
-def setup_filters(socket, hooks)
+# Subscribe the socket to all the fileters included in filters and STATIC_FILTERS
+def setup_filters(socket, filters)
     # Subscribe to hooks modifier calls
     STATIC_FILTERS.each do |filter|
         subscribe(socket, filter)
     end
 
     # Subscribe to each existing hook
-    HOOK_TYPES.each do |type|
-        hooks[type].each do |hook|
-            subscribe(socket, gen_filter(type, hook[0], hook[1]))
-        end
+    filters.each do |filter|
+        subscribe(socket, filter[1])
     end
 end
 
@@ -228,6 +260,47 @@ def parse_args(args, key, content)
     params
 end
 
+# Reload a hook or deleted if needed
+def reload_hook(call, call_info, hooks, filters, subscriber)
+    client   = gen_client
+    info_xml = Nokogiri::XML(call_info)
+    id = -1
+
+    # TODO, what happens if not int?
+    if call == 'one.hook.allocate'
+        id = info_xml.xpath('//RESPONSE/OUT2')[0].text.to_i
+    else
+        id = info_xml.xpath('//PARAMETERS/PARAMETER2')[0].text.to_i
+    end
+
+    # Remove filter if the hook have been deleted or updated
+    if call != 'one.hook.allocate'
+        unsubscribe(subscriber, filters[id])
+        filters.delete(id)
+    end
+
+    return if call == 'one.hook.delete'
+
+    # get new hook info
+    hook = Hook.new_with_id(id, client)
+    rc = hook.info
+
+    if !rc.nil?
+        $logger.error("Error getting hook #{id}.")
+        return
+    end
+
+    # Generates key and filter for the new hook info
+    key    = get_key(hook)
+    filter = gen_filter(hook['TYPE'].to_sym, key, hook)
+
+    # Add new filter
+    subscribe(subscriber, filter)
+
+    hooks[hook['TYPE'].to_sym][key] = hook
+    filters[id] = filter
+end
+
 ##############################################################################
 # Main
 ##############################################################################
@@ -237,17 +310,21 @@ context = ZMQ::Context.new(1)
 
 # Subscriber socket for receiving the events
 subscriber = context.socket(ZMQ::SUB)
-subscriber.connect(conf[:subscriber_endpoint])
+subscriber.connect($conf[:subscriber_endpoint])
 
 # Requester socket for returning back the execution result
 requester = context.socket(ZMQ::REQ)
-requester.connect(conf[:replier_endpoint])
+requester.connect($conf[:replier_endpoint])
 
-# Load hooks from oned
-hooks = load_hooks
+# Load hooks info via oned
+hooks_info = load_hooks_info
+
+# Get hooks and filters from hooks_info
+hooks      = hooks_info[:hooks]
+filters    = hooks_info[:filters]
 
 # Set up subscriber filters
-setup_filters(subscriber, hooks)
+setup_filters(subscriber, filters)
 
 loop do
     key = ''
@@ -258,29 +335,36 @@ loop do
     subscriber.recv_string(content)
 
     key = key.split(' ')
+    content = Base64.decode64(content)
 
-    hook_info = hooks[key[0].upcase.to_sym][key[1]]
+    # It would be the same for state hooks?
+    hook = hooks[key[0].downcase.to_sym][key[1]]
 
     if UPDATE_CALLS.include? key[1]
-        # TODO, reload hooks
-        puts 'Reloading hooks'
+        $logger.info('Reloading Hooks...')
+        reload_hook(key[1], content, hooks, filters, subscriber)
+        $logger.info('Hooks Successfully reloaded')
     end
 
-    next if hook_info.nil?
+    next if hook.nil?
 
     # trigger hook (get params, execute, return exec result)
-    params = parse_args(hook_info[:args], key, content)
-    rc = system("#{HOOKS_BASE_PATH}/#{hook_info[:command]} #{params}")
+    params = parse_args(hook[:args], key, content)
+    rc = system("#{$conf[:hook_base_path]}/#{hook['TEMPLATE/COMMAND']} #{params}")
 
     if rc
+        $logger.info("Hook successfully executed for #{key[1]}")
         rc = '1'
     else
+        $logger.error("Failure executing hook for #{key[1]}")
         rc = '0'
     end
 
-    requester.send_string("#{rc} '#{hook_info[:name]}' #{hook_info[:id]} #{params}")
+    requester.send_string("#{rc} '#{hook['NAME']}' #{hook['ID']} #{params}")
 
     requester.recv_string(ack)
 
-    exit(-1) if ack != 'ACK'
+    if ack != 'ACK'
+        $logger.error('Error receiving confirmation from hook manager.')
+    end
 end
