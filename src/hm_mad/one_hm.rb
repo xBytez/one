@@ -91,7 +91,7 @@ class HookManagerDriver < OpenNebulaDriver
             end
 
             execution = execution.split(' ')
-            if execution.shift.to_i == 1
+            if execution.shift.to_i.zereo?
                 send_message('EXECUTE', RESULT[:success], execution.flatten.join(' '))
             else
                 send_message('EXECUTE', RESULT[:failure], execution.flatten.join(' '))

@@ -42,10 +42,13 @@ end
 $LOAD_PATH << RUBY_LIB_LOCATION
 
 require 'opennebula'
-include OpenNebula
+require 'CommandManager'
+require 'ActionManager'
 
 # Hook Execution Manager class
 class HookExecutionManager
+
+    attr_reader :am
 
     # API calls which trigger hook info reloading
     UPDATE_CALLS = [
@@ -90,11 +93,16 @@ class HookExecutionManager
 
         # 0mq related variables
         @context    = ZMQ::Context.new(1) # 0mq context (shared between all the sockets)
-        @subscriber = context.socket(ZMQ::SUB) # 0mq SUBSCRIBER socket
-        @requester = context.socket(ZMQ::REQ) # 0mq REQUESTER socket
+        @subscriber = @context.socket(ZMQ::SUB) # 0mq SUBSCRIBER socket
+        @requester  = @context.socket(ZMQ::REQ) # 0mq REQUESTER socket
 
         load_config
         init_log
+
+        # Action manager initialization
+        # TODO, make AM configurable via config file
+        @am = ActionManager.new(15, true)
+        @am.register_action(:EXECUTE, method('execute_action'))
     end
 
     def load_config
@@ -107,7 +115,7 @@ class HookExecutionManager
         end
 
         # Set default values if empty
-        @conf[:hook_base_path] ||= '/var/lib/one/remotes/hook'
+        @conf[:hook_base_path] ||= '/var/lib/one/remotes/hooks'
         @conf[:subscriber_endpoint] ||= 'tcp://localhost:5556'
         @conf[:replier_endpoint] ||= 'tcp://localhost:5557'
         @conf[:debug_level] ||= 2
@@ -134,9 +142,9 @@ class HookExecutionManager
         client = nil
 
         if !@conf[:auth].nil?
-            client = Client.new(@conf[:auth], @conf[:one_xmlrpc])
+            client = OpenNebula::Client.new(@conf[:auth], @conf[:one_xmlrpc])
         else
-            client = Client.new(nil, @conf[:one_xmlrpc])
+            client = OpenNebula::Client.new(nil, @conf[:one_xmlrpc])
         end
 
         client
@@ -179,7 +187,7 @@ class HookExecutionManager
         @logger.info('Loading Hooks...')
 
         # TODO, manage errors
-        hook_pool = HookPool.new(client)
+        hook_pool = OpenNebula::HookPool.new(client)
         hook_pool.info
 
         HOOK_TYPES.each do |type|
@@ -259,14 +267,14 @@ class HookExecutionManager
     end
 
     # Subscribe the socket to all the fileters included in filters and STATIC_FILTERS
-    def setup_filters(filters)
+    def setup_filters
         # Subscribe to hooks modifier calls
         STATIC_FILTERS.each do |filter|
             subscribe(filter)
         end
 
         # Subscribe to each existing hook
-        filters.each do |filter|
+        @filters.each do |filter|
             subscribe(filter[1])
         end
     end
@@ -312,9 +320,17 @@ class HookExecutionManager
         @filters[id] = filter
     end
 
-    ##############################################################################
+    def execute_hook(hook, params)
+        remote = hook['TEMPLATE/REMOTE'].casecmp('YES').zero?
+        command = "#{@conf[:hook_base_path]}/#{hook['TEMPLATE/COMMAND']} #{params}"
+
+        return LocalCommand.run(command) unless remote
+
+        SSHCommand.run(command, hook['TEMPLATE/REMOTE_HOST'])
+    end
+    ############################################################################
     # Hook Execution Manager main loop
-    ##############################################################################
+    ############################################################################
 
     def hem_loop
         # Connect subscriber socket for receiving the events
@@ -327,49 +343,62 @@ class HookExecutionManager
         load_hooks_info
 
         # Set up subscriber filters
-        setup_filters(filters)
+        setup_filters
 
         loop do
             key = ''
             content = ''
-            ack = ''
 
             @subscriber.recv_string(key)
             @subscriber.recv_string(content)
 
-            key = key.split(' ')
-            content = Base64.decode64(content)
+            @am.trigger_action(:EXECUTE, 0, key, content)
+        end
+    end
 
-            # It would be the same for state hooks?
-            hook = @hooks[key[0].downcase.to_sym][key[1]]
+    def execute_action(key, content)
+        ack = ''
+        key = key.split(' ')
+        content = Base64.decode64(content)
 
-            if UPDATE_CALLS.include? key[1]
-                @logger.info('Reloading Hooks...')
-                reload_hook(key[1], content)
-                @logger.info('Hooks Successfully reloaded')
-            end
+        # It would be the same for state hooks?
+        hook = @hooks[key[0].downcase.to_sym][key[1]]
 
-            next if hook.nil?
-
+        if !hook.nil?
             # trigger hook (get params, execute, return exec result)
             params = parse_args(hook[:args], key, content)
-            rc = system("#{@conf[:hook_base_path]}/#{hook['TEMPLATE/COMMAND']} #{params}")
+            # rc = system("#{@conf[:hook_base_path]}/#{hook['TEMPLATE/COMMAND']} #{params}")
+            exec_result = execute_hook(hook, params)
 
-            if rc
+            if exec_result.code.zero?
                 @logger.info("Hook successfully executed for #{key[1]}")
-                rc = '1'
             else
                 @logger.error("Failure executing hook for #{key[1]}")
-                rc = '0'
             end
 
-            @requester.send_string("#{rc} '#{hook['NAME']}' #{hook['ID']} #{params}")
+            @requester.send_string("#{exec_result.code} '#{hook['NAME']}'" \
+                                   " #{hook['ID']} #{params}")
             @requester.recv_string(ack)
 
             if ack != 'ACK'
                 @logger.error('Error receiving confirmation from hook manager.')
             end
         end
+
+        if UPDATE_CALLS.include? key[1]
+            @logger.info('Reloading Hooks...')
+            reload_hook(key[1], content)
+            @logger.info('Hooks Successfully reloaded')
+        end
+    end
+
+    def start
+        am_thread = Thread.new { @am.start_listener }
+        hem_loop
+        am_thread.kill
     end
 
 end
+
+hem = HookExecutionManager.new
+hem.start
