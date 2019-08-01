@@ -82,19 +82,17 @@ class HookManagerDriver < OpenNebulaDriver
         Kernel.loop do
             execution = ''
 
-            rc = @replier.recv_string(execution)
+            @replier.recv_string(execution)
 
-            if rc < 0
-                exit(-1)
-            else
+            Thread.new do
                 @replier.send_string('ACK')
-            end
 
-            execution = execution.split(' ')
-            if execution.shift.to_i.zereo?
-                send_message('EXECUTE', RESULT[:success], execution.flatten.join(' '))
-            else
-                send_message('EXECUTE', RESULT[:failure], execution.flatten.join(' '))
+                execution = execution.split(' ')
+                if execution.shift.to_i.zereo?
+                    send_message('EXECUTE', RESULT[:success], execution.flatten.join(' '))
+                else
+                    send_message('EXECUTE', RESULT[:failure], execution.flatten.join(' '))
+                end
             end
         end
     end

@@ -101,7 +101,7 @@ class HookExecutionManager
 
         # Action manager initialization
         # TODO, make AM configurable via config file
-        @am = ActionManager.new(15, true)
+        @am = ActionManager.new(2, true)
         @am.register_action(:EXECUTE, method('execute_action'))
     end
 
@@ -352,50 +352,48 @@ class HookExecutionManager
             @subscriber.recv_string(key)
             @subscriber.recv_string(content)
 
-            @am.trigger_action(:EXECUTE, 0, key, content)
-        end
-    end
+            key = key.split(' ')
+            content = Base64.decode64(content)
 
-    def execute_action(key, content)
-        ack = ''
-        key = key.split(' ')
-        content = Base64.decode64(content)
+            # It would be the same for state hooks?
+            hook = @hooks[key[0].downcase.to_sym][key[1]]
 
-        # It would be the same for state hooks?
-        hook = @hooks[key[0].downcase.to_sym][key[1]]
+            @am.trigger_action(:EXECUTE, 0, hook, key, content) unless hook.nil?
 
-        if !hook.nil?
-            # trigger hook (get params, execute, return exec result)
-            params = parse_args(hook[:args], key, content)
-            # rc = system("#{@conf[:hook_base_path]}/#{hook['TEMPLATE/COMMAND']} #{params}")
-            exec_result = execute_hook(hook, params)
+            next unless UPDATE_CALLS.include? key[1]
 
-            if exec_result.code.zero?
-                @logger.info("Hook successfully executed for #{key[1]}")
-            else
-                @logger.error("Failure executing hook for #{key[1]}")
-            end
-
-            @requester.send_string("#{exec_result.code} '#{hook['NAME']}'" \
-                                   " #{hook['ID']} #{params}")
-            @requester.recv_string(ack)
-
-            if ack != 'ACK'
-                @logger.error('Error receiving confirmation from hook manager.')
-            end
-        end
-
-        if UPDATE_CALLS.include? key[1]
             @logger.info('Reloading Hooks...')
             reload_hook(key[1], content)
             @logger.info('Hooks Successfully reloaded')
         end
     end
 
+    def execute_action(hook, key, content)
+        ack = ''
+
+        # trigger hook (get params, execute, return exec result)
+        params = parse_args(hook[:args], key, content)
+        # rc = system("#{@conf[:hook_base_path]}/#{hook['TEMPLATE/COMMAND']} #{params}")
+        # TODO, manage stdin an stdout
+        exec_result = execute_hook(hook, params)
+
+        if exec_result.code.zero?
+            @logger.info("Hook successfully executed for #{key[1]}")
+        else
+            @logger.error("Failure executing hook for #{key[1]}")
+        end
+
+        @requester.send_string("#{exec_result.code} '#{hook['NAME']}'" \
+                                " #{hook['ID']} #{params}")
+        @requester.recv_string(ack)
+
+        @logger.error('Error receiving confirmation from hook manager.') if ack != 'ACK'
+    end
+
     def start
-        am_thread = Thread.new { @am.start_listener }
-        hem_loop
-        am_thread.kill
+        hem_thread = Thread.new { hem_loop }
+        @am.start_listener
+        hem_thread.kill
     end
 
 end
