@@ -40,8 +40,8 @@ class HookManagerDriver < OpenNebulaDriver
 
     def initialize(options)
         @options = {
-            :concurrency => 15,
-            :threaded => true,
+            :concurrency => 1,
+            :threaded => false,
             :retries => 0
         }.merge!(options)
 
@@ -83,10 +83,8 @@ class HookManagerDriver < OpenNebulaDriver
             execution = ''
 
             @replier.recv_string(execution)
-
+            @replier.send_string('ACK')
             Thread.new do
-                @replier.send_string('ACK')
-
                 execution = execution.split(' ')
                 if execution.shift.to_i.zereo?
                     send_message('EXECUTE', RESULT[:success], execution.flatten.join(' '))
