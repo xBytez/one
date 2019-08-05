@@ -16,26 +16,53 @@
 
 #include "HookStateHost.h"
 #include "NebulaLog.h"
+#include "Host.h"
 
-int HookStateHost::check_insert(Template * tmpl, string& error_str)
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+bool HookStateHost::trigger(Host * host)
 {
-    string state;
-    ostringstream oss;
+    return host->has_changed_state();
+}
 
-    tmpl->get("STATE", state);
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+string * HookStateHost::format_message(Host * host)
+{
+    std::ostringstream oss;
+    std::string host_xml;
+
+    oss << "<HOOK_MESSAGE>"
+        << "<HOOK_TYPE>STATE</HOOK_TYPE>"
+        << "<HOOK_OBJECT>HOST</HOOK_OBJECT>"
+        << "<STATE>" << host->get_state() << "</STATE>"
+        << host->to_xml(host_xml)
+        << "</HOOK_MESSAGE>";
+
+    return one_util::base64_encode(oss.str());
+}
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+int HookStateHost::parse_template(Template * tmpl, std::string& error_str)
+{
+    std::string state_str;
+
+    tmpl->get("STATE", state_str);
     tmpl->erase("STATE");
 
-    hook_state = str_to_state(state);
+    Host::str_to_state(state_str, state);
 
-    if (hook_state == NONE)
+    if (state == Host::INIT)
     {
-        oss << "Invalid STATE \"" << state << "\" in template for STATE type Hook";
-        error_str = oss.str();
-
+        error_str = "Invalid STATE: " + state_str;
         return -1;
     }
 
-    tmpl->add("STATE", state_to_str(hook_state));
+    tmpl->add("STATE", Host::state_to_str(state_str, state));
 
     return 0;
 }
@@ -44,21 +71,17 @@ int HookStateHost::check_insert(Template * tmpl, string& error_str)
 /* -------------------------------------------------------------------------- */
 
 
-int HookStateHost::from_template(const Template * tmpl, string& error)
+int HookStateHost::from_template(const Template * tmpl, std::string& error_str)
 {
-    string state_str;
+    std::string state_str;
 
     tmpl->get("STATE", state_str);
 
-    hook_state = str_to_state(state_str);
+    Host::str_to_state(state_str, state);
 
-    if (hook_state == NONE)
+    if (state == Host::INIT)
     {
-        ostringstream oss;
-
-        oss << "Invalid STATE: " << state_str;
-        error = oss.str();
-
+        error_str = "Invalid STATE: " + state_str;
         return -1;
     }
 
@@ -70,25 +93,17 @@ int HookStateHost::from_template(const Template * tmpl, string& error)
 
 int HookStateHost::post_update_template(Template * tmpl, string& error)
 {
-    string new_state, resource;
+    std::string     new_state_str;
+    Host::HostState new_state;
 
-    tmpl->get("STATE", new_state);
+    tmpl->get("STATE", new_state_str);
 
-    if (str_to_state(new_state) == NONE)
+    if (Host::str_to_state(new_state_str, new_state) != Host::INIT)
     {
-        new_state = state_to_str(hook_state);
+        state = new_state;
+        tmpl->replace("STATE", new_state);
     }
-
-    tmpl->replace("STATE", new_state);
-
-    tmpl->get("RESOURCE", resource);
-
-    if (PoolObjectSQL::str_to_type(resource) != PoolObjectSQL::HOST)
-    {
-        resource = PoolObjectSQL::type_to_str(PoolObjectSQL::HOST);
-    }
-
-    tmpl->replace("RESOURCE", resource);
 
     return 0;
 }
+

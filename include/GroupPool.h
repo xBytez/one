@@ -26,8 +26,7 @@ using namespace std;
 class GroupPool : public PoolSQL
 {
 public:
-    GroupPool(SqlDB * db, vector<const VectorAttribute *> hook_mads,
-          const string& remotes_location, bool is_federation_slave);
+    GroupPool(SqlDB * db, bool is_federation_slave);
 
     ~GroupPool(){};
 

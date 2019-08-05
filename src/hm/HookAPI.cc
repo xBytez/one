@@ -16,21 +16,49 @@
 
 #include "HookAPI.h"
 #include "Nebula.h"
-#include "NebulaLog.h"
-#include "Client.h"
+#include "Request.h"
 
-int HookAPI::check_insert(Template * tmpl, string& error_str)
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+std::string * HookAPI::format_message(std::string method, ParamList& paramList,
+            const RequestAttributes& att)
 {
     ostringstream oss;
 
-    tmpl->get("CALL",call);
+    oss << "<HOOK_MESSAGE>"
+        << "<HOOK_TYPE>API</HOOK_TYPE>"
+        << "<CALL>" << method << "</CALL>"
+        << "<CALL_INFO>"
+        << "<RESULT>" << att.success << "</RESULT>"
+        << "<PARAMETERS>";
+
+        for (int i = 0; i < paramList.size(); i++)
+        {
+            oss << "<PARAMETER" << i + 1 << ">"
+                << paramList.get_value_as_string(i)
+                << "</PARAMETER" << i + 1 << ">";
+        }
+
+    oss << "</PARAMETERS>"
+        << att.retval_xml
+        << "</CALL_INFO>"
+        << "</HOOK_MESSAGE>";
+
+    return one_util::base64_encode(oss.str());
+}
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+int HookAPI::parse_template(Template * tmpl, string& error_str)
+{
+    tmpl->get("CALL", call);
     tmpl->erase("CALL");
 
-    if (call.empty() || !check_api_call(call))
+    if (!call_exist(call))
     {
-        oss <<  "Invalid CALL \"" << call << "\" in template for API type Hook";
-        error_str = oss.str();
-
+        error_str = "API call does not exist: " + call;
         return -1;
     }
 
@@ -42,19 +70,13 @@ int HookAPI::check_insert(Template * tmpl, string& error_str)
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-
-int HookAPI::from_template(const Template * tmpl, string& error)
+int HookAPI::from_template(const Template * tmpl, string& error_str)
 {
-
     tmpl->get("CALL", call);
 
-    if (call.empty() || !check_api_call(call))
+    if (!call_exist(call))
     {
-        ostringstream oss;
-
-        oss << "Invalid CALL: " << call;
-        error = oss.str();
-
+        error_str = "API call does not exist: " + call;
         return -1;
     }
 
@@ -70,12 +92,11 @@ int HookAPI::post_update_template(Template * tmpl, string& error)
 
     tmpl->get("CALL", new_call);
 
-    if (!new_call.empty() && check_api_call(new_call))
+    if (call_exist(new_call))
     {
         call = new_call;
+        tmpl->replace("CALL", call);
     }
-
-    tmpl->replace("CALL", call);
 
     return 0;
 }
@@ -83,7 +104,7 @@ int HookAPI::post_update_template(Template * tmpl, string& error)
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-bool HookAPI::check_api_call(const string& api_call)
+bool HookAPI::call_exist(const string& api_call)
 {
     RequestManager * rm = Nebula::instance().get_rm();
 

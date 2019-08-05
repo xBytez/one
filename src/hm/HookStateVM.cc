@@ -15,167 +15,161 @@
 /* -------------------------------------------------------------------------- */
 
 #include "HookStateVM.h"
-#include "NebulaLog.h"
 #include "VirtualMachine.h"
+#include "NebulaUtil.h"
 
-int HookStateVM::check_insert(Template * tmpl, string& error_str)
+bool HookStateVM::trigger(VirtualMachine * vm)
 {
-    string state;
-    ostringstream oss;
+    return vm->has_changed_state();
+}
 
-    //Chec STATE attribute
-    tmpl->get("STATE", state);
-    tmpl->erase("STATE");
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 
-    hook_state = str_to_state(state);
+string * HookStateVM::format_message(VirtualMachine * vm)
+{
+    std::ostringstream oss;
+    std::string vm_xml;
 
-    if (hook_state == NONE)
+    oss << "<HOOK_MESSAGE>"
+        << "<HOOK_TYPE>STATE</HOOK_TYPE>"
+        << "<HOOK_OBJECT>VM</HOOK_OBJECT>"
+        << "<STATE>" << vm->get_state() << "</STATE>"
+        << "<LCM_STATE" << vm->get_lcm_state() << "</LCM_STATE>"
+        << vm->to_xml_extended(vm_xml)
+        << "</HOOK_MESSAGE>";
+
+    return one_util::base64_encode(oss.str());
+}
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+int HookStateVM::parse_template(Template * tmpl, std::string& error_str)
+{
+    std::string on;
+
+    std::string lcm_str;
+    std::string vm_str;
+
+    tmpl->get("ON", on);
+    tmpl->erase("ON");
+
+    one_util::toupper(on);
+
+    if ( on == "PROLOG" )
     {
-        oss << "Invalid STATE \"" << state << "\" in template for STATE type Hook";
-        error_str = oss.str();
+        state = VirtualMachine::ACTIVE;
+        lcm_state = VirtualMachine::PROLOG;
+    }
+    else if ( on == "RUNNING" )
+    {
+        state = VirtualMachine::ACTIVE;
+        lcm_state = VirtualMachine::RUNNING;
+    }
+    else if ( on == "SHUTDOWN" )
+    {
+        state = VirtualMachine::ACTIVE;
+        lcm_state = VirtualMachine::EPILOG;
+    }
+    else if ( on == "STOP" )
+    {
+        state = VirtualMachine::STOPPED;
+        lcm_state = VirtualMachine::LCM_INIT;
+    }
+    else if ( on == "DONE" )
+    {
+        state = VirtualMachine::DONE;
+        lcm_state = VirtualMachine::LCM_INIT;
+    }
+    else if ( on == "UNKNOWN" )
+    {
+        state = VirtualMachine::ACTIVE;
+        lcm_state = VirtualMachine::UNKNOWN;
+    }
+    else if ( on == "CUSTOM" )
+    {
+        bool rc;
 
+        rc = tmpl->get("STATE", vm_str);
+
+        if (!rc || VirtualMachine::vm_state_from_str(vm_str, state) != 0)
+        {
+            error_str = "Wrong STATE: " + vm_str;
+            return -1;
+        }
+
+        rc = tmpl->get("LCM_STATE", lcm_str);
+
+        if (!rc || VirtualMachine::lcm_state_from_str(lcm_str, lcm_state) != 0)
+        {
+            error_str = "Wrong LCM_STATE: " + lcm_str;
+            return -1;
+        }
+    }
+    else
+    {
+        error_str = "Unkown state condition: " + on;
         return -1;
     }
 
-    tmpl->add("STATE", state_to_str(hook_state));
-
-    //Check CUSTOM states if needed
-    if (hook_state == CUSTOM)
-    {
-        string vm_state, vm_lcm_state;
-
-        tmpl->get("CUSTOM_STATE", vm_state);
-        tmpl->erase("CUSTOM_STATE");
-
-        if (VirtualMachine::vm_state_from_str(vm_state, custom_state) == -1)
-        {
-            oss << "Invalid CUSTOM_STATE \"" << vm_state << "\" in template for STATE type Hook";
-            error_str = oss.str();
-
-            return -1;
-        }
-
-        tmpl->add("CUSTOM_STATE", vm_state);
-
-        tmpl->get("CUSTOM_LCM_STATE", vm_lcm_state);
-        tmpl->erase("CUSTOM_LCM_STATE");
-
-        if (VirtualMachine::lcm_state_from_str(vm_lcm_state, custom_lcm_state) == -1)
-        {
-            oss << "Invalid CUSTOM_LCM_STATE \"" << vm_lcm_state << "\" in template for STATE type Hook";
-            error_str = oss.str();
-
-            return -1;
-        }
-
-        tmpl->add("CUSTOM_LCM_STATE", vm_lcm_state);
-    }
+    tmpl->replace("STATE", VirtualMachine::vm_state_to_str(vm_str, state));
+    tmpl->replace("LCM_STATE", VirtualMachine::lcm_state_to_str(lcm_str, lcm_state));
 
     return 0;
 }
 
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
-
 
 int HookStateVM::from_template(const Template * tmpl, string& error)
 {
-    string state_str;
+    std::string state_str;
+    std::string lcm_state_str;
+
+    int rc;
 
     tmpl->get("STATE", state_str);
+    tmpl->get("LCM_STATE", lcm_state_str);
 
-    hook_state = str_to_state(state_str);
+    rc  = VirtualMachine::vm_state_from_str(state_str, state);
+    rc += VirtualMachine::lcm_state_from_str(lcm_state_str, lcm_state);
 
-    if (hook_state == NONE)
+    if ( rc != 0 )
     {
-        ostringstream oss;
-
-        oss << "Invalid STATE: " << state_str;
-        error = oss.str();
-
+        error = "Invalid VM state";
         return -1;
     }
 
-    if (hook_state == CUSTOM)
-    {
-        string vm_state_str, lcm_state_str;
-
-        tmpl->get("CUSTOM_STATE", vm_state_str);
-
-        if (VirtualMachine::vm_state_from_str(vm_state_str, custom_state) == -1)
-        {
-            ostringstream oss;
-
-            oss << "Invalid CUSTOM_STATE: " << custom_state;
-            error = oss.str();
-
-            return -1;
-        }
-
-        tmpl->get("CUSTOM_LCM_STATE", lcm_state_str);
-
-        if (VirtualMachine::lcm_state_from_str(lcm_state_str, custom_lcm_state) == -1)
-        {
-            ostringstream oss;
-
-            oss << "Invalid CUSTOM_LCM_STATE: " << lcm_state_str;
-            error = oss.str();
-
-            return -1;
-        }
-    }
-
     return 0;
 }
 
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-int HookStateVM::post_update_template(Template * tmpl, string& error)
+int HookStateVM::post_update_template(Template * tmpl, std::string& error)
 {
-    string new_state, resource;
+    std::string new_state_str, new_lcm_str;
 
-    tmpl->get("STATE", new_state);
+    VirtualMachine::VmState new_state;
+    VirtualMachine::LcmState new_lcm;
 
-    if (str_to_state(new_state) == NONE)
+    if ( tmpl->get("STATE", new_state_str) &&
+            VirtualMachine::vm_state_from_str(new_state_str, new_state) == 0)
     {
-        new_state = state_to_str(hook_state);
+        state = new_state;
+        tmpl->replace("STATE", new_state_str);
     }
 
-    tmpl->replace("STATE", new_state);
-
-    tmpl->get("RESOURCE", resource);
-
-    if (PoolObjectSQL::str_to_type(resource) != PoolObjectSQL::VM)
+    if ( tmpl->get("LCM_STATE", new_lcm_str) &&
+            VirtualMachine::lcm_state_from_str(new_lcm_str, new_lcm) == 0)
     {
-        resource = PoolObjectSQL::type_to_str(PoolObjectSQL::VM);
-    }
-
-    tmpl->replace("RESOURCE", resource);
-
-    if (new_state == state_to_str(CUSTOM))
-    {
-        VirtualMachine::VmState vm_state;
-        VirtualMachine::LcmState lcm_state;
-
-        tmpl->get("CUSTOM_STATE", new_state);
-
-        if (VirtualMachine::vm_state_from_str(new_state, vm_state) == -1)
-        {
-            VirtualMachine::vm_state_to_str(new_state, custom_state);
-        }
-
-        tmpl->replace("CUSTOM_STATE", new_state);
-
-        tmpl->get("CUSTOM_LCM_STATE", new_state);
-
-        if (VirtualMachine::lcm_state_from_str(new_state, lcm_state) == -1)
-        {
-            VirtualMachine::lcm_state_to_str(new_state, custom_lcm_state);
-        }
-
-        tmpl->replace("CUSTOM_LCM_STATE", new_state);
+        lcm_state = new_lcm;
+        tmpl->replace("STATE", new_lcm_str);
     }
 
     return 0;
 }
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */

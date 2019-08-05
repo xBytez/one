@@ -93,12 +93,6 @@ public:
     {
         return new Hook(0);
     };
-
-    Hook * create(Template * tmpl)
-    {
-
-        return new Hook(tmpl);
-    }
 };
 
 #endif

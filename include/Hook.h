@@ -21,11 +21,8 @@
 
 #include "Template.h"
 #include "PoolObjectSQL.h"
-#include "HookImplementation.h"
 
-class HookAPI;
-
-using namespace std;
+class HookImplementation;
 
 class Hook : public PoolObjectSQL
 {
@@ -49,6 +46,8 @@ public:
             case API:       return "api";
             case UNDEFINED: return "";
         }
+
+        return "";
     };
 
     static HookType str_to_hook_type(const string& ht)
@@ -61,10 +60,8 @@ public:
         {
             return API;
         }
-        else
-        {
-            return UNDEFINED;
-        }
+
+        return UNDEFINED;
     }
 
     /**
@@ -81,12 +78,8 @@ private:
     // Constructor/Destructor
     // *************************************************************************
 
-    Hook(Template * tmpl):
-        PoolObjectSQL(-1,HOOK,"",-1,-1,"","",table),
-        type(HookType::UNDEFINED),
-        cmd(""),
-        remote(false),
-        hook_implementation(0)
+    Hook(Template * tmpl): PoolObjectSQL(-1, HOOK, "", -1, -1, "", "", table),
+        type(HookType::UNDEFINED), cmd(""), remote(false), _hook(0)
     {
         if (tmpl != 0)
         {
@@ -98,15 +91,12 @@ private:
         }
     };
 
-    ~Hook()
-    {
-        delete hook_implementation;
-    };
+    ~Hook();
 
     /**
      * Set hook implementation attribute depending of the hook type.
      */
-    int set_hook_implementation(HookType hook_type, string& error);
+    int set_hook(HookType hook_type, std::string& error);
 
      /**
      *  Parses the arguments of the hook using a generic $ID identifier, and
@@ -115,23 +105,14 @@ private:
      *    @param obj pointer to the object executing the hook for
      *    @param the resulting parser arguments
      */
-    void parse_hook_arguments(PoolObjectSQL * obj,
-                              string&         parsed);
+    void parse_hook_arguments(PoolObjectSQL * obj, std::string& parsed);
 
     /**
      * Function to print the Hook object into a string in XML format
      *  @param xml the resulting XML string
      *  @return a reference to the generated string
      */
-    string& to_xml(string& xml) const;
-
-    /**
-     *  Factory method for Hook templates
-     */
-    Template * get_new_template() const
-    {
-        return new Template;
-    }
+    std::string& to_xml(std::string& xml) const;
 
     /**
      *  Rebuilds the object from an xml formatted string
@@ -139,13 +120,13 @@ private:
      *
      *    @return 0 on success, -1 otherwise
      */
-    int from_xml(const string &xml_str);
+    int from_xml(const std::string &xml_str);
 
     /* Checks the mandatory templates attrbutes
      *    @param error string describing the error if any
      *    @return 0 on success
      */
-    int post_update_template(string& error);
+    int post_update_template(std::string& error);
 
     // -------------------------------------------------------------------------
     // Hook Attributes
@@ -169,7 +150,7 @@ private:
     /**
      * Object which implement type dependent methods.
      */
-    HookImplementation * hook_implementation;
+    HookImplementation * _hook;
 
     // *************************************************************************
     // Database implementation

@@ -20,19 +20,79 @@
 #include "MadManager.h"
 #include "ActionManager.h"
 #include "HookManagerDriver.h"
-#include "VirtualMachinePool.h"
-#include "Request.h"
 
-using namespace std;
+#include <vector>
 
-class HookManager : public MadManager
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+class HMAction : public ActionRequest
+{
+public:
+    enum Actions
+    {
+        SEND_EVENT  /**< Send event to hook manager driver*/
+    };
+
+    HMAction(Actions a, const std::string& m):ActionRequest(ActionRequest::USER),
+        _action(a), _message(m){};
+
+    HMAction(const HMAction& o):ActionRequest(o._type), _action(o._action),
+        _message(o._message){};
+
+    Actions action() const
+    {
+        return _action;
+    }
+
+    const std::string& message() const
+    {
+        return _message;
+    }
+
+    ActionRequest * clone() const
+    {
+        return new HMAction(*this);
+    }
+
+private:
+    Actions _action;
+
+    std::string _message;
+};
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+extern "C" void * hm_action_loop(void *arg);
+
+class HookManager : public MadManager, public ActionListener
 {
 public:
 
-    HookManager(vector<const VectorAttribute*>& _mads, VirtualMachinePool * _vmpool)
-        :MadManager(_mads){};
+    HookManager(std::vector<const VectorAttribute*>& _mads):MadManager(_mads)
+    {
+        am.addListener(this);
+    };
 
-    ~HookManager(){};
+    virtual ~HookManager() = default;
+
+    /**
+     *  This functions starts the associated listener thread, and creates a
+     *  new thread for the Hook Manager. This thread will wait in
+     *  an action loop till it receives ACTION_FINALIZE.
+     *    @return 0 on success.
+     */
+    int start();
+
+    /**
+     *  Gets the HookManager thread identification.
+     *    @return pthread_t for the manager thread (that in the action loop).
+     */
+    pthread_t get_thread_id() const
+    {
+        return hm_thread;
+    };
 
     /**
      *  Loads Hook Manager Mads defined in configuration file
@@ -43,6 +103,26 @@ public:
     int load_mads(int uid=0);
 
     /**
+     *  Triggers specific actions to the Hook Manager.      
+     *    @param action the HM action
+     *    @param message to send to the driver
+     */
+    void trigger(HMAction::Actions action, const std::string& message)
+    {
+        HMAction hm_ar(action, message);
+
+        am.trigger(hm_ar);
+    }
+
+    /**
+     *  Terminates the hook manager thread listener
+     */
+    void finalize()
+    {
+        am.finalize();
+    };
+
+    /**
      *  Returns a pointer to a Information Manager MAD. The driver is
      *  searched by its name and owned by oneadmin with uid=0.
      *    @param name of the driver
@@ -51,23 +131,57 @@ public:
      */
     const HookManagerDriver * get()
     {
-        string name("NAME");
+        std::string name("NAME");
 
         return static_cast<const HookManagerDriver *>
-               (MadManager::get(0,name,hook_driver_name));
+               (MadManager::get(0, name,hook_driver_name));
     };
 
-    string * format_message(const string& method_name, bool success,
-                            ParamList paramList, int resource_id, const string& response);
-
-    void send_message(const string& method_name, bool success,
-                          ParamList paramList, int resource_id, const string& response);
-
 private:
+    /**
+     *  Function to execute the Manager action loop method within a new pthread
+     *  (requires C linkage)
+     */
+    friend void * hm_action_loop(void *arg);
+
     /**
      *  Generic name for the Hook driver
      */
      static const char *  hook_driver_name;
+
+    /**
+     *  Thread id for the HookManager
+     */
+    pthread_t             hm_thread;
+
+    /**
+     *  Action engine for the Manager
+     */
+    ActionManager         am;
+
+    /**
+     *  Function to execute the Manager action loop method within a new pthread
+     *  (requires C linkage)
+     */
+    friend void * hm_action_loop(void *arg);
+
+    /**
+     *  Send event message to the driver
+     *    @param message to pass to the driver
+     */
+    void send_event_action(const std::string& message);
+
+    // -------------------------------------------------------------------------
+    // Action Listener interface
+    // -------------------------------------------------------------------------
+    void finalize_action(const ActionRequest& ar)
+    {
+        NebulaLog::log("HKM",Log::INFO,"Stopping Hook Manager...");
+
+        MadManager::stop();
+    };
+
+    void user_action(const ActionRequest& ar);
 };
 
 #endif /*HOOK_MANAGER_H*/

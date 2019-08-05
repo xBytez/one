@@ -22,6 +22,54 @@ const char * HookManager::hook_driver_name = "hook_exe";
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
+extern "C" void * hm_action_loop(void *arg)
+{
+    HookManager *  hm;
+
+    if ( arg == 0 )
+    {
+        return 0;
+    }
+
+    NebulaLog::log("HKM",Log::INFO,"Hook Manager started.");
+
+    hm = static_cast<HookManager *>(arg);
+
+    hm->am.loop();
+
+    NebulaLog::log("HKM",Log::INFO,"Hook Manager stopped.");
+
+    return 0;
+}
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+int HookManager::start()
+{
+    int               rc;
+    pthread_attr_t    pattr;
+
+    rc = MadManager::start();
+
+    if ( rc != 0 )
+    {
+        return -1;
+    }
+
+    NebulaLog::log("HKM",Log::INFO,"Starting Hook Manager...");
+
+    pthread_attr_init (&pattr);
+    pthread_attr_setdetachstate (&pattr, PTHREAD_CREATE_JOINABLE);
+
+    rc = pthread_create(&hm_thread,&pattr,hm_action_loop,(void *) this);
+
+    return rc;
+}
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
 int HookManager::load_mads(int uid)
 {
     HookManagerDriver *     hm_mad;
@@ -64,48 +112,34 @@ int HookManager::load_mads(int uid)
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-string * HookManager::format_message(const string& method_name, bool success,
-                                     ParamList paramList, int resource_id, const string& response)
+void HookManager::user_action(const ActionRequest& ar)
 {
-    ostringstream oss;
+    const HMAction& hm_ar      = static_cast<const HMAction& >(ar);
+    const std::string& message = hm_ar.message();
 
-    oss << "<HOOK_MESSAGE>"
-        << "<HOOK_TYPE>API</HOOK_TYPE>"
-        << "<CALL>" << method_name << "</CALL>"
-        << "<CALL_INFO>"
-        << "<RESULT>" << success << "</RESULT>"
-        << "<PARAMETERS>";
-
-        for (int i = 0; i < paramList.size(); i++)
-        {
-            oss << "<PARAMETER" << i + 1 << ">"
-                << paramList.get_value_as_string(i)
-                << "</PARAMETER" << i + 1 << ">";
-        }
-
-    oss << "</PARAMETERS>"
-        << response
-        << "</CALL_INFO>"
-        << "</HOOK_MESSAGE>";
-
-    return one_util::base64_encode(oss.str());
+    switch (hm_ar.action())
+    {
+        case HMAction::SEND_EVENT:
+            send_event_action(message);
+            break;
+    }
 }
 
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-void HookManager::send_message(const string& method_name, bool success,
-                                   ParamList paramList, int resource_id, const string& response)
+void HookManager::send_event_action(const std::string& message)
 {
-    string * message;
-    const HookManagerDriver* hmd;
+    const HookManagerDriver* hmd = get();
 
-    hmd = get();
+    if ( hmd == nullptr )
+    {
+        return;
+    }
 
-    message = format_message(method_name, success, paramList, resource_id, response);
-
-    hmd->execute(*message);
+    hmd->execute(message);
 }
 
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
+

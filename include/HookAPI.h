@@ -18,18 +18,22 @@
 #define HOOK_API_H_
 
 #include <string>
-
-#include "Hook.h"
 #include "HookImplementation.h"
+
+class HookPool;
+class Hook;
+
+class ParamList;
+class RequestAttributes;
 
 class HookAPI : public HookImplementation
 {
 public:
-
-    void do_hook(void *arg)
-    {
-        return;
-    }
+    /**
+     *  Function to build a XML message for an API hook
+     */
+    static std::string * format_message(std::string method, ParamList& paramList,
+            const RequestAttributes& att);
 
 private:
     friend class HookPool;
@@ -38,12 +42,11 @@ private:
     // *************************************************************************
     // Constructor/Destructor
     // *************************************************************************
+    HookAPI() = default;
 
-    HookAPI():call(""){};
+    HookAPI(const std::string& _call): call(_call){};
 
-    HookAPI(const string& _call): call(_call){};
-
-    ~HookAPI(){};
+    virtual ~HookAPI() = default;
 
     /**
      *  Check if type dependent attributes are well defined.
@@ -51,7 +54,7 @@ private:
      *    @param error_str string with error information
      *    @return 0 on success
      */
-    int check_insert(Template *tmpl, string& error_str);
+    int parse_template(Template *tmpl, std::string& error_str);
 
     /**
      *  Rebuilds the object from a template
@@ -59,21 +62,23 @@ private:
      *
      *    @return 0 on success, -1 otherwise
      */
-    int from_template(const Template * tmpl, string& error);
+    int from_template(const Template * tmpl, std::string& error);
 
     /* Checks the mandatory template attributes
      *    @param tmpl The hook template
      *    @param error string describing the error if any
+     *
      *    @return 0 on success
      */
-    int post_update_template(Template * tmpl, string& error);
+    int post_update_template(Template * tmpl, std::string& error);
 
     /**
-     * Check if an api call does exists in the XMLRPC server.
-     * @param api call
-     * @return 0 if the call exists, -1 otherwise
+     * Check if an api call does exist in the XMLRPC server.
+     *   @param api call
+     *
+     *   @return 0 if the call exists, -1 otherwise
      */
-    bool check_api_call(const string& api_call);
+    bool call_exist(const std::string& api_call);
 
     // -------------------------------------------------------------------------
     // Hook API Attributes
@@ -82,7 +87,7 @@ private:
     /**
      *  String representation of the API call
      */
-    string call;
+    std::string call;
 };
 
 #endif

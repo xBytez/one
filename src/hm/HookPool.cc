@@ -42,7 +42,7 @@ int HookPool::allocate (Template * tmpl, string& error_str)
         goto error_duplicated;
     }
 
-    hook = create(tmpl);
+    hook = new Hook(tmpl);
 
     oid = PoolSQL::allocate(hook, error_str);
 

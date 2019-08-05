@@ -19,17 +19,14 @@
 
 #include <string>
 
-#include "Hook_.h"
-
-class RaftHook : public Hook_
+class RaftHook
 {
 public:
     RaftHook(const std::string& name,
              const std::string& command,
-             const std::string& arg):
-        Hook_(name, command, arg, Hook_::UPDATE, false){};
+             const std::string& arg) {};
 
-    ~RaftHook(){};
+    virtual ~RaftHook() = default;
 
     void do_hook(void *arg);
 };
@@ -40,7 +37,7 @@ public:
     RaftLeaderHook(const std::string& command, const std::string& arg):
         RaftHook("RAFT_LEADER_HOOK", command, arg){};
 
-    ~RaftLeaderHook(){};
+    virtual ~RaftLeaderHook() = default;
 };
 
 class RaftFollowerHook : public RaftHook
@@ -49,7 +46,7 @@ public:
     RaftFollowerHook(const std::string& command, const std::string& arg):
         RaftHook("RAFT_FOLLOWER_HOOK", command, arg){};
 
-    ~RaftFollowerHook(){};
+    virtual ~RaftFollowerHook() = default;
 };
 
 #endif

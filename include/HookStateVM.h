@@ -17,79 +17,33 @@
 #ifndef HOOK_STATE_VM_H_
 #define HOOK_STATE_VM_H_
 
-#include <string>
-
-#include "Hook.h"
 #include "VirtualMachine.h"
 #include "HookImplementation.h"
 
 class HookStateVM : public HookImplementation
 {
 public:
+    /**
+     *  @return true if an state hook needs to be trigger for this VM
+     */
+    static bool trigger(VirtualMachine * vm);
 
-    enum HookVMStates
-    {
-        CREATE   = 0,
-        RUNNING  = 1,
-        SHUTDOWN = 2,
-        STOP     = 3,
-        DONE     = 4,
-        UNKNOWN  = 5,
-        CUSTOM   = 6,
-        NONE     = 7
-    };
-
-    static string state_to_str(HookVMStates st)
-    {
-        switch(st)
-        {
-            case CREATE:   return "CREATE";   break;
-            case RUNNING:  return "RUNNING";  break;
-            case SHUTDOWN: return "SHUTDOWN"; break;
-            case STOP:     return "STOP";     break;
-            case DONE:     return "DONE";     break;
-            case UNKNOWN:  return "UNKNOWN";  break;
-            case CUSTOM:   return "CUSTOM";   break;
-            default:       return "";
-        }
-    };
-
-    static HookVMStates str_to_state(string st)
-    {
-        if ( st == "CREATE" )        return CREATE;
-        else if ( st == "RUNNING" )  return RUNNING;
-        else if ( st == "SHUTDOWN" ) return SHUTDOWN;
-        else if ( st == "STOP" )     return STOP;
-        else if ( st == "DONE" )     return DONE;
-        else if ( st == "UNKNOWN" )  return UNKNOWN;
-        else if ( st == "CUSTOM" )   return CUSTOM;
-        else                         return NONE;
-    };
-
-    void do_hook(void *arg)
-    {
-        return;
-    }
+    /**
+     *  Function to build a XML message for a state hook
+     */
+    static std::string * format_message(VirtualMachine * vm);
 
 private:
-    friend class HookPool;
     friend class Hook;
 
     // *************************************************************************
     // Constructor/Destructor
     // *************************************************************************
 
-    HookStateVM():hook_state(NONE){};
+    HookStateVM():state(VirtualMachine::INIT),
+        lcm_state(VirtualMachine::LCM_INIT){};
 
-    HookStateVM(const HookVMStates state): hook_state(state){};
-
-    HookStateVM(const HookVMStates state, const VirtualMachine::VmState vm_state,
-                const VirtualMachine::LcmState vm_lcm_state):
-    hook_state(state),
-    custom_state(vm_state),
-    custom_lcm_state(vm_lcm_state){};
-
-    ~HookStateVM(){};
+    virtual ~HookStateVM() = default;
 
     /**
      *  Check if type dependent attributes are well defined.
@@ -97,7 +51,7 @@ private:
      *    @param error_str string with error information
      *    @return 0 on success
      */
-    int check_insert(Template *tmpl, string& error_str);
+    int parse_template(Template *tmpl, std::string& error_str);
 
     /**
      *  Rebuilds the object from a template
@@ -105,36 +59,29 @@ private:
      *
      *    @return 0 on success, -1 otherwise
      */
-    int from_template(const Template * tmpl, string& error);
+    int from_template(const Template * tmpl, std::string& error);
 
     /* Checks the mandatory template attributes
      *    @param tmpl The hook template
      *    @param error string describing the error if any
      *    @return 0 on success
      */
-    int post_update_template(Template * tmpl, string& error);
+    int post_update_template(Template * tmpl, std::string& error);
 
     // -------------------------------------------------------------------------
     // Hook API Attributes
     // -------------------------------------------------------------------------
-
-    /**
-     *  States hook_state state which trigger the hook
-     */
-    HookVMStates hook_state;
-
     /**
      * VirtualMachine::VmState custom_state VM state which trigger the hook
      * if hook_state is set to CUSTOM
      */
-    VirtualMachine::VmState custom_state;
+    VirtualMachine::VmState state;
 
     /**
      * VirtualMachine::LcmState custom_lcm_state VM LCM state which trigger the hook
      * if hook_state is set to CUSTOM
      */
-    VirtualMachine::LcmState custom_lcm_state;
-
+    VirtualMachine::LcmState lcm_state;
 };
 
 #endif

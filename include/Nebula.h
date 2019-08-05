@@ -815,7 +815,6 @@ private:
     string  etc_location;
     string  log_location;
     string  var_location;
-    string  hook_location;
     string  remotes_location;
     string  vms_location;
 

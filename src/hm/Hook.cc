@@ -37,53 +37,20 @@ const char * Hook::db_bootstrap = "CREATE TABLE IF NOT EXISTS hook_pool ("
 
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
-/*
-void AllocateRemoveHook::do_hook(void *arg)
+
+Hook::~Hook()
 {
-    PoolObjectSQL * obj = static_cast<PoolObjectSQL *>(arg);
-    string          parsed_args = args;
-
-    if ( obj == 0 )
-    {
-        return;
-    }
-
-    parse_hook_arguments(obj, parsed_args);
-
-    Nebula& ne                    = Nebula::instance();
-    HookManager * hm              = ne.get_hm();
-    const HookManagerDriver * hmd = hm->get();
-
-    if ( hmd != 0 )
-    {
-        if ( remote == true )
-        {
-            string hostname;
-
-            hmd->execute(obj->get_oid(),
-                         name,
-                         remote_host(obj, hostname),
-                         cmd,
-                         parsed_args);
-        }
-        else
-        {
-            hmd->execute(obj->get_oid(), name, cmd, parsed_args);
-        }
-    }
-}*/
+    delete _hook;
+};
 
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-void Hook::parse_hook_arguments(PoolObjectSQL *obj,
-                                string&       parsed)
+void Hook::parse_hook_arguments(PoolObjectSQL *obj, std::string& parsed)
 {
-    size_t  found;
+    size_t found = parsed.find("$ID");
 
-    found = parsed.find("$ID");
-
-    if ( found !=string::npos )
+    if ( found != string::npos )
     {
         ostringstream oss;
         oss << obj->get_oid();
@@ -111,11 +78,11 @@ string& Hook::to_xml(string& xml) const
 
     oss <<
     "<HOOK>"
-        "<ID>"     << oid    << "</ID>"              <<
-        "<NAME>"   << name   << "</NAME>"            <<
-        "<TYPE>"   << Hook::hook_type_to_str(type)   << "</TYPE>"   <<
-        lock_db_to_xml(lock_str)                     <<
-        obj_template->to_xml(template_xml)           <<
+        "<ID>"     << oid    << "</ID>"            <<
+        "<NAME>"   << name   << "</NAME>"          <<
+        "<TYPE>"   << Hook::hook_type_to_str(type) << "</TYPE>" <<
+        lock_db_to_xml(lock_str)                   <<
+        obj_template->to_xml(template_xml)         <<
     "</HOOK>";
 
     xml = oss.str();
@@ -126,11 +93,11 @@ string& Hook::to_xml(string& xml) const
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-int Hook::from_xml(const string& xml)
+int Hook::from_xml(const std::string& xml)
 {
     vector<xmlNodePtr> content;
-    string type_str, remote_str;
-    string error_msg;
+    std::string type_str, remote_str;
+    std::string error_msg;
 
     int rc = 0;
 
@@ -154,19 +121,19 @@ int Hook::from_xml(const string& xml)
 
     ObjectXML::get_nodes("/HOOK/TEMPLATE", content);
 
-    if(content.empty())
+    if (content.empty())
     {
         return -1;
     }
 
     rc += obj_template->from_xml_node( content[0] );
 
-    if(set_hook_implementation(type, error_msg) == -1)
+    if ( set_hook(type, error_msg) == -1 )
     {
         return -1;
     }
 
-    rc += hook_implementation->from_template(obj_template, error_msg);
+    rc += _hook->from_template(obj_template, error_msg);
 
     get_template_attribute("COMMAND", cmd);
     get_template_attribute("REMOTE",  remote);
@@ -180,7 +147,6 @@ int Hook::from_xml(const string& xml)
         return -1;
     }
 
-
     return 0;
 }
 
@@ -189,29 +155,36 @@ int Hook::from_xml(const string& xml)
 
 int Hook::post_update_template(string& error)
 {
-    string new_cmd;
+    std::string new_cmd;
+    bool new_remote;
 
     get_template_attribute("COMMAND", new_cmd);
-    get_template_attribute("REMOTE", remote);
 
     if (new_cmd != "")
     {
         cmd = new_cmd;
+
+        replace_template_attribute("COMMAND", cmd);
     }
 
-    replace_template_attribute("COMMAND", cmd);
-    replace_template_attribute("REMOTE", remote);
+    if ( get_template_attribute("REMOTE", new_remote) )
+    {
+        remote = new_remote;
 
-    return hook_implementation->post_update_template(obj_template, error);
+        replace_template_attribute("REMOTE", remote);
+    }
+
+    return _hook->post_update_template(obj_template, error);
 }
 
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-int Hook::insert(SqlDB *db, string& error_str)
+int Hook::insert(SqlDB *db, std::string& error_str)
 {
-    string type_str;
-    string remote_str;
+    std::string type_str;
+    std::string remote_str;
+
     int rc;
 
     obj_template->get("NAME", name);
@@ -237,26 +210,19 @@ int Hook::insert(SqlDB *db, string& error_str)
 
     erase_template_attribute("TYPE", type_str);
 
-    if (type_str.empty())
+    type = Hook::str_to_hook_type(type_str);
+
+    if (type == Hook::UNDEFINED)
     {
         goto error_type;
     }
-    else
-    {
-        type = Hook::str_to_hook_type(type_str);
 
-        if (type == Hook::UNDEFINED)
-        {
-            goto error_type;
-        }
-    }
-
-    if (set_hook_implementation(type, error_str) == -1)
+    if (set_hook(type, error_str) == -1)
     {
         goto error_common;
     }
 
-    rc = hook_implementation->check_insert(obj_template, error_str);
+    rc = _hook->parse_template(obj_template, error_str);
 
     if (rc == -1)
     {
@@ -281,11 +247,12 @@ error_common:
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-int Hook::insert_replace(SqlDB *db, bool replace, string& error_str){
-    ostringstream   oss;
+int Hook::insert_replace(SqlDB *db, bool replace, std::string& error_str)
+{
+    ostringstream oss;
 
-    int    rc;
-    string xml_body;
+    int rc;
+    std::string xml_body;
 
     char * sql_name;
     char * sql_xml;
@@ -294,8 +261,7 @@ int Hook::insert_replace(SqlDB *db, bool replace, string& error_str){
     set_user(0, "");
     set_group(GroupPool::ONEADMIN_ID, GroupPool::ONEADMIN_NAME);
 
-   // Update the Host
-
+   // Update the Hook
     sql_name = db->escape_str(name.c_str());
 
     if ( sql_name == 0 )
@@ -367,9 +333,10 @@ error_common:
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-int Hook::set_hook_implementation(HookType hook_type, string& error)
+int Hook::set_hook(HookType hook_type, string& error)
 {
-    string type_str;
+    std::string type_str;
+    std::string resource;
 
     if (hook_type == UNDEFINED)
     {
@@ -379,9 +346,6 @@ int Hook::set_hook_implementation(HookType hook_type, string& error)
     switch (hook_type)
     {
         case STATE:
-        {
-            string resource;
-
             if (obj_template == 0)
             {
                 return -1;
@@ -391,38 +355,36 @@ int Hook::set_hook_implementation(HookType hook_type, string& error)
 
             if (resource.empty())
             {
-                error = "Resource attribute is required for hooks of state type.";
+                error = "RESOURCE attribute is required for STATE hooks.";
                 return -1;
             }
 
             switch(PoolObjectSQL::str_to_type(resource))
             {
                 case PoolObjectSQL::VM:
-                    hook_implementation = new HookStateVM();
+                    _hook = new HookStateVM();
                     break;
+
                 case PoolObjectSQL::HOST:
-                    hook_implementation = new HookStateHost();
+                    _hook = new HookStateHost();
                     break;
+
                 default:
-                {
-                    ostringstream oss;
-
-                    oss << "Invalid resource type: " << resource;
-                    error = oss.str();
-
+                    error = "Invalid resource type: " + resource;
                     return -1;
-                }
             }
 
             break;
-        }
+
         case API:
-            hook_implementation = new HookAPI();
+            _hook = new HookAPI();
             break;
+
         case UNDEFINED:
             error = "Invalid hook type.";
             return -1;
     };
 
-    return hook_implementation->from_template(obj_template, error);
+    return _hook->from_template(obj_template, error);
 }
+

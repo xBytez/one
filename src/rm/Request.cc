@@ -370,7 +370,7 @@ void Request::execute(
     RaftManager * raftm = nd.get_raftm();
     UserPool* upool     = nd.get_upool();
 
-    HookManager * hm              = nd.get_hm();
+    HookManager * hm = nd.get_hm();
 
     bool authenticated = upool->authenticate(att.session, att.password,
         att.uid, att.gid, att.uname, att.gname, att.group_ids, att.umask);
@@ -435,8 +435,16 @@ void Request::execute(
         request_execute(_paramList, att);
     }
 
-    //register hook event
-    hm->send_message(method_name, att.success, ParamList(&_paramList), att.resp_id, att.retval_xml);
+    //--------------------------------------------------------------------------
+    // Register API hook event & log call
+    //--------------------------------------------------------------------------
+    ParamList pl(&_paramList);
+
+    std::string * event = HookAPI::format_message(method_name, pl, att);
+
+    hm->trigger(HMAction::SEND_EVENT, *event);
+
+    delete event;
 
     if ( log_method_call )
     {

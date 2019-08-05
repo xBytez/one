@@ -95,7 +95,7 @@ private:
 
     struct NebulaRegistry
     {
-        std::set<string> registered_methods;
+        std::set<std::string> registered_methods;
         xmlrpc_c::registry registry;
 
         void addMethod(std::string const name, xmlrpc_c::methodPtr const methodP)
@@ -106,9 +106,7 @@ private:
 
         bool exist(const string& call)
         {
-            auto found = registered_methods.find(call);
-
-            return found != registered_methods.end();
+            return registered_methods.find(call) != registered_methods.end();
         }
     };
 

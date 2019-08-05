@@ -37,15 +37,13 @@ const int    GroupPool::USERS_ID      = 1;
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-GroupPool::GroupPool(SqlDB * db, vector<const VectorAttribute *> hook_mads,
-    const string& remotes_location, bool is_federation_slave) :
-        PoolSQL(db, Group::table)
+GroupPool::GroupPool(SqlDB * db, bool is_slave) : PoolSQL(db, Group::table)
 {
     ostringstream oss;
     string        error_str;
 
     //Federation slaves do not need to init the pool
-    if (is_federation_slave)
+    if (is_slave)
     {
         return;
     }
@@ -79,8 +77,6 @@ GroupPool::GroupPool(SqlDB * db, vector<const VectorAttribute *> hook_mads,
 
         set_lastOID(99);
     }
-
-    register_hooks(hook_mads, remotes_location);
 
     return;
 

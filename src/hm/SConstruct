@@ -22,11 +22,10 @@ lib_name='nebula_hm'
 
 # Sources to generate the library
 source_files=[
-    'Hook_.cc',
-	'Hook.cc',
+    'Hook.cc',
     'HookPool.cc',
     'HookAPI.cc',
-	'HookStateVM.cc',
+    'HookStateVM.cc',
     'HookStateHost.cc',
     'HookManager.cc',
     'HookManagerDriver.cc'

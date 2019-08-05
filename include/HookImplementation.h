@@ -17,21 +17,51 @@
 #ifndef HOOK_IMPLEMENTATION_H_
 #define HOOK_IMPLEMENTATION_H_
 
-#include "Hook.h"
-#include "Template.h"
+#include <string>
 
+class Template;
+class Hook;
+
+/**
+ *  This is an abstract interface for any Hook class. It provides the
+ *  specific logic for the Hook type. It is included by the Hook class that
+ *  handles persistency.
+ */
 class HookImplementation
 {
 protected:
-    virtual ~HookImplementation(){};
-private:
     friend class Hook;
 
-    virtual int from_template(const Template * tmpl, string& error) = 0;
+    HookImplementation() = default;
 
-    virtual int post_update_template(Template * tmpl, string& error) = 0;
+    virtual ~HookImplementation() = default;
 
-    virtual int check_insert(Template *tmpl, string& error_str) = 0;
+    /**
+     *  Builds the hook from its template implementation
+     *    @param tmpl Template with hook attributes
+     *    @param error description
+     *
+     *    @return 0 on success
+     */
+    virtual int from_template(const Template * tmpl, std::string& error) = 0;
+
+    /**
+     *  This function is execute custom setups after updating the hook template
+     *    @param tmpl updated template
+     *    @param error description
+     *
+     *    @return 0 on success
+     */
+    virtual int post_update_template(Template * tmpl, std::string& error) = 0;
+
+    /**
+     *  This function parses the hook template upon creation
+     *    @param tmpl updated template
+     *    @param error description
+     *
+     *    @return 0 on success
+     */
+    virtual int parse_template(Template *tmpl, std::string& error_str) = 0;
 };
 
 #endif

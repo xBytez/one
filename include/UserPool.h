@@ -41,11 +41,7 @@ class UserPool : public PoolSQL
 {
 public:
 
-    UserPool(SqlDB * db,
-             time_t  __session_expiration_time,
-             vector<const VectorAttribute *> hook_mads,
-             const string&             remotes_location,
-             bool                      is_federation_slave);
+    UserPool(SqlDB * db, time_t  __session_expiration_time, bool is_slave);
 
     ~UserPool(){};
 

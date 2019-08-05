@@ -22,12 +22,5 @@
 
 void RaftHook::do_hook(void *arg)
 {
-    Nebula& ne                    = Nebula::instance();
-    HookManager * hm              = ne.get_hm();
-    const HookManagerDriver * hmd = hm->get();
-
-    if ( hmd != 0 )
-    {
-        hmd->execute(-1, name, cmd, args);
-    }
+    return;
 }

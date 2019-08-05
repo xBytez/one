@@ -17,54 +17,32 @@
 #ifndef HOOK_STATE_HOST_H_
 #define HOOK_STATE_HOST_H_
 
-#include <string>
-
-#include "Hook.h"
 #include "HookImplementation.h"
+#include "Host.h"
 
 class HookStateHost : public HookImplementation
 {
 public:
+    /**
+     *  @return true if an state hook needs to be trigger for this Host
+     */
+    static bool trigger(Host * host);
 
-    enum HookHostStates
-    {
-        ERROR   = 0,
-        NONE    = 1
-    };
-
-    static string state_to_str(HookHostStates st)
-    {
-        switch(st)
-        {
-            case ERROR:   return "ERROR";   break;
-            default:      return "";
-        };
-    };
-
-    static HookHostStates str_to_state(string st)
-    {
-        if ( st == "ERROR" )   return ERROR;
-        else                   return NONE;
-    };
-
-    void do_hook(void *arg)
-    {
-        return;
-    }
+    /**
+     *  Function to build a XML message for a state hook
+     */
+    static std::string * format_message(Host * host);
 
 private:
-    friend class HookPool;
     friend class Hook;
 
     // *************************************************************************
     // Constructor/Destructor
     // *************************************************************************
 
-    HookStateHost():hook_state(NONE){};
+    HookStateHost():state(Host::INIT){};
 
-    HookStateHost(const HookHostStates state): hook_state(state){};
-
-    ~HookStateHost(){};
+    virtual ~HookStateHost() = default;
 
     /**
      *  Check if type dependent attributes are well defined.
@@ -72,7 +50,7 @@ private:
      *    @param error_str string with error information
      *    @return 0 on success
      */
-    int check_insert(Template *tmpl, string& error_str);
+    int parse_template(Template *tmpl, std::string& error_str);
 
     /**
      *  Rebuilds the object from a template
@@ -80,14 +58,14 @@ private:
      *
      *    @return 0 on success, -1 otherwise
      */
-    int from_template(const Template * tmpl, string& error);
+    int from_template(const Template * tmpl, std::string& error);
 
     /* Checks the mandatory template attributes
      *    @param tmpl The hook template
      *    @param error string describing the error if any
      *    @return 0 on success
      */
-    int post_update_template(Template * tmpl, string& error);
+    int post_update_template(Template * tmpl, std::string& error);
 
     // -------------------------------------------------------------------------
     // Hook API Attributes
@@ -96,8 +74,7 @@ private:
     /**
      *  States hook_state state which trigger the hook
      */
-    HookHostStates hook_state;
-
+    Host::HostState state;
 };
 
 #endif
