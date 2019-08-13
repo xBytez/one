@@ -1131,7 +1131,6 @@ void Nebula::start(bool bootstrap_only)
     // -----------------------------------------------------------
     // Wait for a SIGTERM or SIGINT signal
     // -----------------------------------------------------------
-
     sigemptyset(&mask);
 
     sigaddset(&mask, SIGINT);

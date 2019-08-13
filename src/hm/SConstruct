@@ -28,7 +28,8 @@ source_files=[
     'HookStateVM.cc',
     'HookStateHost.cc',
     'HookManager.cc',
-    'HookManagerDriver.cc'
+    'HookManagerDriver.cc',
+    'ExecuteHook.cc'
 ]
 
 # Build library

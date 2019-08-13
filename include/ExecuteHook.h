@@ -14,39 +14,53 @@
 /* limitations under the License.                                             */
 /* -------------------------------------------------------------------------- */
 
-#ifndef RAFT_HOOK_H_
-#define RAFT_HOOK_H_
+#ifndef EXECUTE_HOOK_H_
+#define EXECUTE_HOOK_H_
+
+#define EXECUTE_HOOK_MAX_ARG 50
 
 #include <string>
+#include <sstream>
+#include <iostream>
 
-class RaftHook
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <pthread.h>
+
+extern "C" void * execute_thread(void *arg);
+
+class ExecuteHook
 {
 public:
-    RaftHook(const std::string& name,
-             const std::string& command,
-             const std::string& arg) {};
+    ExecuteHook(const std::string& _name, const std::string& _cmd,
+        const std::string& _arg, const std::string& rl);
 
-    virtual ~RaftHook() = default;
+    virtual ~ExecuteHook() = default;
 
-    void do_hook(void *arg);
-};
+    void execute();
 
-class RaftLeaderHook : public RaftHook
-{
-public:
-    RaftLeaderHook(const std::string& command, const std::string& arg):
-        RaftHook("RAFT_LEADER_HOOK", command, arg){};
+private:
+    friend void * execute_thread(void *arg);
 
-    virtual ~RaftLeaderHook() = default;
-};
+    /**
+     *  Name of the Hook
+     */
+    std::string name;
 
-class RaftFollowerHook : public RaftHook
-{
-public:
-    RaftFollowerHook(const std::string& command, const std::string& arg):
-        RaftHook("RAFT_FOLLOWER_HOOK", command, arg){};
+    /**
+     *  The command to be executed
+     */
+    std::string cmd;
 
-    virtual ~RaftFollowerHook() = default;
+    /**
+     *  The arguments for the command
+     */
+    const char * c_args[EXECUTE_HOOK_MAX_ARG];
+
+    std::string args[EXECUTE_HOOK_MAX_ARG];
 };
 
 #endif

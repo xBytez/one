@@ -103,7 +103,7 @@ public:
     int load_mads(int uid=0);
 
     /**
-     *  Triggers specific actions to the Hook Manager.      
+     *  Triggers specific actions to the Hook Manager.
      *    @param action the HM action
      *    @param message to send to the driver
      */
@@ -158,12 +158,6 @@ private:
      *  Action engine for the Manager
      */
     ActionManager         am;
-
-    /**
-     *  Function to execute the Manager action loop method within a new pthread
-     *  (requires C linkage)
-     */
-    friend void * hm_action_loop(void *arg);
 
     /**
      *  Send event message to the driver
