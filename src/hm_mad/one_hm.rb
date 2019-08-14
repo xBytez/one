@@ -37,123 +37,155 @@ require 'nokogiri'
 
 # HookManagerDriver class
 class HookManagerDriver < OpenNebulaDriver
+    # --------------------------------------------------------------------------
+    # Default configuration options for the driver
+    # --------------------------------------------------------------------------
+    DEFAULT_CONF = {
+        :concurrency => 15,
+        :threaded    => false,
+        :retries     => 0,
+        :publisher_port => 5556,
+        :logger_port    => 5557,
+        :hwm  => nil, # http://zguide.zeromq.org/page:all#High-Water-Marks
+        :bind => '127.0.0.1'
+    }
 
     def initialize(options)
-        @options = {
-            :concurrency => 1,
-            :threaded => false,
-            :retries => 0
-        }.merge!(options)
+        @options = DEFAULT_CONF.merge(options)
+        @options[:concurrency] = 1 # Only on thread using the publisher socket
 
         super('', @options)
 
-        # Initialize publisher socket
-        context = ZMQ::Context.new(1)
-        @publisher = context.socket(ZMQ::PUB)
-        @publisher.setsockopt(ZMQ::SNDHWM, @options[:hwm]) unless @options[:hwm].nil?
-
-        @replier = context.socket(ZMQ::REP)
-
-        # TODO, make the port configurable and add HWM option
-        @publisher.bind("tcp://127.0.0.1:#{@options[:publisher_port]}")
-        @replier.bind("tcp://127.0.0.1:#{@options[:logger_port]}")
-
         register_action(:EXECUTE, method('action_execute'))
 
+        # Initialize sockets and listener
+        context = ZMQ::Context.new(1)
+
+        @publisher = context.socket(ZMQ::PUB)
+        @publisher.setsockopt(ZMQ::SNDHWM, @options[:hwm]) if @options[:hwm]
+        @publisher.bind("tcp://#{@options[:bind]}:#{@options[:publisher_port]}")
+
+        @replier = context.socket(ZMQ::REP)
+        @replier.bind("tcp://#{@options[:bind]}:#{@options[:logger_port]}")
+
         Thread.new do
-            execution_result_thread
+            receiver_thread
         end
     end
 
     def action_execute(*arguments)
         arg_xml = Nokogiri::XML(Base64.decode64(arguments.flatten[0]))
+        type    = arg_xml.xpath('//HOOK_TYPE').text
 
-        type = arg_xml.xpath('//HOOK_TYPE').text.to_sym
+        m_key = key(type, arg_xml)
+        m_val = values(type, arg_xml)
 
-        key = gen_key(type, arg_xml)
-        vals = gen_message(type, arg_xml)
-
-        # Using envelopes for splitting key/val (http://zguide.zeromq.org/page:all#Pub-Sub-Message-Envelopes)
-        @publisher.send_string key, ZMQ::SNDMORE
-        @publisher.send_string Base64.encode64(vals)
+        # Using envelopes for splitting key/val
+        # http://zguide.zeromq.org/page:all#Pub-Sub-Message-Envelopes
+        @publisher.send_string m_key, ZMQ::SNDMORE
+        @publisher.send_string Base64.encode64(m_val)
     end
 
-    def execution_result_thread
+    def receiver_thread
         Kernel.loop do
-            execution = ''
+            message = ''
 
-            @replier.recv_string(execution)
+            @replier.recv_string(message)
             @replier.send_string('ACK')
-            Thread.new do
-                execution = execution.split(' ')
-                if execution.shift.to_i.zereo?
-                    send_message('EXECUTE', RESULT[:success], execution.flatten.join(' '))
-                else
-                    send_message('EXECUTE', RESULT[:failure], execution.flatten.join(' '))
-                end
+
+            message = message.split(' ')
+            result  = message.shift.to_i
+
+            if result.zero?
+                result = RESULT[:success]
+            else
+                result = RESULT[:failure]
             end
+
+            send_message('EXECUTE', result, message.flatten.join(' '))
         end
     end
 
-    def gen_key(type, xml)
-        return gen_api_key(xml) if type.to_sym == :API
-
-        ''
+    #---------------------------------------------------------------------------
+    #  Helpers to build key and message values
+    #---------------------------------------------------------------------------
+    def key(type, xml)
+        case type.to_sym
+        when :API
+            api_key(xml)
+        when :STATE
+            state_key(xml)
+        else
+            ''
+        end
     end
 
-    def gen_api_key(xml)
-        call = xml.xpath('//CALL')[0].text
+    def api_key(xml)
+        call    = xml.xpath('//CALL')[0].text
         success = xml.xpath('//CALL_INFO/RESULT')[0].text
 
         "API #{call} #{success}"
     end
 
-    def gen_message(type, xml)
-        return gen_api_message(xml) if type.to_sym == :API
+    def state_key(xml)
+        obj = xml.xpath('//HOOK_OBJECT')[0].text
 
-        ''
+        "STATE #{obj}"
     end
 
-    def gen_api_message(xml)
-        xml.xpath('//CALL_INFO')[0].serialize(save_with: 0)
+    def values(type, xml)
+        case type.to_sym
+        when :API
+            api_values(xml)
+        when :STATE
+            state_values(xml)
+        else
+            ''
+        end
+    end
+
+    def api_values(xml)
+        xml.xpath('//CALL_INFO')[0].serialize(:save_with => 0)
+    end
+
+    def state_values(xml)
+        xml.xpath('/HOOK_MESSAGE/STATE')[0]
     end
 
 end
 
+#-------------------------------------------------------------------------------
 # Hook Manager main program
-
+#-------------------------------------------------------------------------------
 opts = GetoptLong.new(
     ['--threads',        '-t', GetoptLong::OPTIONAL_ARGUMENT],
     ['--publisher-port', '-p', GetoptLong::OPTIONAL_ARGUMENT],
     ['--logger-port',    '-l', GetoptLong::OPTIONAL_ARGUMENT],
-    ['--hwm',            '-h', GetoptLong::OPTIONAL_ARGUMENT]
+    ['--hwm',            '-h', GetoptLong::OPTIONAL_ARGUMENT],
+    ['--bind',           '-b', GetoptLong::OPTIONAL_ARGUMENT]
 )
 
-threads        = 15
-publisher_port = 5556
-logger_port    = 5557
-hwm            = nil # http://zguide.zeromq.org/page:all#High-Water-Marks
+arguments ={}
 
 begin
     opts.each do |opt, arg|
         case opt
         when '--threads'
-            threads = arg.to_i
+            arguments[:concurrency] = arg.to_i
         when '--publisher-port'
-            publisher_port = arg.to_i
+            arguments[:publisher_port] = arg.to_i
         when '--logger-port'
-            logger_port = arg.to_i
+            arguments[:logger_port] = arg.to_i
         when '--hwm'
-            hwm = arg.to_i
+            arguments[:hwm] = arg.to_i
+        when '--bind'
+            arguments[:bind] = arg.to_i
         end
     end
-rescue Exception => e
+rescue StandardError
     exit(-1)
 end
 
-hm = HookManagerDriver.new(:concurrency => threads,
-                           :publisher_port => publisher_port,
-                           :logger_port => logger_port,
-                           :hwm => hwm)
+hm = HookManagerDriver.new(arguments)
 
 hm.start_driver
