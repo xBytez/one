@@ -121,7 +121,7 @@ module VNMMAD
                     if s.exitstatus != 0 && e.include?('cannot create '\
                         'user data directory')
                         cmd.prepend('sudo ')
-                        config, _e, _s = Open3.capture3(cmd)
+                        config, e, _s = Open3.capture3(cmd)
                         OpenNebula.log "#{config}\n#{e}"
                     end
 
