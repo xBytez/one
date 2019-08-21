@@ -116,10 +116,13 @@ module VNMMAD
 
                     config, e, s = Open3.capture3(cmd)
 
+                    OpenNebula.log "#{config}\n#{e}"
+                    
                     if s.exitstatus != 0 && e.include?('cannot create '\
                         'user data directory')
                         cmd.prepend('sudo ')
                         config, _e, _s = Open3.capture3(cmd)
+                        OpenNebula.log "#{config}\n#{e}"
                     end
 
                     vm.vm_info[:dumpxml] = YAML.safe_load(config)
