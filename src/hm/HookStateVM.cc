@@ -35,7 +35,7 @@ string * HookStateVM::format_message(VirtualMachine * vm)
         << "<HOOK_TYPE>STATE</HOOK_TYPE>"
         << "<HOOK_OBJECT>VM</HOOK_OBJECT>"
         << "<STATE>" << vm->get_state() << "</STATE>"
-        << "<LCM_STATE" << vm->get_lcm_state() << "</LCM_STATE>"
+        << "<LCM_STATE>" << vm->get_lcm_state() << "</LCM_STATE>"
         << vm->to_xml_extended(vm_xml)
         << "</HOOK_MESSAGE>";
 

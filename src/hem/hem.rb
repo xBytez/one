@@ -158,7 +158,9 @@ class HookExecutionManager
     def get_key(hook)
         type = hook['TYPE'].to_sym
 
-        return hook['TEMPLATE/CALL'] if type == HOOK_TYPES[0]
+        return hook['TEMPLATE/CALL'] if type == HOOK_TYPES[0] #API
+
+        return "#{hook['//RESOURCE']}/#{hook['//STATE']}/#{hook['//LCM_STATE']}" if type == HOOK_TYPES[1]  #STATE
     end
 
     # Subscribe the subscriber socket to the given filter
@@ -219,9 +221,9 @@ class HookExecutionManager
     end
 
     # Generate a sbuscriber filter for a STATE type hook
-    def gen_filter_state(_key, _hook)
+    def gen_filter_state(key, _hook)
         # TODO
-        ''
+        "STATE #{key}"
     end
 
     # Generate a sbuscriber filter for a Hook given the type and the key
@@ -294,14 +296,14 @@ class HookExecutionManager
 
         # Remove filter if the hook have been deleted or updated
         if call != 'one.hook.allocate'
-            unsubscribe(filters[id])
+            unsubscribe(@filters[id])
             @filters.delete(id)
         end
 
         return if call == 'one.hook.delete'
 
         # get new hook info
-        hook = Hook.new_with_id(id, client)
+        hook = OpenNebula::Hook.new_with_id(id, client)
         rc = hook.info
 
         if !rc.nil?

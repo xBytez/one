@@ -108,6 +108,14 @@ private:
     void parse_hook_arguments(PoolObjectSQL * obj, std::string& parsed);
 
     /**
+     *  Factory method for Hook templates
+     */
+    Template * get_new_template() const
+    {
+        return new Template;
+    }
+
+    /**
      * Function to print the Hook object into a string in XML format
      *  @param xml the resulting XML string
      *  @return a reference to the generated string

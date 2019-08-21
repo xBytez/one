@@ -385,6 +385,6 @@ int Hook::set_hook(HookType hook_type, string& error)
             return -1;
     };
 
-    return _hook->from_template(obj_template, error);
+    return 0;
 }
 

@@ -128,9 +128,11 @@ class HookManagerDriver < OpenNebulaDriver
     end
 
     def state_key(xml)
-        obj = xml.xpath('//HOOK_OBJECT')[0].text
+        obj       = xml.xpath('//HOOK_OBJECT')[0].text
+        state     = xml.xpath('//STATE')[0].text
+        lcm_state = xml.xpath('//LCM_STATE')[0].text if obj == 'VM'
 
-        "STATE #{obj}"
+        "STATE #{obj}/#{state}/#{lcm_state}"
     end
 
     def values(type, xml)
