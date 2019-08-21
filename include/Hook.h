@@ -168,13 +168,9 @@ private:
      */
     static int bootstrap(SqlDB * db)
     {
-        int rc;
+        std::ostringstream oss_hook(Hook::db_bootstrap);
 
-        ostringstream oss_hook(Hook::db_bootstrap);
-
-        rc =  db->exec_local_wr(oss_hook);
-
-        return rc;
+        return db->exec_local_wr(oss_hook);
     };
 
     /**
