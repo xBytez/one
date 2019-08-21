@@ -16,6 +16,7 @@ A clear and concise description of what you expected to happen.
 **Details**
  - Affected Component: [e.g. Sunstone, Scheduler or Storage]
  - Hypervisor: [e.g. KVM]
+   - package manager: [apt or snapd if LXD]
  - Version: [e.g. 5.4.12 or development]
 
 **Additional context**
