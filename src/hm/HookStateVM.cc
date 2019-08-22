@@ -30,16 +30,17 @@ string * HookStateVM::format_message(VirtualMachine * vm)
 {
     std::ostringstream oss;
     std::string vm_xml;
+    std::string state, lcm_state;
 
     oss << "<HOOK_MESSAGE>"
         << "<HOOK_TYPE>STATE</HOOK_TYPE>"
         << "<HOOK_OBJECT>VM</HOOK_OBJECT>"
-        << "<STATE>" << vm->get_state() << "</STATE>"
-        << "<LCM_STATE>" << vm->get_lcm_state() << "</LCM_STATE>"
+        << "<STATE>" << VirtualMachine::vm_state_to_str(state, vm->get_state()) << "</STATE>"
+        << "<LCM_STATE>" << VirtualMachine::lcm_state_to_str(lcm_state, vm->get_lcm_state()) << "</LCM_STATE>"
         << vm->to_xml_extended(vm_xml)
         << "</HOOK_MESSAGE>";
 
-    return one_util::base64_encode(oss.str());
+    return one_util::base64_encode(oss.str());   
 }
 
 /* -------------------------------------------------------------------------- */
@@ -165,7 +166,7 @@ int HookStateVM::post_update_template(Template * tmpl, std::string& error)
             VirtualMachine::lcm_state_from_str(new_lcm_str, new_lcm) == 0)
     {
         lcm_state = new_lcm;
-        tmpl->replace("STATE", new_lcm_str);
+        tmpl->replace("LCM_STATE", new_lcm_str);
     }
 
     return 0;
