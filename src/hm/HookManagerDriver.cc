@@ -15,6 +15,7 @@
 /* -------------------------------------------------------------------------- */
 
 #include "HookManagerDriver.h"
+#include "Nebula.h"
 #include "NebulaLog.h"
 #include <sstream>
 
@@ -102,6 +103,9 @@ void HookManagerDriver::protocol(const string& message) const
     os << "Message received: " << message;
     NebulaLog::log("HKM", Log::DEBUG, os);
 
+    Nebula& nd  = Nebula::instance();
+    HookLog* hl = nd.get_hl();
+
     // Parse the driver message
     if ( is.good() )
     {
@@ -133,11 +137,24 @@ void HookManagerDriver::protocol(const string& message) const
         string info;
 
         //stores the hook name
-        string          hook_name;
+        string hook_name;
         //stores the hook id
-        int             hook_id;
+        int hook_id;
+        //stores the hook execution return code
+        int hook_rc;
 
         // Parse the hook info
+        if ( is.good() )
+        {
+            is >> hook_rc >> ws;
+        }
+        else
+        {
+            error_str = "Error reading hook execution return code.";
+            goto error_common;
+        }
+
+        /*/
         if ( is.good() )
         {
             is >> hook_name >> ws;
@@ -147,6 +164,7 @@ void HookManagerDriver::protocol(const string& message) const
             error_str = "Error reading hook name.";
             goto error_common;
         }
+        */
 
         if ( is.good() )
         {
@@ -164,6 +182,10 @@ void HookManagerDriver::protocol(const string& message) const
         {
             oss << "Success executing Hook: " << hook_name << " (" << hook_id << "). Params: " << info;
             NebulaLog::log("HKM",Log::INFO,oss);
+
+            string aux = "<EMPTY></EMPTY>";
+
+            hl->add(hook_id, hook_rc, aux);
             //TODO Log the execution as success in the hook log table
         }
         else

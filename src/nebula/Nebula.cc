@@ -405,6 +405,7 @@ void Nebula::start(bool bootstrap_only)
             rc += VMGroupPool::bootstrap(logdb);
             rc += VNTemplatePool::bootstrap(logdb);
             rc += HookPool::bootstrap(logdb);
+            rc += HookLog::bootstrap(logdb);
 
             // Create the system tables only if bootstrap went well
             if (rc == 0)
@@ -684,7 +685,7 @@ void Nebula::start(bool bootstrap_only)
         Client::initialize("", get_master_oned(), msg_size, timeout);
     }
 
-    // ---- Hook Manager ----
+    // ---- Hook Manager and log----
     if (!cache)
     {
         try
@@ -694,6 +695,7 @@ void Nebula::start(bool bootstrap_only)
             nebula_configuration->get("HM_MAD", hm_mads);
 
             hm = new HookManager(hm_mads);
+            hl = new HookLog(logdb);
         }
         catch (bad_alloc&)
         {
@@ -711,6 +713,14 @@ void Nebula::start(bool bootstrap_only)
         {
             goto error_mad;
         }
+
+        rc = hl->start();
+
+        if ( rc != 0 )
+        {
+           throw runtime_error("Could not start the Hook Log Manager");
+        }
+
     }
 
     // ---- Raft Manager ----
@@ -1167,6 +1177,7 @@ void Nebula::start(bool bootstrap_only)
 
         pthread_join(im->get_thread_id(),0);
         pthread_join(hm->get_thread_id(),0);
+        pthread_join(hl->get_thread_id(),0);
         pthread_join(imagem->get_thread_id(),0);
         pthread_join(marketm->get_thread_id(),0);
         pthread_join(ipamm->get_thread_id(),0);

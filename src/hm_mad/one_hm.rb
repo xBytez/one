@@ -94,15 +94,16 @@ class HookManagerDriver < OpenNebulaDriver
             @replier.send_string('ACK')
 
             message = message.split(' ')
-            result  = message.shift.to_i
+            hook_rc = message.shift.to_i
+            hook_id = message.shift.to_i
 
-            if result.zero?
+            if hook_rc.zero?
                 result = RESULT[:success]
             else
                 result = RESULT[:failure]
             end
 
-            send_message('EXECUTE', result, message.flatten.join(' '))
+            send_message('EXECUTE', result, hook_rc, hook_id, message.flatten.join(' '))
         end
     end
 

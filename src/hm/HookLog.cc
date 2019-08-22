@@ -28,7 +28,7 @@ const char * HookLog::table = "hooklog";
 
 const char * HookLog::db_names = "hkid, exeid, timestamp, rc, body";
 
-const char * HookLog::db_bootstrap = "CREATE TABLE IF NOT EXISTS"
+const char * HookLog::db_bootstrap = "CREATE TABLE IF NOT EXISTS hook_log"
     " (hkid INTEGER, exeid INTEGER, timestamp INTEGER, rc INTEGER,"
     " body MEDIUMTEXT,PRIMARY KEY(hkid, exeid))";
 
@@ -217,7 +217,7 @@ void HookLog::timer_action(const ActionRequest& ar)
     return;
 }
 
-void finalize_action(const ActionRequest& ar)
+void HookLog::finalize_action(const ActionRequest& ar)
 {
     NebulaLog::log("HKM",Log::INFO,"Stopping HookLog Manager...");
 };

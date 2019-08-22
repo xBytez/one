@@ -23,6 +23,7 @@
 
 #include "Mad.h"
 #include "VirtualMachinePool.h"
+#include "HookLog.h"
 
 using namespace std;
 
