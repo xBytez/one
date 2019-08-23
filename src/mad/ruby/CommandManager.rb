@@ -106,6 +106,16 @@ class GenericCommand
         tmp[0].join(' ').strip
     end
 
+    def to_xml
+        '<EXECUTION_RESULT>' \
+            "<COMMAND>#{@command}</COMMAND>" \
+            "<STDIN>#{@stdin}</STDIN>" \
+            "<STDOUT>#{@stdout}</STDOUT>" \
+            "<STDERR>#{@stderr}</STDERR>" \
+            "<CODE>#{@code}</CODE>" \
+        '</EXECUTION_RESULT>'
+    end
+
 private
 
     # Low level command execution. This method has to be redefined

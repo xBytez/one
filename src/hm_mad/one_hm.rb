@@ -103,7 +103,7 @@ class HookManagerDriver < OpenNebulaDriver
                 result = RESULT[:failure]
             end
 
-            send_message('EXECUTE', result, hook_rc, hook_id, message.flatten.join(' '))
+            send_message('EXECUTE', result, hook_id, "#{hook_rc} #{message.flatten.join(' ')}")
         end
     end
 

@@ -24,7 +24,7 @@
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-const char * HookLog::table = "hooklog";
+const char * HookLog::table = "hook_log";
 
 const char * HookLog::db_names = "hkid, exeid, timestamp, rc, body";
 
@@ -149,7 +149,7 @@ int HookLog::add(int hkid, int hkrc, std::string &xml_result)
 
     cb.set_callback(&last_exeid);
 
-    oss << "SELECT MAX(exeid) FROM hooklog" << " WHERE hkid = " << hkid;
+    oss << "SELECT IFNULL(MAX(exeid), -1) FROM hook_log" << " WHERE hkid = " << hkid;
 
     int rc = db->exec_rd(oss, &cb);
 
@@ -188,9 +188,10 @@ int HookLog::add(int hkid, int hkrc, std::string &xml_result)
     oss.str("");
 
     oss <<"INSERT INTO "<< table <<" ("<< db_names <<") VALUES ("
-        << hkid     << ","
-        << the_time << ","
-        << hkrc     << ","
+        << hkid       << ","
+        << last_exeid << ","
+        << the_time   << ","
+        << hkrc       << ","
         << "'" << sql_xml << "')";
 
     rc = db->exec_wr(oss);

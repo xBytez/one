@@ -385,8 +385,9 @@ class HookExecutionManager
             @logger.error("Failure executing hook for #{key[1]}")
         end
 
-        @requester.send_string("#{exec_result.code} '#{hook['NAME']}'" \
-                                " #{hook['ID']} #{params}")
+        xml_response = Base64.strict_encode64("<ARGUMENTS>#{params}</ARGUMENTS>#{exec_result.to_xml}")
+
+        @requester.send_string("#{exec_result.code} #{hook['ID']} #{xml_response}")
         @requester.recv_string(ack)
 
         @logger.error('Error receiving confirmation from hook manager.') if ack != 'ACK'

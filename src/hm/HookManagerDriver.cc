@@ -134,7 +134,8 @@ void HookManagerDriver::protocol(const string& message) const
     if ( action == "EXECUTE" )
     {
         ostringstream oss;
-        string info;
+        string info_b64;
+        string * info;
 
         //stores the hook name
         string hook_name;
@@ -146,28 +147,6 @@ void HookManagerDriver::protocol(const string& message) const
         // Parse the hook info
         if ( is.good() )
         {
-            is >> hook_rc >> ws;
-        }
-        else
-        {
-            error_str = "Error reading hook execution return code.";
-            goto error_common;
-        }
-
-        /*/
-        if ( is.good() )
-        {
-            is >> hook_name >> ws;
-        }
-        else
-        {
-            error_str = "Error reading hook name.";
-            goto error_common;
-        }
-        */
-
-        if ( is.good() )
-        {
             is >> hook_id >> ws;
         }
         else
@@ -176,23 +155,33 @@ void HookManagerDriver::protocol(const string& message) const
             goto error_common;
         }
 
-        getline (is,info);
-
-        if (result == "SUCCESS")
+        if ( is.good() )
         {
-            oss << "Success executing Hook: " << hook_name << " (" << hook_id << "). Params: " << info;
-            NebulaLog::log("HKM",Log::INFO,oss);
-
-            string aux = "<EMPTY></EMPTY>";
-
-            hl->add(hook_id, hook_rc, aux);
-            //TODO Log the execution as success in the hook log table
+            is >> hook_rc >> ws;
         }
         else
         {
-            oss << "Error executing Hook: " << hook_name << " (" << hook_id << "). Params: " << info;
+            error_str = "Error reading hook execution return code.";
+            goto error_common;
+        }
+
+        getline (is,info_b64);
+
+        if (result == "SUCCESS")
+        {
+            oss << "Success executing Hook: " << " (" << hook_id << ")";
+            NebulaLog::log("HKM",Log::INFO,oss);
+
+            info = one_util::base64_decode(info_b64);
+            hl->add(hook_id, hook_rc, *info);
+        }
+        else
+        {
+            oss << "Error executing Hook: " << hook_name << " (" << hook_id << ").";
             NebulaLog::log("HKM",Log::ERROR,oss);
-            //TODO Log the execution as failure in the hook log table
+
+            info = one_util::base64_decode(info_b64);
+            hl->add(hook_id, hook_rc, *info);
         }
     }
 
