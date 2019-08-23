@@ -1337,7 +1337,7 @@ Request::ErrorCode HookAllocate::pool_allocate(
         int&                        id,
         RequestAttributes&          att)
 {
-    string hk_type;
+    std::string hk_type;
 
     HookPool * hkpool = static_cast<HookPool *>(pool);
 

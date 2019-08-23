@@ -98,11 +98,11 @@ int HookLog::_dump_log(int hkid, std::string &xml_log)
 
     if ( hkid == -1 )
     {
-        cmd << "ORDER BY hkid DESC";
+        cmd << " ORDER BY hkid DESC";
     }
     else
     {
-        cmd << "WHERE hkid = " << hkid;
+        cmd << " WHERE hkid = " << hkid;
     }
 
     xml_log.append("<HOOKLOG>");

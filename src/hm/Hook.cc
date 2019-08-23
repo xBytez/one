@@ -70,20 +70,32 @@ void Hook::parse_hook_arguments(PoolObjectSQL *obj, std::string& parsed)
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-string& Hook::to_xml(string& xml) const
+string& Hook::_to_xml(string& xml, bool log) const
 {
-    string template_xml, lock_str;
+    std::string template_xml, lock_str, log_xml;
 
     ostringstream oss;
 
-    oss <<
-    "<HOOK>"
-        "<ID>"     << oid    << "</ID>"            <<
-        "<NAME>"   << name   << "</NAME>"          <<
-        "<TYPE>"   << Hook::hook_type_to_str(type) << "</TYPE>" <<
-        lock_db_to_xml(lock_str)                   <<
-        obj_template->to_xml(template_xml)         <<
-    "</HOOK>";
+
+    oss << "<HOOK>" <<
+        "<ID>"   << oid  << "</ID>"   <<
+        "<NAME>" << name << "</NAME>" <<
+        "<TYPE>" << Hook::hook_type_to_str(type) << "</TYPE>" <<
+        lock_db_to_xml(lock_str) <<
+        obj_template->to_xml(template_xml);
+
+    if (log )
+    {
+        Nebula& nd  = Nebula::instance();
+        HookLog* hl = nd.get_hl();
+
+        if ( hl->dump_log(oid, log_xml) == 0 )
+        {
+            oss << log_xml;
+        }
+    }
+
+    oss << "</HOOK>";
 
     xml = oss.str();
 
@@ -105,9 +117,9 @@ int Hook::from_xml(const std::string& xml)
     update_from_str(xml);
 
     // Get class base attributes
-    rc += xpath(oid,        "/HOOK/ID", -1);
-    rc += xpath(name,       "/HOOK/NAME",   "not_found");
-    rc += xpath(type_str,   "/HOOK/TYPE",   "");
+    rc += xpath(oid,  "/HOOK/ID", -1);
+    rc += xpath(name, "/HOOK/NAME", "not_found");
+    rc += xpath(type_str, "/HOOK/TYPE", "");
 
     type = str_to_hook_type(type_str);
 

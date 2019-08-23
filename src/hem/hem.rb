@@ -50,20 +50,26 @@ class HookExecutionManager
 
     attr_reader :am
 
-    # API calls which trigger hook info reloading
+    # --------------------------------------------------------------------------
+    # File paths
+    # --------------------------------------------------------------------------
+    CONFIGURATION_FILE = ETC_LOCATION + '/hem.conf'
+    HEM_LOG            = LOG_LOCATION + '/hem.log'
+
+    # --------------------------------------------------------------------------
+    # API calls which trigger hook info reloading and filters to suscribe to
+    # --------------------------------------------------------------------------
     UPDATE_CALLS = [
         'one.hook.update',
         'one.hook.allocate',
         'one.hook.delete'
     ]
 
-    # List of filters for API calls which trigger hooks reload (TODO, load it from config file?)
-    STATIC_FILTERS = [
-        'API one.hook.update 1',
-        'API one.hook.allocate 1',
-        'API one.hook.delete 1'
-    ]
+    const_set('STATIC_FILTERS', UPDATE_CALLS.map {|e| "API #{e} 1" })
 
+    # --------------------------------------------------------------------------
+    # Logger configuration
+    # --------------------------------------------------------------------------
     DEBUG_LEVEL = [
         Logger::ERROR, # 0
         Logger::WARN,  # 1
@@ -71,30 +77,32 @@ class HookExecutionManager
         Logger::DEBUG  # 3
     ]
 
-    CONFIGURATION_FILE = ETC_LOCATION + '/hem.conf'
-    HEM_LOG            = LOG_LOCATION + '/hem.log'
+    # Mon Feb 27 06:02:30 2012 [Clo] [E]: Error message example
+    MSG_FORMAT  = %(%s [%s]: %s\n)
+    # Mon Feb 27 06:02:30 2012
+    DATE_FORMAT = '%a %b %d %H:%M:%S %Y'
 
-    HOOK_TYPES         = [:api, :state]
+    # --------------------------------------------------------------------------
+    # Hook types
+    # --------------------------------------------------------------------------
+    HOOK_TYPES  = [:api, :state]
 
-    MSG_FORMAT         = %(%s [%s]: %s\n) # Mon Feb 27 06:02:30 2012 [Clo] [E]: Error message example
-    DATE_FORMAT        = '%a %b %d %H:%M:%S %Y' # Mon Feb 27 06:02:30 2012
-
+    # --------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
     def initialize
         @conf       = nil
         @logger     = nil
 
         # 0mq related variables
-        @context    = ZMQ::Context.new(1) # 0mq context (shared between all the sockets)
-        @subscriber = nil # 0mq SUBSCRIBER socket
-        @requester  = nil # 0mq REQUESTER socket
+        #   - context (shared between all the sockets)
+        #   - suscriber and requester sockets
+        @context    = ZMQ::Context.new(1)
+        @subscriber = @context.socket(ZMQ::SUB)
+        @requester  = @context.socket(ZMQ::REQ)
 
-        @hooks      = {}  # Dictionary containing all the existing Hooks
-        @filters    = {}  # Dictionary conatinitn a filter for each existing Hook
-
-        # 0mq related variables
-        @context    = ZMQ::Context.new(1) # 0mq context (shared between all the sockets)
-        @subscriber = @context.socket(ZMQ::SUB) # 0mq SUBSCRIBER socket
-        @requester  = @context.socket(ZMQ::REQ) # 0mq REQUESTER socket
+        # Maps for existing hooks and filters
+        @hooks   = {}
+        @filters = {}
 
         load_config
         init_log

@@ -21,6 +21,7 @@
 
 #include "Template.h"
 #include "PoolObjectSQL.h"
+#include "NebulaUtil.h"
 
 class HookImplementation;
 
@@ -50,8 +51,10 @@ public:
         return "";
     };
 
-    static HookType str_to_hook_type(const string& ht)
+    static HookType str_to_hook_type(std::string& ht)
     {
+        one_util::tolower(ht);
+
         if (ht == "state")
         {
             return STATE;
@@ -65,10 +68,22 @@ public:
     }
 
     /**
-     *  Executes the hook it self (usually with the aid of the ExecutionManager)
-     *    @param arg additional arguments for the hook
+     * Function to print the Hook object into a string in XML format
+     *  @param xml the resulting XML string
+     *  @return a reference to the generated string
      */
-    //virtual void do_hook(void *arg) = 0;
+    std::string& to_xml(std::string& xml) const
+    {
+        return _to_xml(xml, false);
+    }
+
+    /**
+     *  Include exection records for the hook
+     */
+    std::string& to_xml_extended(std::string& xml) const
+    {
+        return _to_xml(xml, true);
+    }
 
 private:
 
@@ -115,12 +130,6 @@ private:
         return new Template;
     }
 
-    /**
-     * Function to print the Hook object into a string in XML format
-     *  @param xml the resulting XML string
-     *  @return a reference to the generated string
-     */
-    std::string& to_xml(std::string& xml) const;
 
     /**
      *  Rebuilds the object from an xml formatted string
@@ -169,6 +178,15 @@ private:
     static const char * db_bootstrap;
 
     static const char * table;
+
+    /**
+     *  Construct the XML representation of the hook
+     *  @param xml the resulting XML string
+     *  @param log to include the execution log
+     *
+     *  @return a reference to the generated string
+     */
+    std::string& _to_xml(std::string& xml, bool log) const;
 
     /**
      *  Bootstraps the database table(s) associated to the Host

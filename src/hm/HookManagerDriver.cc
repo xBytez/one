@@ -91,17 +91,14 @@ void HookManagerDriver::execute(
 
 void HookManagerDriver::protocol(const string& message) const
 {
-    string error_str;
-    istringstream is(message);
+    std::string error_str;
+    std::istringstream is(message);
 
     //stores the action name
-    string action;
-    string result;
+    std::string action;
+    std::string result;
 
-    ostringstream os;
-
-    os << "Message received: " << message;
-    NebulaLog::log("HKM", Log::DEBUG, os);
+    NebulaLog::log("HKM", Log::DEBUG, "Message received: " + message);
 
     Nebula& nd  = Nebula::instance();
     HookLog* hl = nd.get_hl();
@@ -133,15 +130,12 @@ void HookManagerDriver::protocol(const string& message) const
 
     if ( action == "EXECUTE" )
     {
-        ostringstream oss;
-        string info_b64;
-        string * info;
+        std::ostringstream oss;
 
-        //stores the hook name
-        string hook_name;
-        //stores the hook id
+        std::string info_b64;
+        std::string *info;
+
         int hook_id;
-        //stores the hook execution return code
         int hook_rc;
 
         // Parse the hook info
@@ -165,24 +159,26 @@ void HookManagerDriver::protocol(const string& message) const
             goto error_common;
         }
 
-        getline (is,info_b64);
+        getline(is, info_b64);
 
         if (result == "SUCCESS")
         {
-            oss << "Success executing Hook: " << " (" << hook_id << ")";
-            NebulaLog::log("HKM",Log::INFO,oss);
-
-            info = one_util::base64_decode(info_b64);
-            hl->add(hook_id, hook_rc, *info);
+            oss << "Success executing Hook " <<  hook_id;
         }
         else
         {
-            oss << "Error executing Hook: " << hook_name << " (" << hook_id << ").";
-            NebulaLog::log("HKM",Log::ERROR,oss);
-
-            info = one_util::base64_decode(info_b64);
-            hl->add(hook_id, hook_rc, *info);
+            oss << "Error executing Hook " << hook_id;
         }
+
+        info = one_util::base64_decode(info_b64);
+
+        if ( info != 0 )
+        {
+            hl->add(hook_id, hook_rc, *info);
+            delete info;
+        }
+
+        NebulaLog::log("HKM",Log::ERROR,oss);
     }
 
     return;
@@ -190,7 +186,6 @@ void HookManagerDriver::protocol(const string& message) const
 error_common:
     NebulaLog::log("HKM", Log::ERROR, error_str);
     return;
-
 }
 
 /* -------------------------------------------------------------------------- */

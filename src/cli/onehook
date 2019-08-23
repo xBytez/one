@@ -89,7 +89,7 @@ CommandParser::CmdParser.new(ARGV) do
 
     EOT
 
-    command :create, create_desc, [:file, nil], :options =>
+    command :create, create_desc, :file, :options =>
             [OpenNebulaHelper::DRY] do
 
         helper.create_resource(options) do |tmpl|

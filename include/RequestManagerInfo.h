@@ -433,6 +433,12 @@ public:
     };
 
     ~HookInfo(){};
+
+    void to_xml(RequestAttributes& att, PoolObjectSQL * object,
+        string& str)
+    {
+        (static_cast<Hook *>(object))->to_xml_extended(str);
+    };
 };
 
 
