@@ -97,7 +97,7 @@ class OneHookHelper < OpenNebulaHelper::OneHelper
                 rc = d['EXECUTION_RESULT']['CODE'].to_i
 
                 if rc.zero?
-                    "SUCESS"
+                    'SUCESS'
                 else
                     "ERROR (#{rc})"
                 end
@@ -109,7 +109,7 @@ class OneHookHelper < OpenNebulaHelper::OneHelper
         table.show(execs)
     end
 
-    def format_resource(hook, _options = {})
+    def format_resource(hook, options = {})
         str = '%-18s: %-20s'
         str_h1 = '%-80s'
 
@@ -120,13 +120,13 @@ class OneHookHelper < OpenNebulaHelper::OneHelper
         puts format str, 'LOCK', OpenNebulaHelper.level_lock_to_str(hook['LOCK/LOCKED'])
         puts
 
-        if _options[:execution]
-            xp = "//HOOK_EXECUTION_RECORD[EXECUTION_ID=#{_options[:execution]}]"
+        if options[:execution]
+            xp = "//HOOK_EXECUTION_RECORD[EXECUTION_ID=#{options[:execution]}]"
             er = hook.retrieve_xmlelements(xp)
             er = er[0] if er
 
             if !er
-                puts "Cannot find execution record #{_options[:execution]}"
+                puts "Cannot find execution record #{options[:execution]}"
                 return
             end
 
