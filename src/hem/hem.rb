@@ -72,8 +72,8 @@ module HEMHook
 
             event_type = event.xpath('//HOOK_TYPE')[0].upcase
 
-            parameters = ""
-            template   = ""
+            api = ""
+            template = ""
 
             case event_type
             when 'API'
@@ -81,7 +81,7 @@ module HEMHook
                 api = Base64.strict_encode64(api)
             when 'STATE'
                 object   = event.xpath('//HOOK_OBJECT')[0].upcase
-                template = event.xpath('//#{object}')[0].to_s
+                template = event.xpath("//#{object}")[0].to_s
                 template = Base64.strict_encode64(template)
             end
         rescue StandardError => se
@@ -107,6 +107,7 @@ module HEMHook
 
     # Execute the hook command
     def execute(path, params)
+        #TODO send arguments via stdin if configured
         remote  = self['TEMPLATE/REMOTE'].casecmp('YES').zero?
         command = self['TEMPLATE/COMMAND']
 
@@ -363,6 +364,7 @@ class HookExecutionManager
     end
 
     def reload_hooks
+        #TODO recover the reload_hooks
         @hooks.each_filter { |filter| unsubscribe(filter) }
 
         @hooks.load

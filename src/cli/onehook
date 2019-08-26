@@ -65,6 +65,14 @@ CommandParser::CmdParser.new(ARGV) do
         :description => 'lock all actions'
     }
 
+    EXECUTION = {
+        :name => 'execution',
+        :large => '--execution exeid',
+        :short => '-e exeid',
+        :format => String,
+        :description => 'execution ID'
+    }
+
     ########################################################################
     # Global Options
     ########################################################################
@@ -161,12 +169,13 @@ CommandParser::CmdParser.new(ARGV) do
     end
 
     show_desc = <<-EOT.unindent
-        Shows information for the given Hook
+        Shows information for the given Hook. An execution ID can be given to
+        obtain detailed information of a given hook execution
     EOT
 
     command :show, show_desc, :hookid,
-            :options => [OpenNebulaHelper::XML, OpenNebulaHelper::EXTENDED] do
-
+            :options => [OpenNebulaHelper::XML, OpenNebulaHelper::EXTENDED,
+                         EXECUTION] do
         helper.show_resource(args[0], options)
     end
 

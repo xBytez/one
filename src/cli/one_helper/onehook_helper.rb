@@ -83,32 +83,27 @@ class OneHookHelper < OpenNebulaHelper::OneHelper
     def print_execution(execs)
         puts
         CLIHelper.print_header('EXECUTION LOG', false)
-        puts
 
         table = CLIHelper::ShowTable.new(nil, self) do
             column :ID, 'Execution ID', :size => 6, :left => false do |d|
                 d['EXECUTION_ID']
             end
 
-            column :TIMESTAMP, 'Timestamp', :size => 14 do |d|
+            column :TIMESTAMP, 'Timestamp', :size => 15 do |d|
                 OpenNebulaHelper.time_to_str(d['TIMESTAMP'], false, true, false)
             end
 
-            column :RC, 'Return code', :size => 3, :left => false do |d|
-                d['EXECUTION_RESULT']['CODE']
+            column :EXECUTION, 'Return code', :size => 12 do |d|
+                rc = d['EXECUTION_RESULT']['CODE'].to_i
+
+                if rc.zero?
+                    "SUCESS"
+                else
+                    "ERROR (#{rc})"
+                end
             end
 
-            column :OUTPUT, 'Stdout and stderr', :size => 55, :left => true do |d|
-                stdout = d['EXECUTION_RESULT']['STDOUT']
-                stdout = '' if stdout.class == Hash
-
-                stderr = d['EXECUTION_RESULT']['STDERR']
-                stderr = '' if stderr.class == Hash
-
-                "\"#{(stdout+stderr).gsub("\n",'')}\""
-            end
-
-            default :ID, :TIMESTAMP, :RC, :OUTPUT
+            default :ID, :TIMESTAMP, :EXECUTION
         end
 
         table.show(execs)
@@ -122,8 +117,47 @@ class OneHookHelper < OpenNebulaHelper::OneHelper
         puts format str, 'ID',   hook.id.to_s
         puts format str, 'NAME', hook.name
         puts format str, 'TYPE', hook['TYPE']
-        puts format str, 'LOCK', OpenNebulaHelper.level_lock_to_str(hook['LOCK/LOCKED']) # rubocop:disable Metrics/LineLength
+        puts format str, 'LOCK', OpenNebulaHelper.level_lock_to_str(hook['LOCK/LOCKED'])
         puts
+
+        if _options[:execution]
+            xp = "//HOOK_EXECUTION_RECORD[EXECUTION_ID=#{_options[:execution]}]"
+            er = hook.retrieve_xmlelements(xp)
+            er = er[0] if er
+
+            if !er
+                puts "Cannot find execution record #{_options[:execution]}"
+                return
+            end
+
+            er = er.to_hash['HOOK_EXECUTION_RECORD']
+
+            CLIHelper.print_header(str_h1 % 'HOOK EXECUTION RECORD')
+
+            arguments = ''
+
+            arguments = er['ARGUMENTS'] if er['ARGUMENTS'].class == String
+
+            puts format str, 'EXECUTION ID', er['EXECUTION_ID']
+            puts format str, 'TIMESTAMP', OpenNebulaHelper.time_to_str(er['TIMESTAMP'])
+            puts format str, 'COMMAND', er['EXECUTION_RESULT']['COMMAND']
+            puts format str, 'ARGUMENTS', arguments
+            puts format str, 'EXIT CODE', er['EXECUTION_RESULT']['CODE']
+
+            stdout = er['EXECUTION_RESULT']['STDOUT']
+            stderr = er['EXECUTION_RESULT']['STDERR']
+
+            puts
+            CLIHelper.print_header(str_h1 % 'EXECUTION STDOUT')
+            puts stdout if stdout.class == String && !stdout.empty?
+
+            puts
+            CLIHelper.print_header(str_h1 % 'EXECUTION STDERR')
+            puts stderr if stderr.class == String && !stderr.empty?
+
+            puts
+            return
+        end
 
         CLIHelper.print_header(str_h1 % 'HOOK TEMPLATE', false)
         puts hook.template_str
