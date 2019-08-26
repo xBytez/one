@@ -26,16 +26,18 @@ require 'base64'
 ONE_LOCATION = ENV['ONE_LOCATION']
 
 if !ONE_LOCATION
-    LOG_LOCATION = '/var/log/one'
-    VAR_LOCATION = '/var/lib/one'
-    ETC_LOCATION = '/etc/one'
-    LIB_LOCATION = '/usr/lib/one'
+    LOG_LOCATION  = '/var/log/one'
+    VAR_LOCATION  = '/var/lib/one'
+    ETC_LOCATION  = '/etc/one'
+    LIB_LOCATION  = '/usr/lib/one'
+    HOOK_LOCATION = '/var/lib/one/remotes/hooks'
     RUBY_LIB_LOCATION = '/usr/lib/one/ruby'
 else
-    VAR_LOCATION = ONE_LOCATION + '/var'
-    LOG_LOCATION = ONE_LOCATION + '/var'
-    ETC_LOCATION = ONE_LOCATION + '/etc'
-    LIB_LOCATION = ONE_LOCATION + '/lib'
+    VAR_LOCATION  = ONE_LOCATION + '/var'
+    LOG_LOCATION  = ONE_LOCATION + '/var'
+    ETC_LOCATION  = ONE_LOCATION + '/etc'
+    LIB_LOCATION  = ONE_LOCATION + '/lib'
+    HOOK_LOCATION = ONE_LOCATION + '/var/remotest/hooks'
     RUBY_LIB_LOCATION = ONE_LOCATION + '/lib/ruby'
 end
 
@@ -45,10 +47,214 @@ require 'opennebula'
 require 'CommandManager'
 require 'ActionManager'
 
-# Hook Execution Manager class
-class HookExecutionManager
+#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+# This module includes basic functions to deal with Hooks
+#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+module HEMHook
+    # --------------------------------------------------------------------------
+    # Hook types
+    # --------------------------------------------------------------------------
+    HOOK_TYPES  = [:api, :state]
 
+    # --------------------------------------------------------------------------
+    # Hook Execution
+    # --------------------------------------------------------------------------
+    # Parse hook arguments
+    def arguments(event_str)
+        hook_args = self['TEMPLATE/ARGUMENTS']
+
+        return "" unless hook_args
+
+        begin
+            event = Nokogiri::XML(event_str)
+
+            event_type = event.xpath('//HOOK_TYPE')[0].upcase
+
+            parameters = ""
+            template   = ""
+
+            case event_type
+            when 'API'
+                api = event.xpath('//PARAMETERS')[0].to_s
+                api = Base64.strict_encode64(api)
+            when 'STATE'
+                object   = event.xpath('//HOOK_OBJECT')[0].upcase
+                template = event.xpath('//#{object}')[0].to_s
+                template = Base64.strict_encode64(template)
+            end
+        rescue StandardError => se
+            return ""
+        end
+
+        parguments = ""
+        hook_args  = hook_args.split ' '
+
+        hook_args.each do |arg|
+            case arg
+            when '$API'
+                parguments << api << ' '
+            when '$TEMPLATE'
+                parguments << template << ' '
+            else
+                parguments << arg << ' '
+            end
+        end
+
+        parguments
+    end
+
+    # Execute the hook command
+    def execute(path, params)
+        remote  = self['TEMPLATE/REMOTE'].casecmp('YES').zero?
+        command = self['TEMPLATE/COMMAND']
+
+        command.prepend(path) if command[0] != '/'
+
+        command.concat(" #{params}") unless params.empty?
+
+        if !remote
+            LocalCommand.run(command)
+        else
+            #TODO REMOTE_HOST from event_str
+            SSHCommand.run(command, self['TEMPLATE/REMOTE_HOST'])
+        end
+    end
+
+    #---------------------------------------------------------------------------
+    # Hook attributes
+    #---------------------------------------------------------------------------
+    def type
+        self['TYPE'].to_sym
+    end
+
+    def valid?
+        HOOK_TYPES.include? type
+    end
+
+    def id
+        self['ID'].to_i
+    end
+
+    # Generates a key for a given hook
+    def key
+        begin
+            case type
+            when :api
+                self['TEMPLATE/CALL']
+            when :state
+                "#{self['//RESOURCE']}/#{self['//STATE']}/#{self['//LCM_STATE']}"
+            else
+                ""
+            end
+        rescue
+            return ""
+        end
+    end
+
+    # Generate a sbuscriber filter for a Hook given the type and the key
+    def filter(key)
+        case type
+        when :api
+            "API #{key} 1"
+        when :state
+            "STATE #{key}"
+        else
+            ""
+        end
+    end
+end
+
+#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+# This class represents the hook pool synced from oned
+#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+class HookMap
+
+    def initialize(logger)
+        @hooks   = {}
+        @filters = {}
+
+        @logger  = logger
+        @client  = OpenNebula::Client.new
+    end
+
+    # Load Hooks from oned (one.hookpool.info) into a dictionary with the
+    # following format:
+    #
+    # hooks[hook_type][hook_key] = Hook object
+    #
+    # Also generates and store the corresponding filters
+    #
+    # @return dicctionary containing hooks dictionary and filters
+    def load
+        @logger.info('Loading Hooks...')
+
+        hook_pool = OpenNebula::HookPool.new(@client)
+
+        rc = hook_pool.info
+
+        if OpenNebula.is_error?(rc)
+            @logger.error("Cannot get hook information: #{rc.message}")
+            return
+        end
+
+        @hooks   = {}
+        @filters = {}
+
+        HEMHook::HOOK_TYPES.each do |type|
+            @hooks[type] = {}
+        end
+
+        hook_pool.each do |hook|
+            hook.extend(HEMHook)
+
+            if !hook.valid?
+                @logger.error("Error loading hooks. Invalid type: #{hook.type}")
+                next
+            end
+
+            key = hook.key
+
+            @hooks[hook.type][key] = hook
+
+            @filters[hook['ID'].to_i] = hook.filter(key)
+        end
+
+        @logger.info('Hooks successfully loaded')
+    end
+
+    # Execute the given lambda on each event filter in the map
+    def each_filter(&block)
+        @filters.each_value { |f| block.call(f) }
+    end
+
+    # Returns a hook by key
+    def get_hook(type, key)
+        @hooks[type.downcase.to_sym][key]
+    end
+end
+
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# Hook Execution Manager class
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+class HookExecutionManager
     attr_reader :am
+
+    # --------------------------------------------------------------------------
+    # Default configuration options, overwritten in hem.conf
+    # --------------------------------------------------------------------------
+    DEFAULT_CONF = {
+        :hook_base_path      => HOOK_LOCATION,
+        :subscriber_endpoint => 'tcp://localhost:5556',
+        :replier_endpoint    => 'tcp://localhost:5557',
+        :debug_level         => 2,
+        :concurrency         => 10
+    }
 
     # --------------------------------------------------------------------------
     # File paths
@@ -83,94 +289,53 @@ class HookExecutionManager
     DATE_FORMAT = '%a %b %d %H:%M:%S %Y'
 
     # --------------------------------------------------------------------------
-    # Hook types
-    # --------------------------------------------------------------------------
-    HOOK_TYPES  = [:api, :state]
-
-    # --------------------------------------------------------------------------
     # --------------------------------------------------------------------------
     def initialize
-        @conf       = nil
-        @logger     = nil
+        # ----------------------------------------------------------------------
+        # Load config from configuration file
+        # ----------------------------------------------------------------------
+        begin
+            conf = YAML.load_file(CONFIGURATION_FILE)
+        rescue Exception => e
+            STDERR.puts "Error loading config #{CONFIGURATION_FILE}: #{e.message}"
+            exit 1
+        end
 
+        @conf = DEFAULT_CONF.merge(conf)
+
+        # ----------------------------------------------------------------------
+        # Init log system
+        # ----------------------------------------------------------------------
+        @logger       = Logger.new(HEM_LOG)
+        @logger.level = DEBUG_LEVEL[@conf[:debug_level].to_i]
+
+        @logger.formatter = proc do |severity, datetime, _progname, msg|
+            format(MSG_FORMAT, datetime.strftime(DATE_FORMAT),
+                severity[0..0], msg)
+        end
+
+        #-----------------------------------------------------------------------
         # 0mq related variables
         #   - context (shared between all the sockets)
-        #   - suscriber and requester sockets
+        #   - suscriber and requester sockets (exclusive access)
+        #-----------------------------------------------------------------------
         @context    = ZMQ::Context.new(1)
         @subscriber = @context.socket(ZMQ::SUB)
         @requester  = @context.socket(ZMQ::REQ)
 
-        # Maps for existing hooks and filters
-        @hooks   = {}
-        @filters = {}
+        @requester_lock = Mutex.new
 
-        load_config
-        init_log
+        # Maps for existing hooks and filters and oned client
+        @hooks = HookMap.new(@logger)
 
-        # Action manager initialization
-        # TODO, make AM configurable via config file
-        @am = ActionManager.new(2, true)
+        #Internal event manager
+        @am = ActionManager.new(@conf[:concurrency], true)
         @am.register_action(:EXECUTE, method('execute_action'))
-    end
-
-    def load_config
-        # Load config from configuration file
-        begin
-            @conf = YAML.load_file(CONFIGURATION_FILE)
-        rescue Exception => e
-            STDERR.puts "Error parsing config file #{CONFIGURATION_FILE}: #{e.message}"
-            exit 1
-        end
-
-        # Set default values if empty
-        @conf[:hook_base_path] ||= '/var/lib/one/remotes/hooks'
-        @conf[:subscriber_endpoint] ||= 'tcp://localhost:5556'
-        @conf[:replier_endpoint] ||= 'tcp://localhost:5557'
-        @conf[:debug_level] ||= 2
-    end
-
-    def init_log
-        @logger = Logger.new(HEM_LOG)
-        @logger.level = DEBUG_LEVEL[@conf[:debug_level].to_i]
-        @logger.formatter = proc do |severity, datetime, _progname, msg|
-            format(MSG_FORMAT,
-                datetime.strftime(DATE_FORMAT),
-                severity[0..0],
-                msg)
-        end
     end
 
     ##############################################################################
     # Helpers
     ##############################################################################
-
-    # Generates a valid oca client
-    def gen_client
-        # TODO, create the client just once?
-        client = nil
-
-        if !@conf[:auth].nil?
-            client = OpenNebula::Client.new(@conf[:auth], @conf[:one_xmlrpc])
-        else
-            client = OpenNebula::Client.new(nil, @conf[:one_xmlrpc])
-        end
-
-        client
-    end
-
-    # Generates a key for a given hook
-    #
-    # @param hook [Hook] Hook object
-    #
-    # @return key corresponded to the given hookd
-    def get_key(hook)
-        type = hook['TYPE'].to_sym
-
-        return hook['TEMPLATE/CALL'] if type == HOOK_TYPES[0] #API
-
-        return "#{hook['//RESOURCE']}/#{hook['//STATE']}/#{hook['//LCM_STATE']}" if type == HOOK_TYPES[1]  #STATE
-    end
-
     # Subscribe the subscriber socket to the given filter
     def subscribe(filter)
         # TODO, check params
@@ -183,222 +348,82 @@ class HookExecutionManager
         @subscriber.setsockopt(ZMQ::UNSUBSCRIBE, filter)
     end
 
-    # Load Hooks from oned (one.hookpool.info) into a dictionary with the
-    # following format:
-    #
-    # hooks[hook_type][hook_key] = Hook object
-    #
-    # Also generates and store the corresponding filters
-    #
-    # @return dicctionary containing hooks dictionary and filters
-    def load_hooks_info
-        client = gen_client
-
-        @logger.info('Loading Hooks...')
-
-        # TODO, manage errors
-        hook_pool = OpenNebula::HookPool.new(client)
-        hook_pool.info
-
-        HOOK_TYPES.each do |type|
-            @hooks[type] = {}
-        end
-
-        hook_pool.each do |hook|
-            type = hook['TYPE'].to_sym
-
-            if !HOOK_TYPES.include? type
-                @logger.error("Error loading hooks. Invalid hook type: #{type}")
-                next
-            end
-
-            key = get_key(hook)
-
-            @hooks[type][key] = hook
-
-            @filters[hook['ID'].to_i] = gen_filter(type, key, hook)
-        end
-
-        @logger.info('Hooks successfully loaded')
-    end
-
-    # Generate a subscriber filter for an API type hook
-    def gen_filter_api(key, _hook)
-        # TODO, subscribed for success, fail, always
-        "API #{key} 1"
-    end
-
-    # Generate a sbuscriber filter for a STATE type hook
-    def gen_filter_state(key, _hook)
-        # TODO
-        "STATE #{key}"
-    end
-
-    # Generate a sbuscriber filter for a Hook given the type and the key
-    def gen_filter(type, key, hook)
-        return gen_filter_api(key, hook)   if type == HOOK_TYPES[0]
-        return gen_filter_state(key, hook) if type == HOOK_TYPES[1]
-    end
-
     ############################################################################
     # Hook manager methods
     ############################################################################
+    # Subscribe to the socket filters and STATIC_FILTERS
+    def load_hooks
+        @hooks.load
 
-    # Parse hook arguments
-    def parse_args(args, key, content)
-        params = ''
-        alloc = key[1].include? 'allocate'
-
-        if args.nil?
-            return params
-        end
-
-        args = args.split ' '
-        args.each do |arg|
-            if arg == '$API'
-                if alloc
-                    params << ' ' << content.split(' ')[0..-2].join(' ')
-                else
-                    params << ' ' << content
-                end
-
-                next
-            elsif arg == '$ID' && alloc
-                params << ' ' << content.split(' ')[-1]
-
-                next
-            elsif arg == '$TEMPLATE'
-                # TODO, get template (API call, auth?)
-                next
-            end
-        end
-
-        params
-    end
-
-    # Subscribe the socket to all the fileters included in filters and STATIC_FILTERS
-    def setup_filters
         # Subscribe to hooks modifier calls
-        STATIC_FILTERS.each do |filter|
-            subscribe(filter)
-        end
+        STATIC_FILTERS.each { |filter| subscribe(filter) }
 
         # Subscribe to each existing hook
-        @filters.each do |filter|
-            subscribe(filter[1])
-        end
+        @hooks.each_filter { |filter| subscribe(filter) }
     end
 
-    # Reload a hook or deleted if needed
-    def reload_hook(call, call_info)
-        client   = gen_client
-        info_xml = Nokogiri::XML(call_info)
-        id = -1
+    def reload_hooks
+        @hooks.each_filter { |filter| unsubscribe(filter) }
 
-        # TODO, what happens if not int?
-        if call == 'one.hook.allocate'
-            id = info_xml.xpath('//RESPONSE/OUT2')[0].text.to_i
-        else
-            id = info_xml.xpath('//PARAMETERS/PARAMETER2')[0].text.to_i
-        end
+        @hooks.load
 
-        # Remove filter if the hook have been deleted or updated
-        if call != 'one.hook.allocate'
-            unsubscribe(@filters[id])
-            @filters.delete(id)
-        end
-
-        return if call == 'one.hook.delete'
-
-        # get new hook info
-        hook = OpenNebula::Hook.new_with_id(id, client)
-        rc = hook.info
-
-        if !rc.nil?
-            @logger.error("Error getting hook #{id}.")
-            return
-        end
-
-        # Generates key and filter for the new hook info
-        key    = get_key(hook)
-        filter = gen_filter(hook['TYPE'].to_sym, key, hook)
-
-        # Add new filter
-        subscribe(filter)
-
-        @hooks[hook['TYPE'].to_sym][key] = hook
-        @filters[id] = filter
+        @hooks.each_filter { |filter| subscribe(filter) }
     end
 
-    def execute_hook(hook, params)
-        remote = hook['TEMPLATE/REMOTE'].casecmp('YES').zero?
-        command = "#{@conf[:hook_base_path]}/#{hook['TEMPLATE/COMMAND']} #{params}"
-
-        return LocalCommand.run(command) unless remote
-
-        SSHCommand.run(command, hook['TEMPLATE/REMOTE_HOST'])
-    end
     ############################################################################
     # Hook Execution Manager main loop
     ############################################################################
 
     def hem_loop
-        # Connect subscriber socket for receiving the events
+        # Connect subscriber/requester sockets
         @subscriber.connect(@conf[:subscriber_endpoint])
 
-        # Connect requester socket for returning back the execution result
         @requester.connect(@conf[:replier_endpoint])
 
-        # Initialize @hooks and @filters
-        load_hooks_info
-
-        # Set up subscriber filters
-        setup_filters
+        # Initialize @hooks and filters
+        load_hooks
 
         loop do
-            key = ''
+            key     = ''
             content = ''
 
             @subscriber.recv_string(key)
             @subscriber.recv_string(content)
 
-            key = key.split(' ')
-            content = Base64.decode64(content)
+            type, key = key.split(' ')
+            content   = Base64.decode64(content)
+            hook      = @hooks.get_hook(type, key)
 
-            # It would be the same for state hooks?
-            hook = @hooks[key[0].downcase.to_sym][key[1]]
+            @am.trigger_action(:EXECUTE, 0, hook, content) unless hook.nil?
 
-            @am.trigger_action(:EXECUTE, 0, hook, key, content) unless hook.nil?
-
-            next unless UPDATE_CALLS.include? key[1]
-
-            @logger.info('Reloading Hooks...')
-            reload_hook(key[1], content)
-            @logger.info('Hooks Successfully reloaded')
+            reload_hooks if UPDATE_CALLS.include? key
         end
     end
 
-    def execute_action(hook, key, content)
+    def execute_action(hook, content)
         ack = ''
+        params = hook.arguments(content)
+        rc     = hook.execute(@conf[:hook_base_path], params)
 
-        # trigger hook (get params, execute, return exec result)
-        params = parse_args(hook[:args], key, content)
-        # rc = system("#{@conf[:hook_base_path]}/#{hook['TEMPLATE/COMMAND']} #{params}")
-        # TODO, manage stdin an stdout
-        exec_result = execute_hook(hook, params)
-
-        if exec_result.code.zero?
-            @logger.info("Hook successfully executed for #{key[1]}")
+        if rc.code.zero?
+            @logger.info("Hook successfully executed for #{hook.key}")
         else
-            @logger.error("Failure executing hook for #{key[1]}")
+            @logger.error("Failure executing hook for #{hook.key}")
         end
 
-        xml_response = Base64.strict_encode64("<ARGUMENTS>#{params}</ARGUMENTS>#{exec_result.to_xml}")
+        xml_response =<<-EOF
+            <ARGUMENTS>#{params}</ARGUMENTS>
+            #{rc.to_xml}
+        EOF
 
-        @requester.send_string("#{exec_result.code} #{hook['ID']} #{xml_response}")
-        @requester.recv_string(ack)
+        xml_response = Base64.strict_encode64(xml_response)
 
-        @logger.error('Error receiving confirmation from hook manager.') if ack != 'ACK'
+        @requester_lock.synchronize {
+            @requester.send_string("#{rc.code} #{hook.id} #{xml_response}")
+            @requester.recv_string(ack)
+        }
+
+        @logger.error('Wrong ACK message: #{ack}.') if ack != 'ACK'
     end
 
     def start
@@ -408,6 +433,13 @@ class HookExecutionManager
     end
 
 end
+
+################################################################################
+################################################################################
+#
+#
+################################################################################
+################################################################################
 
 hem = HookExecutionManager.new
 hem.start

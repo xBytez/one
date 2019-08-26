@@ -65,6 +65,55 @@ class OneHookHelper < OpenNebulaHelper::OneHelper
         table
     end
 
+    # Function to print Execution Log records as sent by oned using:
+    #   <HOOK_EXECUTION_RECORD>
+    #     <HOOK_ID>
+    #     <EXECUTION_ID>
+    #     <TIMESTAMP>
+    #     <ARGUMENTS>
+    #     <EXECUTION_RESULT>
+    #       <COMMAND>
+    #       <STDIN>
+    #       <STDOUT>
+    #       <STDERR>
+    #       <CODE>
+    #    </EXECUTION_RESULT>
+    #   </HOOK_EXECUTION_RECORD>
+    #
+    def print_execution(execs)
+        puts
+        CLIHelper.print_header('EXECUTION LOG', false)
+        puts
+
+        table = CLIHelper::ShowTable.new(nil, self) do
+            column :ID, 'Execution ID', :size => 6, :left => false do |d|
+                d['EXECUTION_ID']
+            end
+
+            column :TIMESTAMP, 'Timestamp', :size => 14 do |d|
+                OpenNebulaHelper.time_to_str(d['TIMESTAMP'], false, true, false)
+            end
+
+            column :RC, 'Return code', :size => 3, :left => false do |d|
+                d['EXECUTION_RESULT']['CODE']
+            end
+
+            column :OUTPUT, 'Stdout and stderr', :size => 55, :left => true do |d|
+                stdout = d['EXECUTION_RESULT']['STDOUT']
+                stdout = '' if stdout.class == Hash
+
+                stderr = d['EXECUTION_RESULT']['STDERR']
+                stderr = '' if stderr.class == Hash
+
+                "\"#{(stdout+stderr).gsub("\n",'')}\""
+            end
+
+            default :ID, :TIMESTAMP, :RC, :OUTPUT
+        end
+
+        table.show(execs)
+    end
+
     def format_resource(hook, _options = {})
         str = '%-18s: %-20s'
         str_h1 = '%-80s'
@@ -78,6 +127,15 @@ class OneHookHelper < OpenNebulaHelper::OneHelper
 
         CLIHelper.print_header(str_h1 % 'HOOK TEMPLATE', false)
         puts hook.template_str
+
+        begin
+            exerc = [hook.to_hash['HOOK']['HOOKLOG']['HOOK_EXECUTION_RECORD']]
+            exerc = exerc.flatten.compact
+        rescue StandardError
+            exerc = nil
+        end
+
+        print_execution(exerc) if exerc && !exerc.empty?
 
         puts
     end
