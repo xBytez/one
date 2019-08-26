@@ -109,7 +109,6 @@ class GenericCommand
     def to_xml
         '<EXECUTION_RESULT>' \
             "<COMMAND>#{@command}</COMMAND>" \
-            "<STDIN>#{@stdin}</STDIN>" \
             "<STDOUT>#{@stdout}</STDOUT>" \
             "<STDERR>#{@stderr}</STDERR>" \
             "<CODE>#{@code}</CODE>" \

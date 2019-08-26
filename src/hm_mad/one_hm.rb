@@ -77,13 +77,10 @@ class HookManagerDriver < OpenNebulaDriver
         arg_xml = Nokogiri::XML(Base64.decode64(arguments.flatten[0]))
         type    = arg_xml.xpath('//HOOK_TYPE').text
 
-        m_key = key(type, arg_xml)
-        m_val = values(type, arg_xml)
-
         # Using envelopes for splitting key/val
         # http://zguide.zeromq.org/page:all#Pub-Sub-Message-Envelopes
-        @publisher.send_string m_key, ZMQ::SNDMORE
-        @publisher.send_string Base64.encode64(m_val)
+        @publisher.send_string key(type, arg_xml), ZMQ::SNDMORE
+        @publisher.send_string arguments.flatten[0]
     end
 
     def receiver_thread
@@ -103,7 +100,8 @@ class HookManagerDriver < OpenNebulaDriver
                 result = RESULT[:failure]
             end
 
-            send_message('EXECUTE', result, hook_id, "#{hook_rc} #{message.flatten.join(' ')}")
+            send_message('EXECUTE', result, hook_id,
+                         "#{hook_rc} #{message.flatten.join(' ')}")
         end
     end
 
@@ -113,48 +111,20 @@ class HookManagerDriver < OpenNebulaDriver
     def key(type, xml)
         case type.to_sym
         when :API
-            api_key(xml)
+            call    = xml.xpath('//CALL')[0].text
+            success = xml.xpath('//CALL_INFO/RESULT')[0].text
+
+            "API #{call} #{success}"
         when :STATE
-            state_key(xml)
+            obj       = xml.xpath('//HOOK_OBJECT')[0].text
+            state     = xml.xpath('//STATE')[0].text
+            lcm_state = xml.xpath('//LCM_STATE')[0].text if obj == 'VM'
+
+            "STATE #{obj}/#{state}/#{lcm_state}"
         else
             ''
         end
     end
-
-    def api_key(xml)
-        call    = xml.xpath('//CALL')[0].text
-        success = xml.xpath('//CALL_INFO/RESULT')[0].text
-
-        "API #{call} #{success}"
-    end
-
-    def state_key(xml)
-        obj       = xml.xpath('//HOOK_OBJECT')[0].text
-        state     = xml.xpath('//STATE')[0].text
-        lcm_state = xml.xpath('//LCM_STATE')[0].text if obj == 'VM'
-
-        "STATE #{obj}/#{state}/#{lcm_state}"
-    end
-
-    def values(type, xml)
-        case type.to_sym
-        when :API
-            api_values(xml)
-        when :STATE
-            state_values(xml)
-        else
-            ''
-        end
-    end
-
-    def api_values(xml)
-        xml.xpath('//CALL_INFO')[0].serialize(:save_with => 0)
-    end
-
-    def state_values(xml)
-        xml.xpath('/HOOK_MESSAGE/STATE')[0]
-    end
-
 end
 
 #-------------------------------------------------------------------------------

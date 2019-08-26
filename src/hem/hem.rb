@@ -63,29 +63,33 @@ module HEMHook
     # --------------------------------------------------------------------------
     # Parse hook arguments
     def arguments(event_str)
-        hook_args = self['TEMPLATE/ARGUMENTS']
+        hook_args = self['//TEMPLATE/ARGUMENTS']
 
-        return "" unless hook_args
+        return ["", ""] unless hook_args
 
         begin
             event = Nokogiri::XML(event_str)
 
-            event_type = event.xpath('//HOOK_TYPE')[0].upcase
+            event_type = event.xpath('//HOOK_TYPE')[0].text.upcase
 
-            api = ""
+            api      = ""
             template = ""
+            host     = ""
 
             case event_type
             when 'API'
                 api = event.xpath('//PARAMETERS')[0].to_s
                 api = Base64.strict_encode64(api)
             when 'STATE'
-                object   = event.xpath('//HOOK_OBJECT')[0].upcase
+                object   = event.xpath('//HOOK_OBJECT')[0].text.upcase
+
                 template = event.xpath("//#{object}")[0].to_s
                 template = Base64.strict_encode64(template)
+
+                host     = event.xpath('//REMOTE_HOST')[0].text
             end
         rescue StandardError => se
-            return ""
+            return ["", ""]
         end
 
         parguments = ""
@@ -102,24 +106,31 @@ module HEMHook
             end
         end
 
-        parguments
+        [parguments, host]
     end
 
     # Execute the hook command
-    def execute(path, params)
-        #TODO send arguments via stdin if configured
+    def execute(path, params, host)
         remote  = self['TEMPLATE/REMOTE'].casecmp('YES').zero?
         command = self['TEMPLATE/COMMAND']
 
+        astdin = self['TEMPLATE/ARGUMENTS_STDIN']
+        astdin &&= (astdin.casecmp('yes') || astdin.casecmp('true'))
+
         command.prepend(path) if command[0] != '/'
 
-        command.concat(" #{params}") unless params.empty?
+        stdin = nil
+
+        if astdin
+            stdin = params
+        elsif !params.empty?
+            command.concat(" #{params}")
+        end
 
         if !remote
-            LocalCommand.run(command)
-        else
-            #TODO REMOTE_HOST from event_str
-            SSHCommand.run(command, self['TEMPLATE/REMOTE_HOST'])
+            LocalCommand.run(command, nil, stdin, nil)
+        elsif !host.empty?
+            SSHCommand.run(command, host, nil, stdin, nil)
         end
     end
 
@@ -393,8 +404,9 @@ class HookExecutionManager
             @subscriber.recv_string(content)
 
             type, key = key.split(' ')
-            content   = Base64.decode64(content)
-            hook      = @hooks.get_hook(type, key)
+
+            content = Base64.decode64(content)
+            hook    = @hooks.get_hook(type, key)
 
             @am.trigger_action(:EXECUTE, 0, hook, content) unless hook.nil?
 
@@ -404,8 +416,8 @@ class HookExecutionManager
 
     def execute_action(hook, content)
         ack = ''
-        params = hook.arguments(content)
-        rc     = hook.execute(@conf[:hook_base_path], params)
+        params, host = hook.arguments(content)
+        rc = hook.execute(@conf[:hook_base_path], params, host)
 
         if rc.code.zero?
             @logger.info("Hook successfully executed for #{hook.key}")

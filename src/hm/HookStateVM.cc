@@ -36,11 +36,21 @@ string * HookStateVM::format_message(VirtualMachine * vm)
         << "<HOOK_TYPE>STATE</HOOK_TYPE>"
         << "<HOOK_OBJECT>VM</HOOK_OBJECT>"
         << "<STATE>" << VirtualMachine::vm_state_to_str(state, vm->get_state()) << "</STATE>"
-        << "<LCM_STATE>" << VirtualMachine::lcm_state_to_str(lcm_state, vm->get_lcm_state()) << "</LCM_STATE>"
-        << vm->to_xml_extended(vm_xml)
+        << "<LCM_STATE>" << VirtualMachine::lcm_state_to_str(lcm_state, vm->get_lcm_state()) << "</LCM_STATE>";
+
+    if ( vm->hasHistory() )
+    {
+        oss << "<REMOTE_HOST>" << vm->get_hostname() << "</REMOTE_HOST>";
+    }
+    else
+    {
+        oss << "<REMOTE_HOST/>";
+    }
+
+    oss << vm->to_xml_extended(vm_xml)
         << "</HOOK_MESSAGE>";
 
-    return one_util::base64_encode(oss.str());   
+    return one_util::base64_encode(oss.str());
 }
 
 /* -------------------------------------------------------------------------- */
