@@ -32,6 +32,7 @@ if !ONE_LOCATION
     LIB_LOCATION  = '/usr/lib/one'
     HOOK_LOCATION = '/var/lib/one/remotes/hooks'
     RUBY_LIB_LOCATION = '/usr/lib/one/ruby'
+    GEMS_LOCATION     = '/usr/share/one/gems'
 else
     VAR_LOCATION  = ONE_LOCATION + '/var'
     LOG_LOCATION  = ONE_LOCATION + '/var'
@@ -39,6 +40,11 @@ else
     LIB_LOCATION  = ONE_LOCATION + '/lib'
     HOOK_LOCATION = ONE_LOCATION + '/var/remotest/hooks'
     RUBY_LIB_LOCATION = ONE_LOCATION + '/lib/ruby'
+    GEMS_LOCATION     = ONE_LOCATION + '/share/gems'
+end
+
+if File.directory?(GEMS_LOCATION)
+    Gem.use_paths(GEMS_LOCATION)
 end
 
 $LOAD_PATH << RUBY_LIB_LOCATION
@@ -53,6 +59,7 @@ require 'ActionManager'
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
 module HEMHook
+
     # --------------------------------------------------------------------------
     # Hook types
     # --------------------------------------------------------------------------
