@@ -56,7 +56,7 @@ module HEMHook
     # --------------------------------------------------------------------------
     # Hook types
     # --------------------------------------------------------------------------
-    HOOK_TYPES  = [:api, :state]
+    HOOK_TYPES = [:api, :state]
 
     # --------------------------------------------------------------------------
     # Hook Execution
@@ -92,7 +92,7 @@ module HEMHook
             return ["", ""]
         end
 
-        parguments = ""
+        parguments = ''
         hook_args  = hook_args.split ' '
 
         hook_args.each do |arg|
@@ -158,10 +158,10 @@ module HEMHook
             when :state
                 "#{self['//RESOURCE']}/#{self['//STATE']}/#{self['//LCM_STATE']}"
             else
-                ""
+                ''
             end
         rescue
-            return ""
+            return ''
         end
     end
 
@@ -169,11 +169,11 @@ module HEMHook
     def filter(key)
         case type
         when :api
-            "API #{key} 1"
+            "EVENT API #{key} 1"
         when :state
-            "STATE #{key}"
+            "EVENT STATE #{key}"
         else
-            ""
+            ''
         end
     end
 end
@@ -283,7 +283,12 @@ class HookExecutionManager
         'one.hook.delete'
     ]
 
-    const_set('STATIC_FILTERS', UPDATE_CALLS.map {|e| "API #{e} 1" })
+    ACTIONS = [
+        :EVENT,
+        :RETRY
+    ]
+
+    const_set('STATIC_FILTERS', UPDATE_CALLS.map {|e| "EVENT API #{e} 1" })
 
     # --------------------------------------------------------------------------
     # Logger configuration
@@ -323,7 +328,7 @@ class HookExecutionManager
 
         @logger.formatter = proc do |severity, datetime, _progname, msg|
             format(MSG_FORMAT, datetime.strftime(DATE_FORMAT),
-                severity[0..0], msg)
+                   severity[0..0], msg)
         end
 
         #-----------------------------------------------------------------------
@@ -340,9 +345,10 @@ class HookExecutionManager
         # Maps for existing hooks and filters and oned client
         @hooks = HookMap.new(@logger)
 
-        #Internal event manager
+        # Internal event manager
         @am = ActionManager.new(@conf[:concurrency], true)
-        @am.register_action(:EXECUTE, method('execute_action'))
+        @am.register_action(ACTIONS[0], method('execute_action'))
+        @am.register_action(ACTIONS[1], method('retry_action'))
     end
 
     ##############################################################################
@@ -372,6 +378,9 @@ class HookExecutionManager
 
         # Subscribe to each existing hook
         @hooks.each_filter { |filter| subscribe(filter) }
+
+        # subscribe to RETRY actions
+        subscribe('RETRY')
     end
 
     def reload_hooks
@@ -381,6 +390,9 @@ class HookExecutionManager
         @hooks.load
 
         @hooks.each_filter { |filter| subscribe(filter) }
+
+        # subscribe to RETRY actions
+        subscribe('RETRY')
     end
 
     ############################################################################
@@ -403,14 +415,27 @@ class HookExecutionManager
             @subscriber.recv_string(key)
             @subscriber.recv_string(content)
 
-            type, key = key.split(' ')
+            # get action
+            action = key.split(' ').shift.to_sym
 
-            content = Base64.decode64(content)
-            hook    = @hooks.get_hook(type, key)
+            # remove action from key
+            key = key.split(' ')[1..-1].flatten.join(' ')
 
-            @am.trigger_action(:EXECUTE, 0, hook, content) unless hook.nil?
+            case action
+            when :EVENT
+                type, key = key.split(' ')
+                content   = Base64.decode64(content)
+                hook      = @hooks.get_hook(type, key)
 
-            reload_hooks if UPDATE_CALLS.include? key
+                @am.trigger_action(ACTIONS[0], 0, hook, content) unless hook.nil?
+
+                reload_hooks if UPDATE_CALLS.include? key
+            when :RETRY
+                command = Base64.decode64(content.split(' ')[0])
+                args    = Base64.decode64(content.split(' ')[0])
+
+                @am.trigger_action(ACTIONS[1], 0, command, args)
+            end
         end
     end
 
@@ -425,10 +450,7 @@ class HookExecutionManager
             @logger.error("Failure executing hook for #{hook.key}")
         end
 
-        xml_response =<<-EOF
-            <ARGUMENTS>#{params}</ARGUMENTS>
-            #{rc.to_xml}
-        EOF
+        xml_response = "<ARGUMENTS>#{params}</ARGUMENTS>#{rc.to_xml}"
 
         xml_response = Base64.strict_encode64(xml_response)
 
@@ -437,7 +459,21 @@ class HookExecutionManager
             @requester.recv_string(ack)
         }
 
-        @logger.error('Wrong ACK message: #{ack}.') if ack != 'ACK'
+        @logger.error("Wrong ACK message: #{ack}.") if ack != 'ACK'
+    end
+
+    def retry_action(command, args)
+        ack = ''
+
+        # TODO, manage remote and STDIN (now this info does not came in the message)
+        rc = LocalCommand.run("#{command} #{args}")
+
+        @requester_lock.synchronize {
+            @requester.send_string("#{rc.code} -1 a")
+            @requester.recv_string(ack)
+        }
+
+        @logger.error("Wrong ACK message: #{ack}.") if ack != 'ACK'
     end
 
     def start

@@ -122,6 +122,9 @@ void HookManager::user_action(const ActionRequest& ar)
         case HMAction::SEND_EVENT:
             send_event_action(message);
             break;
+        case HMAction::RETRY:
+            retry_action(message);
+            break;
     }
 }
 
@@ -143,3 +146,17 @@ void HookManager::send_event_action(const std::string& message)
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
+void HookManager::retry_action(const std::string& message)
+{
+    const HookManagerDriver* hmd = get();
+
+    if ( hmd == nullptr )
+    {
+        return;
+    }
+
+    hmd->retry(message);
+}
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */

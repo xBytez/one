@@ -71,10 +71,11 @@ public:
      *  Retries a given execution for a host, using the same execution context
      *    @param hkid the ID of the hook
      *    @param exeid the execution identifier
+     *    @param err_msg error message
      *
      *    @return 0 on success
      */
-    int retry(int hkid, int exeid);
+    int retry(int hkid, int exeid, std::string& err_msg);
 
     /**
      *  This functions starts the associated listener thread, and creates a
@@ -141,11 +142,12 @@ private:
     /**
      *  Dumps hook log records
      *    @param hkid -1 to dump all records
+     *    @param exec_id -1 to dump all records
      *    @param xml_log execution results in xml format
      *
      *    @return 0 on success
      */
-    int _dump_log(int hkid, std::string &xml_log);
+    int _dump_log(int hkid, int exec_id, std::string &xml_log);
 
     // -------------------------------------------------------------------------
     // Action Listener interface

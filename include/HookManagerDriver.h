@@ -87,6 +87,9 @@ public:
     void execute(
         const string&   message ) const;
 
+    void retry(
+        const string&   message ) const;
+
 private:
 
     friend class            HookManager;

@@ -51,6 +51,7 @@
 #include "RequestManagerVirtualRouter.h"
 #include "RequestManagerSecurityGroup.h"
 #include "RequestManagerVNTemplate.h"
+#include "RequestManagerHook.h"
 
 #include "RequestManagerSystem.h"
 #include "RequestManagerProxy.h"
@@ -580,6 +581,7 @@ void RequestManager::register_xml_methods()
     xmlrpc_c::methodPtr secg_commit(new SecurityGroupCommit());
 
     // Hook methods
+    xmlrpc_c::methodPtr hook_retry(new HookRetry());
 
     /* VM related methods  */
     RequestManagerRegistry.addMethod("one.vm.deploy", vm_deploy);
@@ -1221,6 +1223,7 @@ void RequestManager::register_xml_methods()
     RequestManagerRegistry.addMethod("one.hook.info", hook_info);
     RequestManagerRegistry.addMethod("one.hook.lock", hook_lock);
     RequestManagerRegistry.addMethod("one.hook.unlock", hook_unlock);
+    RequestManagerRegistry.addMethod("one.hook.retry", hook_retry);
     RequestManagerRegistry.addMethod("one.hookpool.info", hookpool_info);
 
 

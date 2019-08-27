@@ -18,6 +18,9 @@
 #include "ObjectXML.h"
 #include "NebulaLog.h"
 #include "SqlDB.h"
+#include "Nebula.h"
+#include "HookManager.h"
+#include "NebulaUtil.h"
 
 #include <sstream>
 
@@ -88,7 +91,7 @@ int HookLog::start()
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-int HookLog::_dump_log(int hkid, std::string &xml_log)
+int HookLog::_dump_log(int hkid, int exec_id, std::string &xml_log)
 {
     std::ostringstream cmd;
 
@@ -103,6 +106,11 @@ int HookLog::_dump_log(int hkid, std::string &xml_log)
     else
     {
         cmd << " WHERE hkid = " << hkid;
+    }
+
+    if (exec_id != -1)
+    {
+        cmd << " AND exeid = " << exec_id;
     }
 
     xml_log.append("<HOOKLOG>");
@@ -122,14 +130,14 @@ int HookLog::_dump_log(int hkid, std::string &xml_log)
 
 int HookLog::dump_log(int hkid, std::string &xml_log)
 {
-    return _dump_log(hkid, xml_log);
+    return _dump_log(hkid, -1, xml_log);
 }
 
 /* -------------------------------------------------------------------------- */
 
 int HookLog::dump_log(std::string &xml_log)
 {
-    return _dump_log( -1, xml_log);
+    return _dump_log( -1, -1, xml_log);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -204,8 +212,45 @@ int HookLog::add(int hkid, int hkrc, std::string &xml_result)
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-int HookLog::retry(int hkid, int exeid)
+int HookLog::retry(int hkid, int exeid, std::string& err_msg)
 {
+    std::string xml, command, args;
+
+    ostringstream oss;
+
+    Nebula& nd  = Nebula::instance();
+
+    HookManager * hm = nd.get_hm();
+
+    int rc;
+
+    rc = _dump_log(hkid, exeid, xml);
+
+    ObjectXML obj_xml(xml);
+
+
+    if (rc != 0)
+    {
+        err_msg = "Error reading HookLog.";
+        return -1;
+    }
+
+    rc += obj_xml.xpath(command, "/HOOKLOG/HOOK_EXECUTION_RECORD/EXECUTION_RESULT/COMMAND", "");
+    rc += obj_xml.xpath(args, "/HOOKLOG/HOOK_EXECUTION_RECORD/ARGUMENTS", "");
+
+    if (rc != 0)
+    {
+        err_msg = "Invalid HookLog body.";
+        return -1;
+    }
+
+    std::string* args64  = one_util::base64_encode(args);
+    std::string* command64 = one_util::base64_encode(command);
+
+    oss << *command64 << " " << *args64;
+
+    hm->trigger(HMAction::RETRY, oss.str());
+
     return 0;
 }
 

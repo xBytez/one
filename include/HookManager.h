@@ -31,7 +31,8 @@ class HMAction : public ActionRequest
 public:
     enum Actions
     {
-        SEND_EVENT  /**< Send event to hook manager driver*/
+        SEND_EVENT,  /**< Send event to hook manager driver*/
+        RETRY       /**< Send RETRY action to hook manager driver*/
     };
 
     HMAction(Actions a, const std::string& m):ActionRequest(ActionRequest::USER),
@@ -164,6 +165,12 @@ private:
      *    @param message to pass to the driver
      */
     void send_event_action(const std::string& message);
+
+    /**
+     *  Send retry message to the driver
+     *    @param message to pass to the driver
+     */
+    void retry_action(const std::string& message);
 
     // -------------------------------------------------------------------------
     // Action Listener interface

@@ -17,6 +17,7 @@
 require 'pp'
 require 'open3'
 require 'timeout'
+require 'base64'
 
 # Generic command executor that holds the code shared by all the command
 # executors.
@@ -109,7 +110,7 @@ class GenericCommand
     def to_xml
         '<EXECUTION_RESULT>' \
             "<COMMAND>#{@command}</COMMAND>" \
-            "<STDOUT>#{@stdout}</STDOUT>" \
+            "<STDOUT>#{Base64.encode64(@stdout)}</STDOUT>" \
             "<STDERR>#{@stderr}</STDERR>" \
             "<CODE>#{@code}</CODE>" \
         '</EXECUTION_RESULT>'

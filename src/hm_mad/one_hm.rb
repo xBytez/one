@@ -37,6 +37,7 @@ require 'nokogiri'
 
 # HookManagerDriver class
 class HookManagerDriver < OpenNebulaDriver
+
     # --------------------------------------------------------------------------
     # Default configuration options for the driver
     # --------------------------------------------------------------------------
@@ -57,6 +58,7 @@ class HookManagerDriver < OpenNebulaDriver
         super('', @options)
 
         register_action(:EXECUTE, method('action_execute'))
+        register_action(:RETRY, method('action_retry'))
 
         # Initialize sockets and listener
         context = ZMQ::Context.new(1)
@@ -77,10 +79,25 @@ class HookManagerDriver < OpenNebulaDriver
         arg_xml = Nokogiri::XML(Base64.decode64(arguments.flatten[0]))
         type    = arg_xml.xpath('//HOOK_TYPE').text
 
+        m_key = "EVENT #{key(type, arg_xml)}"
+
         # Using envelopes for splitting key/val
         # http://zguide.zeromq.org/page:all#Pub-Sub-Message-Envelopes
-        @publisher.send_string key(type, arg_xml), ZMQ::SNDMORE
+        @publisher.send_string m_key, ZMQ::SNDMORE
         @publisher.send_string arguments.flatten[0]
+    end
+
+    def action_retry(*arguments)
+        arguments.flatten!
+
+        command = arguments[0]
+        params  = arguments[1]
+
+        m_key = 'RETRY'
+        m_val = "#{command} #{params}"
+
+        @publisher.send_string m_key, ZMQ::SNDMORE
+        @publisher.send_string m_val
     end
 
     def receiver_thread
@@ -138,7 +155,7 @@ opts = GetoptLong.new(
     ['--bind',           '-b', GetoptLong::OPTIONAL_ARGUMENT]
 )
 
-arguments ={}
+arguments = {}
 
 begin
     opts.each do |opt, arg|
