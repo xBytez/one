@@ -117,7 +117,7 @@ module HEMHook
         astdin = self['TEMPLATE/ARGUMENTS_STDIN']
         astdin &&= (astdin.casecmp('yes') || astdin.casecmp('true'))
 
-        command.prepend(path) if command[0] != '/'
+        command.prepend("#{path}/") if command[0] != '/'
 
         stdin = nil
 
