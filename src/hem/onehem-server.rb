@@ -271,8 +271,8 @@ class HookExecutionManager
     # --------------------------------------------------------------------------
     # File paths
     # --------------------------------------------------------------------------
-    CONFIGURATION_FILE = ETC_LOCATION + '/hem.conf'
-    HEM_LOG            = LOG_LOCATION + '/hem.log'
+    CONFIGURATION_FILE = ETC_LOCATION + '/onehem-server.conf'
+    HEM_LOG            = LOG_LOCATION + '/onehem.log'
 
     # --------------------------------------------------------------------------
     # API calls which trigger hook info reloading and filters to suscribe to
