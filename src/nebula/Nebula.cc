@@ -691,11 +691,13 @@ void Nebula::start(bool bootstrap_only)
         try
         {
             vector<const VectorAttribute *> hm_mads;
+            const VectorAttribute * hl_conf;
 
             nebula_configuration->get("HM_MAD", hm_mads);
+            hl_conf = nebula_configuration->get("HOOK_LOG_CONF");
 
             hm = new HookManager(hm_mads);
-            hl = new HookLog(logdb);
+            hl = new HookLog(logdb, hl_conf);
         }
         catch (bad_alloc&)
         {

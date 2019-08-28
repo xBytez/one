@@ -122,6 +122,12 @@ module OpenNebula
             call(HOOK_METHODS[:rename], @pe_id, name)
         end
 
+        # Retry a previous execution of the hook.
+        #
+        # @param exec_id [int] Hook execution id.
+        #
+        # @return [nil, OpenNebula::Error] nil in case of success, Error
+        #   otherwise
         def retry(exec_id)
             call(HOOK_METHODS[:retry], @pe_id, exec_id)
         end

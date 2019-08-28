@@ -20,6 +20,7 @@
 #include <string>
 
 #include "ActionManager.h"
+#include "Attribute.h"
 
 class SqlDB;
 
@@ -36,7 +37,7 @@ class HookLog: public ActionListener
 {
 public:
 
-    HookLog(SqlDB *db);
+    HookLog(SqlDB *db, const VectorAttribute * hl_conf);
 
     virtual ~HookLog() = default;
 
@@ -138,6 +139,11 @@ private:
      *  Action engine for the Manager
      */
     ActionManager         am;
+
+    /**
+     * Number of log records saved for each hook.
+     */
+    int log_retention;
 
     /**
      *  Dumps hook log records

@@ -48,7 +48,21 @@ int HookLog::bootstrap(SqlDB * db)
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-HookLog::HookLog(SqlDB *_db):db(_db){};
+HookLog::HookLog(SqlDB *_db, const VectorAttribute * hl_conf):
+    db(_db)
+{
+    if (hl_conf == nullptr)
+    {
+        log_retention = INT_MAX;
+    }
+    else
+    {
+        if (hl_conf->vector_value("LOG_RETENTION", log_retention) != 0)
+        {
+            log_retention = INT_MAX;
+        }
+    }
+};
 
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
@@ -147,17 +161,17 @@ int HookLog::add(int hkid, int hkrc, std::string &xml_result)
 {
     std::ostringstream oss;
 
-    single_cb<int> cb;
+    vector_cb<int> cb;
 
-    int last_exeid = -1;
+    vector<int> query_output;
 
     char * sql_xml;
 
     std::string xml_body;
 
-    cb.set_callback(&last_exeid);
+    cb.set_callback(&query_output);
 
-    oss << "SELECT IFNULL(MAX(exeid), -1) FROM hook_log" << " WHERE hkid = " << hkid;
+    oss << "SELECT IFNULL(MAX(exeid), -1), COUNT(*) FROM hook_log" << " WHERE hkid = " << hkid;
 
     int rc = db->exec_rd(oss, &cb);
 
@@ -166,7 +180,8 @@ int HookLog::add(int hkid, int hkrc, std::string &xml_result)
         return rc;
     }
 
-    last_exeid++;
+    int last_exeid = query_output[0] + 1;
+    int num_records = query_output[1];
 
     cb.unset_callback();
 
@@ -203,6 +218,16 @@ int HookLog::add(int hkid, int hkrc, std::string &xml_result)
         << "'" << sql_xml << "')";
 
     rc = db->exec_wr(oss);
+
+    if (num_records > log_retention) //Replace 3 by custom attribute readed from oned.conf
+    {
+        oss.str("");
+
+        oss << "DELETE FROM " << table << " WHERE hkid = " << hkid
+            << " AND exeid <= " << last_exeid - log_retention;
+
+        rc = db->exec_wr(oss);
+    }
 
     db->free_str(sql_xml);
 
