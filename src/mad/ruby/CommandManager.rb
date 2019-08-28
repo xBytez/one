@@ -111,7 +111,7 @@ class GenericCommand
         '<EXECUTION_RESULT>' \
             "<COMMAND>#{@command}</COMMAND>" \
             "<STDOUT>#{Base64.encode64(@stdout)}</STDOUT>" \
-            "<STDERR>#{@stderr}</STDERR>" \
+            "<STDERR>#{Base64.encode64(@stderr)}</STDERR>" \
             "<CODE>#{@code}</CODE>" \
         '</EXECUTION_RESULT>'
     end

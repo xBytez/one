@@ -225,4 +225,15 @@ CommandParser::CmdParser.new(ARGV) do
             t.unlock
         end
     end
+
+    retry_desc = <<-EOT.unindent
+        Retry a previous hook execution.
+    EOT
+
+    command :retry, retry_desc, :hookid, :execid do
+        helper.perform_action(args[0], options, 'Retry executed') do |t|
+            t.retry args[1].to_i
+        end
+    end
+
 end

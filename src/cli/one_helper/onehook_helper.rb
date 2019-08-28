@@ -149,11 +149,11 @@ class OneHookHelper < OpenNebulaHelper::OneHelper
 
             puts
             CLIHelper.print_header(str_h1 % 'EXECUTION STDOUT')
-            puts stdout if stdout.class == String && !stdout.empty?
+            puts Base64.decode64(stdout) if stdout.class == String && !stdout.empty?
 
             puts
             CLIHelper.print_header(str_h1 % 'EXECUTION STDERR')
-            puts stderr if stderr.class == String && !stderr.empty?
+            puts Base64.decode64(stderr) if stderr.class == String && !stderr.empty?
 
             puts
             return

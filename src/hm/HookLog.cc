@@ -214,7 +214,10 @@ int HookLog::add(int hkid, int hkrc, std::string &xml_result)
 
 int HookLog::retry(int hkid, int exeid, std::string& err_msg)
 {
-    std::string xml, command, args;
+    std::string xml, command, args, host, as_stdin_str;
+    bool as_stdin = false;
+
+    string * message;
 
     ostringstream oss;
 
@@ -244,12 +247,25 @@ int HookLog::retry(int hkid, int exeid, std::string& err_msg)
         return -1;
     }
 
+    //TODO check why this fails
+    obj_xml.xpath(as_stdin_str, "/HOOKLOG/HOOK_EXECUTION_RECORD/ARGUMENTS_STDIN", "");
+
+    if ((one_util::tolower(as_stdin_str) == "yes") || (one_util::tolower(as_stdin_str) == "true"))
+    {
+        as_stdin = true;
+    }
+
+    obj_xml.xpath(host, "/HOOKLOG/HOOK_EXECUTION_RECORD/REMOTE_HOST", "");
+
+
     std::string* args64  = one_util::base64_encode(args);
     std::string* command64 = one_util::base64_encode(command);
 
     oss << *command64 << " " << *args64;
 
-    hm->trigger(HMAction::RETRY, oss.str());
+    message = HookManager::format_message(*command64, *args64, host, hkid, as_stdin);
+
+    hm->trigger(HMAction::RETRY, *message);
 
     return 0;
 }

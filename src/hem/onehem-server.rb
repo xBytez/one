@@ -69,19 +69,16 @@ module HEMHook
     # Hook Execution
     # --------------------------------------------------------------------------
     # Parse hook arguments
-    def arguments(event_str)
+    def arguments(event)
         hook_args = self['//TEMPLATE/ARGUMENTS']
 
-        return ["", ""] unless hook_args
+        return '' unless hook_args
 
         begin
-            event = Nokogiri::XML(event_str)
-
             event_type = event.xpath('//HOOK_TYPE')[0].text.upcase
 
-            api      = ""
-            template = ""
-            host     = ""
+            api      = ''
+            template = ''
 
             case event_type
             when 'API'
@@ -92,11 +89,9 @@ module HEMHook
 
                 template = event.xpath("//#{object}")[0].to_s
                 template = Base64.strict_encode64(template)
-
-                host     = event.xpath('//REMOTE_HOST')[0].text
             end
         rescue StandardError => se
-            return ["", ""]
+            return ''
         end
 
         parguments = ''
@@ -113,31 +108,38 @@ module HEMHook
             end
         end
 
-        [parguments, host]
+        parguments
+    end
+
+    def remote_host(event)
+        event_type = event.xpath('//HOOK_TYPE')[0].text.upcase
+
+        return '' if event_type.casecmp 'API'
+        return '' if event.xpath('//REMOTE_HOST')[0].nil?
+
+        event.xpath('//REMOTE_HOST')[0].text
     end
 
     # Execute the hook command
     def execute(path, params, host)
-        remote  = self['TEMPLATE/REMOTE'].casecmp('YES').zero?
         command = self['TEMPLATE/COMMAND']
-
-        astdin = self['TEMPLATE/ARGUMENTS_STDIN']
-        astdin &&= (astdin.casecmp('yes') || astdin.casecmp('true'))
 
         command.prepend("#{path}/") if command[0] != '/'
 
         stdin = nil
 
-        if astdin
+        if as_stdin?
             stdin = params
         elsif !params.empty?
             command.concat(" #{params}")
         end
 
-        if !remote
+        if !remote?
             LocalCommand.run(command, nil, stdin, nil)
         elsif !host.empty?
             SSHCommand.run(command, host, nil, stdin, nil)
+        else
+            return -1
         end
     end
 
@@ -154,6 +156,17 @@ module HEMHook
 
     def id
         self['ID'].to_i
+    end
+
+    def remote?
+        self['TEMPLATE/REMOTE'].casecmp('YES').zero?
+    end
+
+    def as_stdin?
+        astdin = self['TEMPLATE/ARGUMENTS_STDIN']
+        astdin &&= (astdin.casecmp('yes') || astdin.casecmp('true'))
+
+        astdin.zero?
     end
 
     # Generates a key for a given hook
@@ -262,6 +275,7 @@ end
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
 class HookExecutionManager
+
     attr_reader :am
 
     # --------------------------------------------------------------------------
@@ -391,7 +405,7 @@ class HookExecutionManager
     end
 
     def reload_hooks
-        #TODO recover the reload_hooks
+        # TODO, recover the reload_hooks
         @hooks.each_filter { |filter| unsubscribe(filter) }
 
         @hooks.load
@@ -438,18 +452,38 @@ class HookExecutionManager
 
                 reload_hooks if UPDATE_CALLS.include? key
             when :RETRY
-                command = Base64.decode64(content.split(' ')[0])
-                args    = Base64.decode64(content.split(' ')[0])
+                body = Base64.decode64(content.split(' ')[0])
+                body_xml = Nokogiri::XML(body)
 
-                @am.trigger_action(ACTIONS[1], 0, command, args)
+                @am.trigger_action(ACTIONS[1], 0, body_xml)
             end
         end
     end
 
+    def build_response_body(args, as_stdin, rc, remote_host, remote)
+        xml_response = "<ARGUMENTS>#{args}</ARGUMENTS>" \
+                       "<ARGUMENTS_STDIN>#{as_stdin}</ARGUMENTS_STDIN>" \
+                       "#{rc.to_xml}"
+
+        xml_response.concat("<REMOTE_HOST>#{remote_host}</REMOTE_HOST") if !remote_host.empty? && remote
+
+        Base64.strict_encode64(xml_response)
+    end
+
     def execute_action(hook, content)
         ack = ''
-        params, host = hook.arguments(content)
+
+        event = Nokogiri::XML(content)
+
+        params = hook.arguments(event)
+        host   = hook.remote_host(event)
+
         rc = hook.execute(@conf[:hook_base_path], params, host)
+
+        if rc == -1
+            @logger.error('No remote host specified for a remote hook.')
+            return
+        end
 
         if rc.code.zero?
             @logger.info("Hook successfully executed for #{hook.key}")
@@ -457,9 +491,7 @@ class HookExecutionManager
             @logger.error("Failure executing hook for #{hook.key}")
         end
 
-        xml_response = "<ARGUMENTS>#{params}</ARGUMENTS>#{rc.to_xml}"
-
-        xml_response = Base64.strict_encode64(xml_response)
+        xml_response = build_response_body(params, hook.as_stdin?, rc, host, hook.remote?)
 
         @requester_lock.synchronize {
             @requester.send_string("#{rc.code} #{hook.id} #{xml_response}")
@@ -469,14 +501,37 @@ class HookExecutionManager
         @logger.error("Wrong ACK message: #{ack}.") if ack != 'ACK'
     end
 
-    def retry_action(command, args)
+    def retry_action(body)
         ack = ''
 
-        # TODO, manage remote and STDIN (now this info does not came in the message)
-        rc = LocalCommand.run("#{command} #{args}")
+        command  = Base64.decode64(body.xpath('//COMMAND')[0].text)
+        args     = Base64.decode64(body.xpath('//ARGUMENTS')[0].text)
+        hk_id    = body.xpath('//HOOK_ID')[0].text
+        as_stdin = false
+        host     = ''
+
+        host     = body.xpath('//REMOTE_HOST')[0].text unless body.xpath('//REMOTE_HOST')[0].nil?
+        as_stdin = body.xpath('//ARGUMENTS_STDIN')[0].text unless body.xpath('//ARGUMENTS_STDIN')[0].nil?
+
+        stdin = ''
+        if as_stdin.casecmp('true').zero? || as_stdin.casecmp('yes').zero?
+            stdin = args
+        elsif !args.empty?
+            command.concat(" #{args}")
+        end
+
+        rc = nil
+        if host.empty?
+            rc = LocalCommand.run(command, nil, stdin, nil)
+        elsif !host.empty?
+            rc = SSHCommand.run(command, host, nil, stdin, nil)
+        end
+
+        xml_response = build_response_body(args, as_stdin, rc, host, !host.empty?)
+        xml_response.concat('<RETRY>yes</RETRY>')
 
         @requester_lock.synchronize {
-            @requester.send_string("#{rc.code} -1 a")
+            @requester.send_string("#{rc.code} #{hk_id} #{xml_response}")
             @requester.recv_string(ack)
         }
 

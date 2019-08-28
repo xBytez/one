@@ -138,6 +138,10 @@ public:
                (MadManager::get(0, name,hook_driver_name));
     };
 
+    static std::string * format_message(const string& command, const string& args,
+                                     const string&remote_host, int hook_id,
+                                     bool as_stdin);
+
 private:
     /**
      *  Function to execute the Manager action loop method within a new pthread

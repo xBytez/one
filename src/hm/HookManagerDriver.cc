@@ -177,10 +177,12 @@ void HookManagerDriver::protocol(const string& message) const
         if (result == "SUCCESS")
         {
             oss << "Success executing Hook " <<  hook_id;
+            NebulaLog::log("HKM",Log::INFO,oss);
         }
         else
         {
             oss << "Error executing Hook " << hook_id;
+            NebulaLog::log("HKM",Log::ERROR,oss);
         }
 
         info = one_util::base64_decode(info_b64);
@@ -191,7 +193,6 @@ void HookManagerDriver::protocol(const string& message) const
             delete info;
         }
 
-        NebulaLog::log("HKM",Log::ERROR,oss);
     }
 
     return;

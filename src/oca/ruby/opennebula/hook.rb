@@ -32,6 +32,7 @@ module OpenNebula
             :info     => 'hook.info',
             :lock     => 'hook.lock',
             :unlock   => 'hook.unlock',
+            :retry    => 'hook.retry'
         }
 
         # Creates a Hook description with just its identifier
@@ -119,6 +120,10 @@ module OpenNebula
         #   otherwise
         def rename(name)
             call(HOOK_METHODS[:rename], @pe_id, name)
+        end
+
+        def retry(exec_id)
+            call(HOOK_METHODS[:retry], @pe_id, exec_id)
         end
 
         #######################################################################
