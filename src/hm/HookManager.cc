@@ -161,21 +161,14 @@ void HookManager::retry_action(const std::string& message)
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-string * HookManager::format_message(const string& command, const string& args,
-                                     const string&remote_host, int hook_id,
-                                     bool as_stdin)
+string * HookManager::format_message(const string& args, const string&remote_host,
+                                     int hook_id)
 {
     std::ostringstream oss;
 
     oss << "<HOOK_MESSAGE>"
-        << "<COMMAND>"     << command     << "</COMMAND>"
         << "<ARGUMENTS>"   << args        << "</ARGUMENTS>"
         << "<HOOK_ID>"     << hook_id     << "</HOOK_ID>";
-
-    if (as_stdin)
-    {
-        oss << "<ARGUMENTS_STDIN>yes</ARGUMENTS_STDIN>";
-    }
 
     if (!remote_host.empty())
     {

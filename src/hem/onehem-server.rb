@@ -366,6 +366,8 @@ class HookExecutionManager
         # Maps for existing hooks and filters and oned client
         @hooks = HookMap.new(@logger)
 
+        @client = OpenNebula::Client.new
+
         # Internal event manager
         @am = ActionManager.new(@conf[:concurrency], true)
         @am.register_action(ACTIONS[0], method('execute_action'))
@@ -455,17 +457,25 @@ class HookExecutionManager
                 body = Base64.decode64(content.split(' ')[0])
                 body_xml = Nokogiri::XML(body)
 
-                @am.trigger_action(ACTIONS[1], 0, body_xml)
+                # Get Hook
+                hk_id = body_xml.xpath("//HOOK_ID")[0].text.to_i
+                hook = OpenNebula::Hook.new_with_id(hk_id, @client)
+                hook.info
+                hook.extend(HEMHook)
+
+                @am.trigger_action(ACTIONS[1], 0, hook, body_xml)
             end
         end
     end
 
-    def build_response_body(args, as_stdin, rc, remote_host, remote)
+    def build_response_body(args, as_stdin, rc, remote_host, remote, is_retry)
         xml_response = "<ARGUMENTS>#{args}</ARGUMENTS>" \
                        "<ARGUMENTS_STDIN>#{as_stdin}</ARGUMENTS_STDIN>" \
                        "#{rc.to_xml}"
 
         xml_response.concat("<REMOTE_HOST>#{remote_host}</REMOTE_HOST") if !remote_host.empty? && remote
+
+        xml_response.concat('<RETRY>yes</RETRY>') if is_retry
 
         Base64.strict_encode64(xml_response)
     end
@@ -491,7 +501,7 @@ class HookExecutionManager
             @logger.error("Failure executing hook for #{hook.key}")
         end
 
-        xml_response = build_response_body(params, hook.as_stdin?, rc, host, hook.remote?)
+        xml_response = build_response_body(params, hook.as_stdin?, rc, host, hook.remote?, false)
 
         @requester_lock.synchronize {
             @requester.send_string("#{rc.code} #{hook.id} #{xml_response}")
@@ -501,37 +511,20 @@ class HookExecutionManager
         @logger.error("Wrong ACK message: #{ack}.") if ack != 'ACK'
     end
 
-    def retry_action(body)
+    def retry_action(hook, body)
         ack = ''
 
-        command  = Base64.decode64(body.xpath('//COMMAND')[0].text)
         args     = Base64.decode64(body.xpath('//ARGUMENTS')[0].text)
-        hk_id    = body.xpath('//HOOK_ID')[0].text
-        as_stdin = false
         host     = ''
 
         host     = body.xpath('//REMOTE_HOST')[0].text unless body.xpath('//REMOTE_HOST')[0].nil?
-        as_stdin = body.xpath('//ARGUMENTS_STDIN')[0].text unless body.xpath('//ARGUMENTS_STDIN')[0].nil?
 
-        stdin = ''
-        if as_stdin.casecmp('true').zero? || as_stdin.casecmp('yes').zero?
-            stdin = args
-        elsif !args.empty?
-            command.concat(" #{args}")
-        end
+        rc = hook.execute(@conf[:hook_base_path], args, host)
 
-        rc = nil
-        if host.empty?
-            rc = LocalCommand.run(command, nil, stdin, nil)
-        elsif !host.empty?
-            rc = SSHCommand.run(command, host, nil, stdin, nil)
-        end
-
-        xml_response = build_response_body(args, as_stdin, rc, host, !host.empty?)
-        xml_response.concat('<RETRY>yes</RETRY>')
+        xml_response = build_response_body(args, hook.as_stdin?, rc, host, !host.empty?, true)
 
         @requester_lock.synchronize {
-            @requester.send_string("#{rc.code} #{hk_id} #{xml_response}")
+            @requester.send_string("#{rc.code} #{hook.id} #{xml_response}")
             @requester.recv_string(ack)
         }
 

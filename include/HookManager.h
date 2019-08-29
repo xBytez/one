@@ -138,9 +138,8 @@ public:
                (MadManager::get(0, name,hook_driver_name));
     };
 
-    static std::string * format_message(const string& command, const string& args,
-                                     const string&remote_host, int hook_id,
-                                     bool as_stdin);
+    static std::string * format_message(const string& args, const string&remote_host,
+                                        int hook_id);
 
 private:
     /**

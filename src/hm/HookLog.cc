@@ -51,17 +51,7 @@ int HookLog::bootstrap(SqlDB * db)
 HookLog::HookLog(SqlDB *_db, const VectorAttribute * hl_conf):
     db(_db)
 {
-    if (hl_conf == nullptr)
-    {
-        log_retention = INT_MAX;
-    }
-    else
-    {
-        if (hl_conf->vector_value("LOG_RETENTION", log_retention) != 0)
-        {
-            log_retention = INT_MAX;
-        }
-    }
+    hl_conf->vector_value("LOG_RETENTION", log_retention);
 };
 
 /* -------------------------------------------------------------------------- */
@@ -219,7 +209,7 @@ int HookLog::add(int hkid, int hkrc, std::string &xml_result)
 
     rc = db->exec_wr(oss);
 
-    if (num_records > log_retention) //Replace 3 by custom attribute readed from oned.conf
+    if (num_records > log_retention)
     {
         oss.str("");
 
@@ -263,32 +253,20 @@ int HookLog::retry(int hkid, int exeid, std::string& err_msg)
         return -1;
     }
 
-    rc += obj_xml.xpath(command, "/HOOKLOG/HOOK_EXECUTION_RECORD/EXECUTION_RESULT/COMMAND", "");
     rc += obj_xml.xpath(args, "/HOOKLOG/HOOK_EXECUTION_RECORD/ARGUMENTS", "");
 
     if (rc != 0)
     {
-        err_msg = "Invalid HookLog body.";
+        err_msg = "Invalid HookLog body. Arguments not found.";
         return -1;
-    }
-
-    //TODO check why this fails
-    obj_xml.xpath(as_stdin_str, "/HOOKLOG/HOOK_EXECUTION_RECORD/ARGUMENTS_STDIN", "");
-
-    if ((one_util::tolower(as_stdin_str) == "yes") || (one_util::tolower(as_stdin_str) == "true"))
-    {
-        as_stdin = true;
     }
 
     obj_xml.xpath(host, "/HOOKLOG/HOOK_EXECUTION_RECORD/REMOTE_HOST", "");
 
 
     std::string* args64  = one_util::base64_encode(args);
-    std::string* command64 = one_util::base64_encode(command);
 
-    oss << *command64 << " " << *args64;
-
-    message = HookManager::format_message(*command64, *args64, host, hkid, as_stdin);
+    message = HookManager::format_message(*args64, host, hkid);
 
     hm->trigger(HMAction::RETRY, *message);
 
