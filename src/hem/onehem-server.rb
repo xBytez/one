@@ -166,6 +166,8 @@ module HEMHook
         astdin = self['TEMPLATE/ARGUMENTS_STDIN']
         astdin &&= (astdin.casecmp('yes') || astdin.casecmp('true'))
 
+        return false if astdin.nil?
+
         astdin.zero?
     end
 
@@ -208,6 +210,7 @@ class HookMap
     def initialize(logger)
         @hooks   = {}
         @filters = {}
+        @hooks_id = {}
 
         @logger  = logger
         @client  = OpenNebula::Client.new
@@ -251,7 +254,7 @@ class HookMap
             key = hook.key
 
             @hooks[hook.type][key] = hook
-
+            @hooks_id[hook.id] = hook
             @filters[hook['ID'].to_i] = hook.filter(key)
         end
 
@@ -266,6 +269,10 @@ class HookMap
     # Returns a hook by key
     def get_hook(type, key)
         @hooks[type.downcase.to_sym][key]
+    end
+
+    def get_hook_by_id(id)
+        @hooks_id[id]
     end
 end
 
