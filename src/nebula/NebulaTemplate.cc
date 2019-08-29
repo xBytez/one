@@ -227,14 +227,6 @@ void OpenNebulaTemplate::set_multiple_conf_default()
     set_conf_vn("bridge", "linux");
 
     register_multiple_conf_default("VN_MAD_CONF");
-
-/*
-#*******************************************************************************
-# Hook Log Configuration
-#*******************************************************************************
-*/
-    set_conf_hl("10");
-    register_multiple_conf_default("HOOK_LOG_CONF");
 }
 
 /* -------------------------------------------------------------------------- */
@@ -403,20 +395,6 @@ void OpenNebulaTemplate::set_conf_vn(const std::string& name,
     vvalue.insert(make_pair("BRIDGE_TYPE", bridge_type));
 
     vattribute = new VectorAttribute("VN_MAD_CONF", vvalue);
-    conf_default.insert(make_pair(vattribute->name(), vattribute));
-}
-
-/* -------------------------------------------------------------------------- */
-/* -------------------------------------------------------------------------- */
-
-void OpenNebulaTemplate::set_conf_hl(const std::string& log_retention)
-{
-    VectorAttribute *   vattribute;
-    std::map<std::string,std::string>  vvalue;
-
-    vvalue.insert(make_pair("LOG_RETENTION", log_retention));
-
-    vattribute = new VectorAttribute("HOOK_LOG_CONF", vvalue);
     conf_default.insert(make_pair(vattribute->name(), vattribute));
 }
 
@@ -652,6 +630,19 @@ void OpenNebulaTemplate::set_conf_default()
             "rename, resize, update, disk-saveas");
 
     set_conf_single("VM_USE_OPERATIONS", "");
+/*/
+#*******************************************************************************
+# Hook Log Configuration
+#*******************************************************************************
+*/
+
+    vvalue.clear();
+
+    vvalue.insert(make_pair("LOG_RETENTION","10"));
+    vattribute = new VectorAttribute("HOOK_LOG_CONF", vvalue);
+
+    conf_default.insert(make_pair(vattribute->name(),vattribute));
+
 }
 
 /* -------------------------------------------------------------------------- */

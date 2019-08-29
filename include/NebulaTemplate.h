@@ -183,10 +183,6 @@ private:
      */
     int set_vm_auth_ops(std::string& error);
 
-    /**
-     *  Sets Hook Log configuration
-     */
-    void set_conf_hl(const std::string& log_retention);
 };
 
 
