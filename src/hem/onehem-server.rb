@@ -112,12 +112,15 @@ module HEMHook
     end
 
     def remote_host(event)
+        begin
         event_type = event.xpath('//HOOK_TYPE')[0].text.upcase
 
         return '' if event_type.casecmp 'API'
-        return '' if event.xpath('//REMOTE_HOST')[0].nil?
 
         event.xpath('//REMOTE_HOST')[0].text
+        rescue StandardError
+            ''
+        end
     end
 
     # Execute the hook command
@@ -373,8 +376,6 @@ class HookExecutionManager
         # Maps for existing hooks and filters and oned client
         @hooks = HookMap.new(@logger)
 
-        @client = OpenNebula::Client.new
-
         # Internal event manager
         @am = ActionManager.new(@conf[:concurrency], true)
         @am.register_action(ACTIONS[0], method('execute_action'))
@@ -457,7 +458,9 @@ class HookExecutionManager
                 content   = Base64.decode64(content)
                 hook      = @hooks.get_hook(type, key)
 
-                @am.trigger_action(ACTIONS[0], 0, hook, content) unless hook.nil?
+                body_xml = Nokogiri::XML(content)
+
+                @am.trigger_action(ACTIONS[0], 0, hook, body_xml) unless hook.nil?
 
                 reload_hooks if UPDATE_CALLS.include? key
             when :RETRY
@@ -466,9 +469,7 @@ class HookExecutionManager
 
                 # Get Hook
                 hk_id = body_xml.xpath("//HOOK_ID")[0].text.to_i
-                hook = OpenNebula::Hook.new_with_id(hk_id, @client)
-                hook.info
-                hook.extend(HEMHook)
+                hook = @hooks.get_hook_by_id(hk_id)
 
                 @am.trigger_action(ACTIONS[1], 0, hook, body_xml)
             end
@@ -477,7 +478,6 @@ class HookExecutionManager
 
     def build_response_body(args, as_stdin, rc, remote_host, remote, is_retry)
         xml_response = "<ARGUMENTS>#{args}</ARGUMENTS>" \
-                       "<ARGUMENTS_STDIN>#{as_stdin}</ARGUMENTS_STDIN>" \
                        "#{rc.to_xml}"
 
         xml_response.concat("<REMOTE_HOST>#{remote_host}</REMOTE_HOST") if !remote_host.empty? && remote
@@ -487,10 +487,8 @@ class HookExecutionManager
         Base64.strict_encode64(xml_response)
     end
 
-    def execute_action(hook, content)
+    def execute_action(hook, event)
         ack = ''
-
-        event = Nokogiri::XML(content)
 
         params = hook.arguments(event)
         host   = hook.remote_host(event)

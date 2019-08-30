@@ -151,7 +151,7 @@ int HookLog::add(int hkid, int hkrc, std::string &xml_result)
 {
     std::ostringstream oss;
 
-    vector_cb<int> cb;
+    multiple_cb<std::vector, int> cb;
 
     vector<int> query_output;
 
@@ -230,7 +230,6 @@ int HookLog::add(int hkid, int hkrc, std::string &xml_result)
 int HookLog::retry(int hkid, int exeid, std::string& err_msg)
 {
     std::string xml, command, args, host, as_stdin_str;
-    bool as_stdin = false;
 
     string * message;
 
@@ -269,6 +268,8 @@ int HookLog::retry(int hkid, int exeid, std::string& err_msg)
     message = HookManager::format_message(*args64, host, hkid);
 
     hm->trigger(HMAction::RETRY, *message);
+
+    delete(message);
 
     return 0;
 }
