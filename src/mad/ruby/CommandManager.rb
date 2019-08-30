@@ -108,13 +108,13 @@ class GenericCommand
     end
 
     def to_xml
-        @stderr = '' if @stderr.nil?
-        @stdout = '' if @stdout.nil?
+        stdout = @stderr.nil? ? '' : @stdout
+        stderr = @stdout.nil? ? '' : @stderr
 
         '<EXECUTION_RESULT>' \
             "<COMMAND>#{@command}</COMMAND>" \
-            "<STDOUT>#{Base64.encode64(@stdout)}</STDOUT>" \
-            "<STDERR>#{Base64.encode64(@stderr)}</STDERR>" \
+            "<STDOUT>#{Base64.encode64(stdout)}</STDOUT>" \
+            "<STDERR>#{Base64.encode64(stderr)}</STDERR>" \
             "<CODE>#{@code}</CODE>" \
         '</EXECUTION_RESULT>'
     end

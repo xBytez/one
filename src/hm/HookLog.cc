@@ -209,7 +209,7 @@ int HookLog::add(int hkid, int hkrc, std::string &xml_result)
 
     rc = db->exec_wr(oss);
 
-    if (num_records > log_retention)
+    if (num_records >= log_retention)
     {
         oss.str("");
 
