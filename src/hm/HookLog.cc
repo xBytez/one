@@ -80,21 +80,6 @@ extern "C" void * hlog_action_loop(void *arg)
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
-int HookLog::start()
-{
-    pthread_attr_t pattr;
-
-    NebulaLog::log("HKM", Log::INFO, "Starting HookLog Manager...");
-
-    pthread_attr_init (&pattr);
-    pthread_attr_setdetachstate (&pattr, PTHREAD_CREATE_JOINABLE);
-
-    return pthread_create(&hm_thread, &pattr, hlog_action_loop, (void *) this);
-}
-
-/* -------------------------------------------------------------------------- */
-/* -------------------------------------------------------------------------- */
-
 int HookLog::_dump_log(int hkid, int exec_id, std::string &xml_log)
 {
     std::ostringstream cmd;
@@ -273,18 +258,4 @@ int HookLog::retry(int hkid, int exeid, std::string& err_msg)
 
     return 0;
 }
-
-/* -------------------------------------------------------------------------- */
-/* -------------------------------------------------------------------------- */
-
-void HookLog::timer_action(const ActionRequest& ar)
-{
-    //PURGE
-    return;
-}
-
-void HookLog::finalize_action(const ActionRequest& ar)
-{
-    NebulaLog::log("HKM",Log::INFO,"Stopping HookLog Manager...");
-};
 

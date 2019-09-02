@@ -33,7 +33,7 @@ extern "C" void * hlog_action_loop(void *arg);
  *  This class represents the execution log of Hooks. It writes/reads execution
  *  records in the DB.
  */
-class HookLog: public ActionListener
+class HookLog
 {
 public:
 
@@ -77,14 +77,6 @@ public:
      *    @return 0 on success
      */
     int retry(int hkid, int exeid, std::string& err_msg);
-
-    /**
-     *  This functions starts the associated listener thread, and creates a
-     *  new thread for the Hook Manager. This thread will wait in
-     *  an action loop till it receives ACTION_FINALIZE.
-     *    @return 0 on success.
-     */
-    int start();
 
     /**
      *  Gets the HookManager thread identification.
@@ -154,16 +146,6 @@ private:
      *    @return 0 on success
      */
     int _dump_log(int hkid, int exec_id, std::string &xml_log);
-
-    // -------------------------------------------------------------------------
-    // Action Listener interface
-    // -------------------------------------------------------------------------
-    /**
-     *  This function is executed periodically to purge the Hook Log
-     */
-    void timer_action(const ActionRequest& ar);
-
-    void finalize_action(const ActionRequest& ar);
 };
 
 #endif /*HOOKLOG_H_*/

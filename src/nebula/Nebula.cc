@@ -715,14 +715,6 @@ void Nebula::start(bool bootstrap_only)
         {
             goto error_mad;
         }
-
-        rc = hl->start();
-
-        if ( rc != 0 )
-        {
-           throw runtime_error("Could not start the Hook Log Manager");
-        }
-
     }
 
     // ---- Raft Manager ----
