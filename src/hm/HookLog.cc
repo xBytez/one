@@ -54,28 +54,6 @@ HookLog::HookLog(SqlDB *_db, const VectorAttribute * hl_conf):
     hl_conf->vector_value("LOG_RETENTION", log_retention);
 };
 
-/* -------------------------------------------------------------------------- */
-/* -------------------------------------------------------------------------- */
-
-extern "C" void * hlog_action_loop(void *arg)
-{
-    HookLog * hlog;
-
-    if ( arg == 0 )
-    {
-        return 0;
-    }
-
-    NebulaLog::log("HKM", Log::INFO, "HookLog Manager started.");
-
-    hlog = static_cast<HookLog *>(arg);
-
-    hlog->am.loop();
-
-    NebulaLog::log("HKM", Log::INFO, "HookLog Manager stopped.");
-
-    return 0;
-}
 
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */

@@ -1171,7 +1171,6 @@ void Nebula::start(bool bootstrap_only)
 
         pthread_join(im->get_thread_id(),0);
         pthread_join(hm->get_thread_id(),0);
-        pthread_join(hl->get_thread_id(),0);
         pthread_join(imagem->get_thread_id(),0);
         pthread_join(marketm->get_thread_id(),0);
         pthread_join(ipamm->get_thread_id(),0);

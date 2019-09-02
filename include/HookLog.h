@@ -79,34 +79,12 @@ public:
     int retry(int hkid, int exeid, std::string& err_msg);
 
     /**
-     *  Gets the HookManager thread identification.
-     *    @return pthread_t for the manager thread (that in the action loop).
-     */
-    pthread_t get_thread_id() const
-    {
-        return hm_thread;
-    };
-
-    /**
-     *  Terminates the hook manager thread listener
-     */
-    void finalize()
-    {
-        am.finalize();
-    };
-
-    /**
      *  Bootstraps the database table(s) associated to the Hook Log
      *    @return 0 on success
      */
     static int bootstrap(SqlDB *_db);
 
 private:
-    /**
-     *  Function to execute the Manager action loop method within a new pthread
-     *  (requires C linkage)
-     */
-    friend void * hlog_action_loop(void *arg);
 
     // ----------------------------------------
     // DataBase implementation variables
@@ -121,16 +99,6 @@ private:
      *  Pointer to the database.
      */
     SqlDB * db;
-
-    /**
-     *  Thread id for the HookLog class
-     */
-    pthread_t             hm_thread;
-
-    /**
-     *  Action engine for the Manager
-     */
-    ActionManager         am;
 
     /**
      * Number of log records saved for each hook.
