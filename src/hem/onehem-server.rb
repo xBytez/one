@@ -194,7 +194,7 @@ module HEMHook
     def filter(key)
         case type
         when :api
-            "EVENT API #{key} 1"
+            "EVENT API #{key}"
         when :state
             "EVENT STATE #{key}"
         else
