@@ -97,6 +97,12 @@ int HookAPI::post_update_template(Template * tmpl, string& error)
         call = new_call;
         tmpl->replace("CALL", call);
     }
+    else
+    {
+        error = "The CALL attribute is not defined or it's invalid.";
+        return -1;
+    }
+
 
     return 0;
 }

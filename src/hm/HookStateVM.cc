@@ -171,12 +171,22 @@ int HookStateVM::post_update_template(Template * tmpl, std::string& error)
         state = new_state;
         tmpl->replace("STATE", new_state_str);
     }
+    else
+    {
+        error = "The STATE attribute is not defined or it's invalid.";
+        return -1;
+    }
 
     if ( tmpl->get("LCM_STATE", new_lcm_str) &&
             VirtualMachine::lcm_state_from_str(new_lcm_str, new_lcm) == 0)
     {
         lcm_state = new_lcm;
         tmpl->replace("LCM_STATE", new_lcm_str);
+    }
+    else
+    {
+        error = "The LCM_STATE attribute is not defined or it's invalid.";
+        return -1;
     }
 
     return 0;

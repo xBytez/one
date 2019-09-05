@@ -55,9 +55,7 @@ int HookStateHost::parse_template(Template * tmpl, std::string& error_str)
     tmpl->get("STATE", state_str);
     tmpl->erase("STATE");
 
-    Host::str_to_state(state_str, state);
-
-    if (state == Host::INIT)
+    if (Host::str_to_state(state_str, state) != 0)
     {
         error_str = "Invalid STATE: " + state_str;
         return -1;
@@ -78,9 +76,7 @@ int HookStateHost::from_template(const Template * tmpl, std::string& error_str)
 
     tmpl->get("STATE", state_str);
 
-    Host::str_to_state(state_str, state);
-
-    if (state == Host::INIT)
+    if (Host::str_to_state(state_str, state) != 0)
     {
         error_str = "Invalid STATE: " + state_str;
         return -1;
@@ -99,12 +95,14 @@ int HookStateHost::post_update_template(Template * tmpl, string& error)
 
     tmpl->get("STATE", new_state_str);
 
-    if (Host::str_to_state(new_state_str, new_state) != Host::INIT)
+    if (Host::str_to_state(new_state_str, new_state) != 0)
     {
-        state = new_state;
-        tmpl->replace("STATE", new_state);
+        error = "The STATE attribute is not defined or it's invalid.";
+        return -1;
     }
+
+    state = new_state;
+    tmpl->replace("STATE", new_state_str);
 
     return 0;
 }
-

@@ -178,6 +178,10 @@ int Hook::post_update_template(string& error)
 
         replace_template_attribute("COMMAND", cmd);
     }
+    else {
+        error = "The COMMAND attribute is not defined.";
+        return -1;
+    }
 
     if ( get_template_attribute("REMOTE", new_remote) )
     {
