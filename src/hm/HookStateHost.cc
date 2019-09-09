@@ -33,11 +33,12 @@ string * HookStateHost::format_message(Host * host)
 {
     std::ostringstream oss;
     std::string host_xml;
+    std::string state;
 
     oss << "<HOOK_MESSAGE>"
         << "<HOOK_TYPE>STATE</HOOK_TYPE>"
         << "<HOOK_OBJECT>HOST</HOOK_OBJECT>"
-        << "<STATE>" << host->get_state() << "</STATE>"
+        << "<STATE>" << Host::state_to_str(state, host->get_state()) << "</STATE>"
         << "<REMOTE_HOST>" << host->get_name() << "</REMOTE_HOST>"
         << host->to_xml(host_xml)
         << "</HOOK_MESSAGE>";

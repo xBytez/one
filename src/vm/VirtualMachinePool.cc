@@ -165,6 +165,8 @@ int VirtualMachinePool::allocate (
         vm->state = VirtualMachine::PENDING;
     }
 
+    vm->prev_state = vm->state;
+
     vm->user_obj_template->get("IMPORT_VM_ID", deploy_id);
 
     if (!deploy_id.empty())
@@ -201,6 +203,19 @@ int VirtualMachinePool::allocate (
             drop_index(deploy_id);
         }
     }
+
+    vm = get_ro(*oid);
+
+    if (vm != nullptr)
+    {
+        std::string * event = HookStateVM::format_message(vm);
+
+        Nebula::instance().get_hm()->trigger(HMAction::SEND_EVENT, *event);
+
+        delete event;
+    }
+
+    vm->unlock();
 
     return *oid;
 }

@@ -108,8 +108,8 @@ class GenericCommand
     end
 
     def to_xml
-        stdout = @stderr.nil? ? '' : @stdout
-        stderr = @stdout.nil? ? '' : @stderr
+        stdout = @stdout.nil? ? '' : @stdout
+        stderr = @stderr.nil? ? '' : @stderr
 
         '<EXECUTION_RESULT>' \
             "<COMMAND>#{@command}</COMMAND>" \

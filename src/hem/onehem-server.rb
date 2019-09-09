@@ -113,11 +113,11 @@ module HEMHook
 
     def remote_host(event)
         begin
-        event_type = event.xpath('//HOOK_TYPE')[0].text.upcase
+            event_type = event.xpath('//HOOK_TYPE')[0].text.upcase
 
-        return '' if event_type.casecmp 'API'
+            return '' if event_type.casecmp('API').zero?
 
-        event.xpath('//REMOTE_HOST')[0].text
+            event.xpath('//REMOTE_HOST')[0].text
         rescue StandardError
             ''
         end
@@ -480,7 +480,7 @@ class HookExecutionManager
         xml_response = "<ARGUMENTS>#{args}</ARGUMENTS>" \
                        "#{rc.to_xml}"
 
-        xml_response.concat("<REMOTE_HOST>#{remote_host}</REMOTE_HOST") if !remote_host.empty? && remote
+        xml_response.concat("<REMOTE_HOST>#{remote_host}</REMOTE_HOST>") if !remote_host.empty? && remote
 
         xml_response.concat('<RETRY>yes</RETRY>') if is_retry
 
