@@ -232,7 +232,9 @@ int HookLog::retry(int hkid, int exeid, std::string& err_msg)
 
     hm->trigger(HMAction::RETRY, *message);
 
-    delete(message);
+    delete message;
+
+    delete args64;
 
     return 0;
 }

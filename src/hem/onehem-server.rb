@@ -90,7 +90,7 @@ module HEMHook
                 template = event.xpath("//#{object}")[0].to_s
                 template = Base64.strict_encode64(template)
             end
-        rescue StandardError => se
+        rescue StandardError
             return ''
         end
 
@@ -185,7 +185,7 @@ module HEMHook
             else
                 ''
             end
-        rescue
+        rescue StandardError
             return ''
         end
     end
@@ -201,6 +201,7 @@ module HEMHook
             ''
         end
     end
+
 end
 
 #-------------------------------------------------------------------------------
@@ -266,7 +267,7 @@ class HookMap
 
     # Execute the given lambda on each event filter in the map
     def each_filter(&block)
-        @filters.each_value { |f| block.call(f) }
+        @filters.each_value {|f| block.call(f) }
     end
 
     # Returns a hook by key
@@ -277,6 +278,7 @@ class HookMap
     def get_hook_by_id(id)
         @hooks_id[id]
     end
+
 end
 
 # ------------------------------------------------------------------------------
@@ -344,8 +346,8 @@ class HookExecutionManager
         # ----------------------------------------------------------------------
         begin
             conf = YAML.load_file(CONFIGURATION_FILE)
-        rescue Exception => e
-            STDERR.puts "Error loading config #{CONFIGURATION_FILE}: #{e.message}"
+        rescue StandardError => e
+            STDERR.puts "Error loading #{CONFIGURATION_FILE}: #{e.message}"
             exit 1
         end
 
@@ -382,9 +384,9 @@ class HookExecutionManager
         @am.register_action(ACTIONS[1], method('retry_action'))
     end
 
-    ##############################################################################
+    ############################################################################
     # Helpers
-    ##############################################################################
+    ############################################################################
     # Subscribe the subscriber socket to the given filter
     def subscribe(filter)
         # TODO, check params
@@ -405,10 +407,10 @@ class HookExecutionManager
         @hooks.load
 
         # Subscribe to hooks modifier calls
-        STATIC_FILTERS.each { |filter| subscribe(filter) }
+        STATIC_FILTERS.each {|filter| subscribe(filter) }
 
         # Subscribe to each existing hook
-        @hooks.each_filter { |filter| subscribe(filter) }
+        @hooks.each_filter {|filter| subscribe(filter) }
 
         # subscribe to RETRY actions
         subscribe('RETRY')
@@ -416,11 +418,11 @@ class HookExecutionManager
 
     def reload_hooks
         # TODO, recover the reload_hooks
-        @hooks.each_filter { |filter| unsubscribe(filter) }
+        @hooks.each_filter {|filter| unsubscribe(filter) }
 
         @hooks.load
 
-        @hooks.each_filter { |filter| subscribe(filter) }
+        @hooks.each_filter {|filter| subscribe(filter) }
 
         # subscribe to RETRY actions
         subscribe('RETRY')
@@ -464,12 +466,12 @@ class HookExecutionManager
 
                 reload_hooks if UPDATE_CALLS.include? key
             when :RETRY
-                body = Base64.decode64(content.split(' ')[0])
+                body     = Base64.decode64(content.split(' ')[0])
                 body_xml = Nokogiri::XML(body)
 
                 # Get Hook
-                hk_id = body_xml.xpath("//HOOK_ID")[0].text.to_i
-                hook = @hooks.get_hook_by_id(hk_id)
+                hk_id = body_xml.xpath('//HOOK_ID')[0].text.to_i
+                hook  = @hooks.get_hook_by_id(hk_id)
 
                 @am.trigger_action(ACTIONS[1], 0, hook, body_xml)
             end
@@ -517,12 +519,12 @@ class HookExecutionManager
     end
 
     def retry_action(hook, body)
-        ack = ''
+        ack  = ''
 
-        args     = Base64.decode64(body.xpath('//ARGUMENTS')[0].text)
-        host     = ''
+        args = Base64.decode64(body.xpath('//ARGUMENTS')[0].text)
+        host = ''
 
-        host     = body.xpath('//REMOTE_HOST')[0].text unless body.xpath('//REMOTE_HOST')[0].nil?
+        host = body.xpath('//REMOTE_HOST')[0].text unless body.xpath('//REMOTE_HOST')[0].nil?
 
         rc = hook.execute(@conf[:hook_base_path], args, host)
 

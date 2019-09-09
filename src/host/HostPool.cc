@@ -99,18 +99,21 @@ int HostPool::allocate (
 
     *oid = PoolSQL::allocate(host, error_str);
 
-    host = get(*oid);
-
-    if (host != nullptr)
+    if (*oid >= 0)
     {
-        std::string * event = HookStateHost::format_message(host);
+        host = get(*oid);
 
-        Nebula::instance().get_hm()->trigger(HMAction::SEND_EVENT, *event);
+        if (host != nullptr)
+        {
+            std::string * event = HookStateHost::format_message(host);
 
-        delete event;
+            Nebula::instance().get_hm()->trigger(HMAction::SEND_EVENT, *event);
+
+            delete event;
+
+            host->unlock();
+        }
     }
-
-    host->unlock();
 
     return *oid;
 

@@ -175,6 +175,8 @@ string * HookManager::format_message(const string& args, const string&remote_hos
         oss << "<REMOTE_HOST>" << remote_host << "</REMOTE_HOST>";
     }
 
+    oss << "</HOOK_MESSAGE>";
+
     return one_util::base64_encode(oss.str());
 }
 

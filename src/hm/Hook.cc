@@ -178,7 +178,8 @@ int Hook::post_update_template(string& error)
 
         replace_template_attribute("COMMAND", cmd);
     }
-    else {
+    else
+    {
         error = "The COMMAND attribute is not defined.";
         return -1;
     }

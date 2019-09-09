@@ -204,18 +204,21 @@ int VirtualMachinePool::allocate (
         }
     }
 
-    vm = get_ro(*oid);
-
-    if (vm != nullptr)
+    if (*oid >= 0)
     {
-        std::string * event = HookStateVM::format_message(vm);
+        vm = get_ro(*oid);
 
-        Nebula::instance().get_hm()->trigger(HMAction::SEND_EVENT, *event);
+        if ( vm != nullptr)
+        {
+            std::string * event = HookStateVM::format_message(vm);
 
-        delete event;
+            Nebula::instance().get_hm()->trigger(HMAction::SEND_EVENT, *event);
+
+            delete event;
+
+            vm->unlock();
+        }
     }
-
-    vm->unlock();
 
     return *oid;
 }
